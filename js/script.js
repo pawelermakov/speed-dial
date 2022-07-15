@@ -7,11 +7,13 @@ class SpeedDial {
     })
 
     this.getAll()
+    this.initModals()
 	}
 
   getAll() {
     const items = document.querySelector('.speed-dial__tabs')
     const newTab = document.createElement('a')
+    const modal = document.querySelector('.speed-dial__modal-add')
 
     items.innerHTML = ''
 
@@ -33,6 +35,10 @@ class SpeedDial {
         newTab.classList.add('speed-dial__tabs-item-new')
         newTab.setAttribute('href', '#')
         items.appendChild(newTab)
+
+        newTab.addEventListener('click', () => {
+          this.show(modal)
+        })
 			})
 		})
   }
@@ -124,6 +130,68 @@ class SpeedDial {
     this.DB.transaction((t) => {
       t.executeSql('UPDATE bookmarks SET thumbnail=? WHERE id=?', [thumbnail, id], (tx, results) => {
         this.getAll()
+      })
+    })
+  }
+
+  show(el) {
+    el.classList.add('show')
+  }
+
+  hide(el) {
+    el.classList.add('hide')
+
+    setTimeout(() => {
+      el.classList.remove('show', 'hide')
+    }, 125)
+  }
+
+  initModals() {
+    const modal    = document.querySelectorAll('.speed-dial__modal')
+    const close    = document.querySelectorAll('.speed-dial__modal-close')
+    const formAdd  = document.querySelector('.speed-dial__modal-add form')
+    const formEdit = document.querySelector('.speed-dial__modal-edit form')
+    const that     = this
+
+    formAdd.addEventListener('submit', (e) => {
+      const url = formAdd.querySelector('[name="url"]').value
+
+      that.add(url)
+
+      modal.forEach((el) => {
+        this.hide(el)
+      })
+
+      e.preventDefault()
+    })
+
+    formEdit.addEventListener('submit', (e) => {
+      const id    = formEdit.querySelector('[name="id"]').value
+      const url   = formEdit.querySelector('[name="url"]').value
+      const title = formEdit.querySelector('[name="title"]').value
+
+      that.edit(id, url, title)
+
+      modal.forEach((el) => {
+        this.hide(el)
+      })
+
+      e.preventDefault()
+    })
+
+    close.forEach((el2) => {
+      el2.addEventListener('click', () => {
+        modal.forEach((el) => {
+          this.hide(el)
+        })
+      })
+    })
+
+    document.addEventListener('click', (e) => {
+      modal.forEach((el) => {
+        if(e.target == el) {
+          this.hide(el)
+        }
       })
     })
   }

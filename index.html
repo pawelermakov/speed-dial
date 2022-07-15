@@ -9,6 +9,34 @@
 	<body>
 		<div class="speed-dial">
 			<div class="speed-dial__tabs"></div>
+
+			<div class="speed-dial__modal-add speed-dial__modal">
+				<div class="speed-dial__modal-content">
+					<div class="speed-dial__modal-header">
+						<div class="speed-dial__modal-title">Добавить закладку</div>
+						<button class="speed-dial__modal-close">&times;</button>
+					</div>
+					<form class="speed-dial__modal-body">
+						<input type="text" name="url" class="speed-dial__modal-input" placeholder="Введите адрес сайта..." required>
+						<button type="submit" class="speed-dial__modal-button">Добавить</button>
+					</form>
+				</div>
+			</div>
+
+			<div class="speed-dial__modal-edit speed-dial__modal">
+				<div class="speed-dial__modal-content">
+					<div class="speed-dial__modal-header">
+						<div class="speed-dial__modal-title">Изменить закладку</div>
+						<button class="speed-dial__modal-close">&times;</button>
+					</div>
+					<form class="speed-dial__modal-body">
+						<input type="hidden" name="id">
+						<input type="text" name="url" class="speed-dial__modal-input" placeholder="Введите адрес сайта...">
+						<input type="text" name="title" class="speed-dial__modal-input" placeholder="Введите название закладки">
+						<button type="submit" class="speed-dial__modal-button">Сохранить</button>
+					</form>
+				</div>
+			</div>
 		</div>
 
 		<script src="js/script.js"></script>
