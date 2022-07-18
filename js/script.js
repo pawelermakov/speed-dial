@@ -8,6 +8,7 @@ class SpeedDial {
 
     this.getAll()
     this.initModals()
+    this.initContextMenu()
 	}
 
   getAll() {
@@ -193,6 +194,68 @@ class SpeedDial {
           this.hide(el)
         }
       })
+    })
+  }
+
+  initContextMenu() {
+    let tab = null
+    let id  = null
+
+    document.addEventListener('contextmenu', async(e) => {
+      e.preventDefault()
+
+      const tabItem = e.target.closest('.speed-dial__tabs-item')
+      let context   = document.querySelector('.speed-dial__context-menu-page')
+
+      if(tabItem) {
+        context = document.querySelector('.speed-dial__context-menu-tab')
+        id      = tabItem.getAttribute('data-id')
+      }
+
+      context.style.top  = (e.clientY + context.clientHeight >= screen.height) ? `${e.clientY - context.clientHeight}px` : `${e.clientY}px`
+      context.style.left = (e.clientX + context.clientWidth >= screen.width) ? `${e.clientX - context.clientWidth}px` : `${e.clientX}px`
+      this.show(context)
+
+      tab = await this.get(id)
+    })
+
+    document.addEventListener('click', async(e) => {
+      const value = e.target.getAttribute('data-value')
+
+      document.querySelectorAll('.speed-dial__context-menu').forEach((el) => {
+        this.hide(el)
+      })
+
+      switch(value) {
+        case 'add':
+          this.show(document.querySelector('.speed-dial__modal-add'))
+          break
+
+        case 'clear':
+          this.clear()
+          break
+
+        case 'newtab':
+          e.target.setAttribute('href', tab.url)
+          break
+
+        case 'edit':
+          const formEdit                                 = document.querySelector('.speed-dial__modal-edit form')
+          formEdit.querySelector('[name="id"]').value    = tab.id
+          formEdit.querySelector('[name="url"]').value   = tab.url
+          formEdit.querySelector('[name="title"]').value = tab.title
+          this.show(document.querySelector('.speed-dial__modal-edit'))
+          break
+
+        case 'reload':
+          const res = await this.createThumbnail(tab.url)
+          this.setThumbnail(tab.id, res.thumbnail)
+          break
+
+        case 'delete':
+          this.delete(tab.id)
+          break
+      }
     })
   }
 }
