@@ -27,6 +27,7 @@ class SpeedDial {
           item.classList.add('speed-dial__tabs-item')
           item.setAttribute('href', row.url)
           item.setAttribute('data-id', row.id)
+          item.setAttribute('draggable', 'true')
           item.setAttribute('style', `background-image:url(${row.thumbnail})`)
           item.innerHTML = `<div class="speed-dial__tabs-item-title"><div class="speed-dial__tabs-item-title-icon" style="background-image:url(${row.favicon})"></div><div class="speed-dial__tabs-item-title-text">${row.title}</div></div>`
 
@@ -40,6 +41,8 @@ class SpeedDial {
         newTab.addEventListener('click', () => {
           this.show(modal)
         })
+
+        this.initSorting()
 			})
 		})
   }
@@ -256,6 +259,71 @@ class SpeedDial {
           this.delete(tab.id)
           break
       }
+    })
+  }
+
+  initSorting() {
+    const dropZones = document.querySelectorAll('.speed-dial__tabs')
+    const dragItems = document.querySelectorAll('.speed-dial__tabs-item')
+    const newTab    = document.querySelector('.speed-dial__tabs-item-new')
+    let draggedItem = null
+    let droppedItem = null
+
+    dragItems.forEach((dragItem) => {
+      dragItem.addEventListener('dragstart', () => {
+        draggedItem          = dragItem
+        newTab.style.display = 'none'
+      })
+
+      dragItem.addEventListener('dragend', () => {
+        draggedItem          = null
+        newTab.style.display = 'block'
+      })
+
+      dragItem.addEventListener('dragenter', (e) => {
+        if(draggedItem !== droppedItem) {
+          droppedItem = dragItem
+        }
+
+        e.preventDefault()
+      })
+
+      dragItem.addEventListener('dragleave', () => {
+        droppedItem = null
+      })
+    })
+
+    dropZones.forEach((dropZone) => {
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault()
+      })
+
+      dropZone.addEventListener('drop', () => {
+        if(droppedItem) {
+          if(droppedItem.parentElement === draggedItem.parentElement) {
+            const children     = Array.from(droppedItem.parentElement.children)
+            const draggedIndex = children.indexOf(draggedItem)
+            const droppedIndex = children.indexOf(droppedItem)
+
+            if(draggedIndex > droppedIndex) {
+              draggedItem.parentElement.insertBefore(draggedItem, droppedItem)
+            }
+            else {
+              draggedItem.parentElement.insertBefore(draggedItem, droppedItem.nextElementSibling)
+            }
+          }
+          else {
+            dropZone.insertBefore(draggedItem, droppedItem)
+          }
+
+          document.querySelectorAll('.speed-dial__tabs-item').forEach((tab, index) => {
+            const id       = tab.getAttribute('data-id')
+            const position = index + 1
+
+            this.setPosition(id, position)
+          })
+        }
+      })
     })
   }
 }
