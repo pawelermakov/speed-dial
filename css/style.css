@@ -23,6 +23,80 @@ body {
 	height: 100%;
 }
 
+.speed-dial__search {
+	width: 100%;
+	max-width: 700px;
+	margin: 0 auto 24px auto;
+	display: flex;
+	align-items: center;
+	position: relative;
+}
+
+.speed-dial__search-input {
+	height: 40px;
+	line-height: 40px;
+	border: 2px solid #fc0;
+	border-radius: 5px 0 0 5px;
+	flex-grow: 1;
+	padding: 0 16px;
+	font-family: Arial, sans-serif;
+	font-size: 1rem;
+}
+
+.speed-dial__search-button {
+	width: 85px;
+	height: 40px;
+	border: none;
+	background: #fc0;
+	border-radius: 0 5px 5px 0;
+	font-family: Arial, sans-serif;
+	font-size: 1rem;
+	transition: all .25s ease-in-out;
+}
+
+.speed-dial__search-button:hover:not([disabled]) {
+	background: #f2c200;
+	cursor: pointer;
+}
+
+.speed-dial__search-suggestions {
+	background: #fff;
+	box-shadow: 0 1px 3px rgba(50, 50, 50, .3);
+	border-radius: 5px;
+	overflow: hidden;
+	width: 100%;
+	position: absolute;
+	top: 43px;
+	z-index: 1;
+	display: none;
+}
+
+.speed-dial__search-suggestions.show {
+	display: block;
+	animation: .25s fadeIn;
+}
+
+.speed-dial__search-suggestions.hide {
+	animation: .25s fadeOut;
+}
+
+.speed-dial__search-suggestions-item {
+	height: 35px;
+	line-height: 35px;
+	padding: 0 16px;
+	font-family: Arial, sans-serif;
+	font-size: 1rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+	cursor: pointer;
+	transition: all .25s ease-in-out;
+}
+
+.speed-dial__search-suggestions-item--active {
+	background: #ffeba0;
+}
+
 .speed-dial__tabs {
 	display: grid;
 	grid-template-columns: repeat(1, 1fr);
@@ -120,8 +194,8 @@ body {
 }
 
 .speed-dial__tabs-item-title-text {
-	font-family: Verdana, sans-serif;
-	font-size: 14px;
+	font-family: Arial, sans-serif;
+	font-size: 1rem;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
@@ -189,7 +263,7 @@ body {
 	background: transparent;
 	border: none;
   color: rgba(0, 0, 0, .2);
-  font-size: 21px;
+  font-size: 1.3125rem;
   font-weight: bold;
   cursor: pointer;
 	transition: all .25s ease-in-out;
@@ -253,7 +327,7 @@ body {
 	min-width: 160px;
 	padding: 5px 0;
 	margin: 2px 0 0;
-	font-size: 14px;
+	font-size: 1rem;
 	text-align: left;
 	list-style: none;
 	background-color: #fff;
