@@ -23,8 +23,8 @@
 						<button class="speed-dial__modal-close">&times;</button>
 					</div>
 					<form class="speed-dial__modal-body">
-						<input class="speed-dial__modal-input" type="text" name="url" placeholder="Введите адрес сайта..." required>
-						<button class="speed-dial__modal-button" type="submit">Добавить</button>
+						<input class="speed-dial__input" type="text" name="url" placeholder="Введите адрес сайта..." required>
+						<button class="speed-dial__button" type="submit">Добавить</button>
 					</form>
 				</div>
 			</div>
@@ -37,9 +37,9 @@
 					</div>
 					<form class="speed-dial__modal-body">
 						<input type="hidden" name="id">
-						<input class="speed-dial__modal-input" type="text" name="url" placeholder="Введите адрес сайта...">
-						<input class="speed-dial__modal-input" type="text" name="title" placeholder="Введите название закладки">
-						<button class="speed-dial__modal-button" type="submit">Сохранить</button>
+						<input class="speed-dial__input" type="text" name="url" placeholder="Введите адрес сайта...">
+						<input class="speed-dial__input" type="text" name="title" placeholder="Введите название закладки">
+						<button class="speed-dial__button" type="submit">Сохранить</button>
 					</form>
 				</div>
 			</div>
@@ -47,7 +47,7 @@
 			<ul class="speed-dial__context-menu-page speed-dial__context-menu">
 				<li><a class="speed-dial__context-menu-item" href="#" data-value="add">Новая закладка</a></li>
 				<li><hr class="speed-dial__context-menu-divider"></li>
-				<li><a class="speed-dial__context-menu-item" href="#" data-value="clear">Удалить все закладки</a></li>
+				<li><a class="speed-dial__context-menu-item" href="#" data-value="settings">Настройки</a></li>
 			</ul>
 
 			<ul class="speed-dial__context-menu-tab speed-dial__context-menu">
@@ -57,6 +57,45 @@
 				<li><a class="speed-dial__context-menu-item" href="#" data-value="reload">Обновить эскиз</a></li>
 				<li><a class="speed-dial__context-menu-item" href="#" data-value="delete">Удалить</a></li>
 			</ul>
+		</div>
+
+		<div class="speed-dial__settings">
+			<div class="speed-dial__settings-title">Настройки</div>
+			<form class="speed-dial__settings-form">
+				<div class="speed-dial__settings-row">
+					<div class="speed-dial__settings-label">Ширина (%):</div>
+					<input class="speed-dial__input" type="number" min="50" max="100" name="width">
+				</div>
+				<div class="speed-dial__settings-row">
+					<div class="speed-dial__settings-label">Количество столбцов:</div>
+					<input class="speed-dial__input" type="number" min="2" max="12" name="countColumns">
+				</div>
+				<div class="speed-dial__settings-row">
+					<div class="speed-dial__settings-label">Расстояние (px):</div>
+					<input class="speed-dial__input" type="number" min="0" max="48" name="space">
+				</div>
+				<div class="speed-dial__settings-row">
+					<div class="speed-dial__settings-label">Центрировать по вертикали:</div>
+					<label class="speed-dial__checkbox">
+						<input type="checkbox" name="verticalCenter">
+						<div class="speed-dial__checkbox-checkmark"></div>
+					</label>
+				</div>
+				<div class="speed-dial__settings-row">
+					<div class="speed-dial__settings-label">Показать кнопку "+":</div>
+					<label class="speed-dial__checkbox">
+						<input type="checkbox" name="addButton">
+						<div class="speed-dial__checkbox-checkmark"></div>
+					</label>
+				</div>
+				<div class="speed-dial__settings-row">
+					<div class="speed-dial__settings-label">Изменить фон:</div>
+					<input class="speed-dial__input speed-dial__input--file" type="file" name="background" id="background">
+					<label for="background">Выберите файл</label>
+				</div>
+				<button class="speed-dial__button">Сохранить</button>
+				<button class="speed-dial__button speed-dial__button--reset" type="button">Удалить все данные</button>
+			</form>
 		</div>
 
 		<script src="js/script.js"></script>

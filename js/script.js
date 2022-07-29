@@ -10,6 +10,7 @@ class SpeedDial {
     this.initModals()
     this.initContextMenu()
     this.initSearch()
+    this.initSettings()
 	}
 
   getAll() {
@@ -35,13 +36,15 @@ class SpeedDial {
           items.appendChild(item)
 				}
 
-        newTab.classList.add('speed-dial__tabs-item-new')
-        newTab.setAttribute('href', '#')
-        items.appendChild(newTab)
+        if(localStorage.addButton) {
+          newTab.classList.add('speed-dial__tabs-item-new')
+          newTab.setAttribute('href', '#')
+          items.appendChild(newTab)
 
-        newTab.addEventListener('click', () => {
-          this.show(modal)
-        })
+          newTab.addEventListener('click', () => {
+            this.show(modal)
+          })
+        }
 
         this.initSorting()
 			})
@@ -114,12 +117,14 @@ class SpeedDial {
   }
 
   clear() {
-    if(confirm('Вы действительно хотите удалить все закладки?')) {
+    if(confirm('Вы действительно хотите удалить все данные?')) {
       this.DB.transaction((t) => {
         t.executeSql('DELETE FROM bookmarks', [], (tx, results) => {
           this.getAll()
         })
       })
+
+      localStorage.clear()
     }
   }
 
@@ -208,6 +213,7 @@ class SpeedDial {
     document.addEventListener('contextmenu', async(e) => {
       const tabItem = e.target.closest('.speed-dial__tabs-item')
       const search = e.target.closest('.speed-dial__search-input')
+      const pushed = document.querySelector('.speed-dial--pushed')
       let context = document.querySelector('.speed-dial__context-menu-page')
 
       if(search) {
@@ -215,6 +221,10 @@ class SpeedDial {
       }
 
       e.preventDefault()
+
+      if(pushed) {
+        return false
+      }
 
       if(tabItem) {
         context = document.querySelector('.speed-dial__context-menu-tab')
@@ -240,8 +250,8 @@ class SpeedDial {
           this.show(document.querySelector('.speed-dial__modal-add'))
           break
 
-        case 'clear':
-          this.clear()
+        case 'settings':
+          this.showSettings()
           break
 
         case 'newtab':
@@ -278,12 +288,18 @@ class SpeedDial {
     dragItems.forEach((dragItem) => {
       dragItem.addEventListener('dragstart', () => {
         draggedItem = dragItem
-        newTab.style.display = 'none'
+
+        if(newTab) {
+          newTab.style.display = 'none'
+        }
       })
 
       dragItem.addEventListener('dragend', () => {
         draggedItem = null
-        newTab.style.display = 'block'
+
+        if(newTab) {
+          newTab.style.display = 'block'
+        }
       })
 
       dragItem.addEventListener('dragenter', (e) => {
@@ -427,6 +443,99 @@ class SpeedDial {
         }
       }
     })
+  }
+
+  initSettings() {
+    const form = document.querySelector('.speed-dial__settings-form')
+    const background = form.querySelector('[name="background"]')
+    const reset = form.querySelector('.speed-dial__button--reset')
+
+    document.addEventListener('click', (e) => {
+      if(!e.target.closest('.speed-dial__settings') && !e.target.closest('.speed-dial__context-menu-page')) {
+        this.hideSettings()
+      }
+    })
+
+    background.addEventListener('change', (e) => {
+      let input = e.target.files[0]
+
+      if(input) {
+        let reader = new FileReader()
+
+        reader.onload = (e) => {
+          localStorage.background = e.target.result
+          console.log(localStorage.background)
+        }
+
+        reader.readAsDataURL(input)
+      }
+    })
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault()
+
+      this.setSettings(e.target)
+    })
+
+    reset.addEventListener('click', () => {
+      this.clear()
+      this.getSettings()
+    })
+
+    this.getSettings()
+  }
+
+  showSettings() {
+    document.querySelector('.speed-dial').classList.add('speed-dial--pushed')
+    document.querySelector('.speed-dial__settings').classList.add('speed-dial__settings--open')
+  }
+
+  hideSettings() {
+    document.querySelector('.speed-dial').classList.remove('speed-dial--pushed')
+    document.querySelector('.speed-dial__settings').classList.remove('speed-dial__settings--open')
+  }
+
+  getSettings() {
+	  const form = document.querySelector('.speed-dial__settings-form')
+
+    form.querySelector('[name="width"]').value = localStorage.width || 100
+    form.querySelector('[name="countColumns"]').value = localStorage.countColumns || 6
+    form.querySelector('[name="space"]').value = localStorage.space || 24
+    form.querySelector('[name="verticalCenter"]').checked = localStorage.verticalCenter
+    form.querySelector('[name="addButton"]').checked = localStorage.addButton
+
+    document.querySelector('body').style.cssText = `
+      background: ${(localStorage.background) ? `url(${localStorage.background}) center no-repeat` : '#808590'};
+      background-size: cover;
+    `
+    document.querySelector('.speed-dial').style.cssText = `
+      justify-content: ${(localStorage.verticalCenter) ? 'center' : 'flex-start'};
+    `
+
+    document.querySelector('.speed-dial__tabs').style.cssText = `
+      width: ${localStorage.width}%;
+      grid-template-columns: repeat(${localStorage.countColumns}, 1fr);
+      grid-gap: ${localStorage.space}px;
+    `
+  }
+
+  setSettings(data) {
+    const formData = new FormData(data)
+    const formDataObj = Object.fromEntries(formData.entries())
+    const background = localStorage.background || ''
+
+    localStorage.clear()
+
+    for(let item in formDataObj) {
+      if(item === 'background') {
+        localStorage.background = background
+      } else {
+        localStorage[item] = formDataObj[item]
+      }
+    }
+
+    this.getSettings()
+    this.getAll()
   }
 }
 
