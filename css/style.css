@@ -4,6 +4,8 @@
 	--color-yellow-light: #ffeba0;
 	--color-yellow: #fc0;
 	--color-yellow-dark: #f2c200;
+  --color-red: #dc3545;
+  --color-red-dark: #bb2d3b;
   --backdrop-filter: blur(10px);
   --border-radius: 5px;
   --transition: all .25s ease-in-out;
@@ -41,6 +43,10 @@ body {
 	filter: blur(10px);
 	backdrop-filter: var(--backdrop-filter);
 	pointer-events: none;
+}
+
+.speed-dial__top {
+  position: relative;
 }
 
 .speed-dial__search {
@@ -116,6 +122,47 @@ body {
 
 .speed-dial__search-suggestions-item--active {
 	background: var(--color-yellow-light);
+}
+
+.speed-dial__messages {
+  width: 32px;
+  height: 23px;
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.speed-dial__messages-ico {
+  fill: var(--background-white);
+  transition: var(--transition);
+}
+
+.speed-dial__messages:hover .speed-dial__messages-ico {
+  fill: #fff;
+}
+
+.speed-dial__messages-badge {
+  width: 20px;
+  height: 20px;
+  background: var(--color-red);
+  border-radius: 50%;
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  visibility: hidden;
+  opacity: 0;
+}
+
+.speed-dial__messages-badge.show {
+  visibility: visible;
+  opacity: 1;
 }
 
 .speed-dial__tabs {
@@ -408,6 +455,10 @@ body {
   margin-bottom: 0;
 }
 
+.speed-dial__settings-row .speed-dial__input--email {
+  width: 70%;
+}
+
 .speed-dial__settings-label {
   font-family: var(--font-family);
   font-size: 0.875rem;
@@ -548,15 +599,15 @@ body {
 }
 
 .speed-dial__button--reset {
-  border: 1px solid #dc3545;
-  background-color: #dc3545;
+  border: 1px solid var(--color-red);
+  background-color: var(--color-red);
 	color: #fff;
   margin-top: auto;
 }
 
 .speed-dial__button--reset:hover {
-  background-color: #bb2d3b;
-	border-color: #bb2d3b;
+  background-color: var(--color-red-dark);
+	border-color: var(--color-red-dark);
 }
 
 @keyframes fadeIn {

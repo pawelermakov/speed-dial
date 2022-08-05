@@ -8,11 +8,13 @@
 	</head>
 	<body>
 		<div class="speed-dial">
-			<form class="speed-dial__search" action="https://www.yandex.ru/yandsearch">
-				<input class="speed-dial__search-input" type="text" name="text" placeholder="Поиск в Яндекс..." autocomplete="off">
-				<button class="speed-dial__search-button" disabled>Найти</button>
-				<div class="speed-dial__search-suggestions"></div>
-			</form>
+			<div class="speed-dial__top">
+				<form class="speed-dial__search" action="https://www.yandex.ru/yandsearch">
+					<input class="speed-dial__search-input" type="text" name="text" placeholder="Поиск в Яндекс..." autocomplete="off">
+					<button class="speed-dial__search-button" disabled>Найти</button>
+					<div class="speed-dial__search-suggestions"></div>
+				</form>
+			</div>
 
 			<div class="speed-dial__tabs"></div>
 
@@ -92,6 +94,10 @@
 					<div class="speed-dial__settings-label">Изменить фон:</div>
 					<input class="speed-dial__input speed-dial__input--file" type="file" name="background" id="background">
 					<label for="background">Выберите файл</label>
+				</div>
+				<div class="speed-dial__settings-row">
+					<div class="speed-dial__settings-label">E-mail:</div>
+					<input class="speed-dial__input speed-dial__input--email" type="email" name="email">
 				</div>
 				<button class="speed-dial__button">Сохранить</button>
 				<button class="speed-dial__button speed-dial__button--reset" type="button">Удалить все данные</button>
