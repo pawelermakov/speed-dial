@@ -46,6 +46,34 @@
 				</div>
 			</div>
 
+			<div class="speed-dial__modal-import speed-dial__modal">
+				<div class="speed-dial__modal-content">
+					<div class="speed-dial__modal-header">
+						<div class="speed-dial__modal-title">Импорт данных</div>
+						<button class="speed-dial__modal-close">&times;</button>
+					</div>
+					<form class="speed-dial__modal-body">
+						<textarea class="speed-dial__textarea" name="import"></textarea>
+						<input class="speed-dial__input speed-dial__input--file" type="file" name="fileimport" id="fileimport">
+						<label for="fileimport">Открыть файл...</label>
+						<button class="speed-dial__button">Импортировать</button>
+					</form>
+				</div>
+			</div>
+
+			<div class="speed-dial__modal-export speed-dial__modal">
+				<div class="speed-dial__modal-content">
+					<div class="speed-dial__modal-header">
+						<div class="speed-dial__modal-title">Экспорт данных</div>
+						<button class="speed-dial__modal-close">&times;</button>
+					</div>
+					<form class="speed-dial__modal-body">
+						<textarea class="speed-dial__textarea" name="export"></textarea>
+						<a class="speed-dial__button" href="#" download="export.json">Сохранить в файл</a>
+					</form>
+				</div>
+			</div>
+
 			<ul class="speed-dial__context-menu-page speed-dial__context-menu">
 				<li><a class="speed-dial__context-menu-item" href="#" data-value="add">Новая закладка</a></li>
 				<li><hr class="speed-dial__context-menu-divider"></li>
@@ -100,7 +128,13 @@
 					<input class="speed-dial__input speed-dial__input--email" type="email" name="email">
 				</div>
 				<button class="speed-dial__button">Сохранить</button>
-				<button class="speed-dial__button speed-dial__button--reset" type="button">Удалить все данные</button>
+				<div class="speed-dial__settings-bottom">
+					<div class="speed-dial__settings-row">
+						<button class="speed-dial__button speed-dial__button--import" type="button">Импорт</button>
+						<button class="speed-dial__button speed-dial__button--export" type="button">Экспорт</button>
+					</div>
+					<button class="speed-dial__button speed-dial__button--reset" type="button">Удалить все данные</button>
+				</div>
 			</form>
 		</div>
 

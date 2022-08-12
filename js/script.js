@@ -1,6 +1,6 @@
 class SpeedDial {
 	constructor() {
-    this.DB = openDatabase('SDX', '1', 'SDX', 1024 * 1024)
+    this.DB = openDatabase('SpeedDial', '1', 'SpeedDial', 1024 * 1024)
 
     this.DB.transaction((t) => {
       t.executeSql('CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY ASC, url TEXT, title TEXT, favicon TEXT, thumbnail TEXT, position INTEGER)')
@@ -11,6 +11,7 @@ class SpeedDial {
     this.initContextMenu()
     this.initSearch()
     this.initSettings()
+    this.initImport()
 	}
 
   getAll() {
@@ -448,7 +449,9 @@ class SpeedDial {
   initSettings() {
     const form = document.querySelector('.speed-dial__settings-form')
     const background = form.querySelector('[name="background"]')
-    const reset = form.querySelector('.speed-dial__button--reset')
+    const buttonImport = form.querySelector('.speed-dial__button--import')
+    const buttonExport = form.querySelector('.speed-dial__button--export')
+    const buttonReset = form.querySelector('.speed-dial__button--reset')
 
     document.addEventListener('click', (e) => {
       if(!e.target.closest('.speed-dial__settings') && !e.target.closest('.speed-dial__context-menu-page')) {
@@ -464,7 +467,6 @@ class SpeedDial {
 
         reader.onload = (e) => {
           localStorage.background = e.target.result
-          console.log(localStorage.background)
         }
 
         reader.readAsDataURL(input)
@@ -473,11 +475,20 @@ class SpeedDial {
 
     form.addEventListener('submit', (e) => {
       e.preventDefault()
-
       this.setSettings(e.target)
     })
 
-    reset.addEventListener('click', () => {
+    buttonImport.addEventListener('click', () => {
+      this.hideSettings()
+      this.show(document.querySelector('.speed-dial__modal-import'))
+    })
+
+    buttonExport.addEventListener('click', () => {
+      this.hideSettings()
+      this.export()
+    })
+
+    buttonReset.addEventListener('click', () => {
       this.clear()
       this.getSettings()
     })
@@ -569,6 +580,91 @@ class SpeedDial {
     } else {
       badge.classList.remove('show')
     }
+  }
+
+  initImport() {
+    const textarea = document.querySelector('[name="import"]')
+    const fileimport = document.querySelector('[name="fileimport"]')
+    const form = document.querySelector('.speed-dial__modal-import .speed-dial__modal-body')
+
+    fileimport.addEventListener('change', (e) => {
+      let input = e.target.files[0]
+
+      if(input) {
+        let reader = new FileReader()
+
+        reader.onload = (e) => {
+          textarea.value = e.target.result
+        }
+
+        reader.readAsText(input)
+      }
+    })
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault()
+
+      this.import()
+    })
+  }
+
+  import() {
+    const textarea = document.querySelector('[name="import"]')
+	  const data = JSON.parse(textarea.value)
+
+    if(data.settings) {
+      localStorage.clear()
+
+      Object.entries(data.settings).forEach(([key, value]) => {
+        localStorage[key] = value
+      })
+
+      this.getSettings()
+    }
+
+    if(data.tabs) {
+      this.DB.transaction((t) => {
+        t.executeSql('DELETE FROM bookmarks', [], (tx, results) => {
+          data.tabs.forEach((tab) => {
+            this.DB.transaction((t) => {
+              t.executeSql('INSERT INTO bookmarks (url, title, favicon, thumbnail, position) VALUES (?, ?, ?, ?, ?)', [tab.url, tab.title, tab.favicon, tab.thumbnail, tab.position], (tx, results) => {})
+            })
+          })
+
+          this.getAll()
+
+          this.hide(document.querySelector('.speed-dial__modal-import'))
+        })
+      })
+    }
+  }
+
+  export() {
+    const textarea = document.querySelector('[name="export"]')
+    const button = document.querySelector('.speed-dial__modal-export .speed-dial__button')
+    const settings = {}
+    const tabs = []
+    let data = ''
+
+    Object.entries(localStorage).forEach(([key, value]) => {
+      settings[key] = value
+    })
+
+    this.DB.transaction((t) => {
+      t.executeSql('SELECT * FROM bookmarks ORDER BY position', [], (transaction, results) => {
+        for(let i = 0; i < results.rows.length; i++) {
+          let row = results.rows.item(i)
+          row.thumbnail = ''
+          tabs.push(row)
+        }
+
+        data = JSON.stringify({tabs: tabs, settings: settings}, null, 2)
+        textarea.value = data
+        button.setAttribute('href', URL.createObjectURL(new Blob([data], {type: 'text/plain'})))
+
+        this.show(document.querySelector('.speed-dial__modal-export'))
+      })
+    })
   }
 }
 
