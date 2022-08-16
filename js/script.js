@@ -131,7 +131,11 @@ class SpeedDial {
 
   async createThumbnail(url) {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({act: 'thumbnail', url: url}, function(response) {
+      let port = chrome.runtime.connect({name: 'connection'})
+
+      port.postMessage({act: 'thumbnail', url: url})
+
+      port.onMessage.addListener((response) => {
         resolve(response)
       })
     })
