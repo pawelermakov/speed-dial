@@ -19,3 +19,12 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw*
+
+.wxt/
+.output/
+.starter/
+coverage/
+test-results/
+.browser-test/
+*.zip
+web-ext.config.ts

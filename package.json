@@ -1,0 +1,44 @@
+{
+  "name": "speed-dial-x",
+  "description": "При открытии новой вкладки вы увидите свои любимые сайты, и сможете перейти к ним в одно нажатие",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "compile": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:smoke": "node scripts/smoke.mjs",
+    "postinstall": "wxt prepare",
+    "test:visual": "node scripts/visual-parity.mjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.29",
+    "dexie": "^4.2.0"
+  },
+  "devDependencies": {
+    "@wxt-dev/module-vue": "^1.0.3",
+    "@tailwindcss/vite": "^4.1.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5",
+    "vue-tsc": "^3.2.5",
+    "web-ext": "^10.5.0",
+    "wxt": "^0.21.4",
+    "vitest": "^4.0.0",
+    "fake-indexeddb": "^6.2.0",
+    "@playwright/test": "^1.58.0"
+  },
+  "overrides": {
+    "shell-quote": "^1.12.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "tabs": [
+    { "id": 1, "url": "https://example.com", "title": "Пример", "favicon": "https://example.com/favicon.ico", "thumbnail": "", "position": 1 },
+    { "id": 2, "url": "http://example.org", "title": "<b>Текст, не HTML</b>", "favicon": "", "thumbnail": "", "position": 2 }
+  ],
+  "settings": { "width": "100", "countColumns": "6", "space": "24", "verticalCenter": "true", "addButton": "false", "background": "", "email": "" }
+}

@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-accent: #ffcc00;
+  --animate-fade: fade .25s;
+  --animate-slide: slide .25s;
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+}
