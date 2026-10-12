@@ -63,8 +63,8 @@ export function createCaptureQueue() {
         if (changed || activeAfter[0]?.id !== ownId || after.url !== before.url || after.status !== 'complete')
           throw new Error('Во время захвата вкладка изменилась; снимок отброшен.');
         let favicon = '';
-        try { favicon = safeFavicon(after.favIconUrl); } catch { /* Unsupported site icon: use the same external fallback as the original UI. */ }
-        return { requestId: request.requestId, title: after.title || new URL(url).hostname, favicon: favicon || `https://favicon.yandex.net/favicon/v2/${url}?size=32&stub=1`, thumbnail };
+        try { favicon = safeFavicon(after.favIconUrl); } catch { /* Unsupported site icon: keep the optional favicon empty. */ }
+        return { requestId: request.requestId, title: after.title || new URL(url).hostname, favicon, thumbnail };
       } catch (error) {
         return { requestId: request.requestId, error: signal.aborted
           ? 'Захват отменён или сайт не загрузился за 20 секунд.'

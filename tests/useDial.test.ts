@@ -1,0 +1,20 @@
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+const state = vi.hoisted(() => ({ mounted: [] as Array<()=>Promise<void>>, unmounted: [] as Array<()=>void>, listeners: new Set<()=>void>(), load: vi.fn(), initialize: vi.fn(), close: vi.fn(), watch: vi.fn(() => () => {}), post: vi.fn() }));
+vi.mock('vue', async () => { const actual = await vi.importActual<typeof import('vue')>('vue'); return { ...actual, onMounted: (callback: ()=>Promise<void>) => state.mounted.push(callback), onUnmounted: (callback: ()=>void) => state.unmounted.push(callback) }; });
+vi.mock('wxt/browser', () => { const event = { addListener: (fn: ()=>void) => state.listeners.add(fn), removeListener: (fn: ()=>void) => state.listeners.delete(fn) }; return { browser: { bookmarks: { onCreated:event,onChanged:event,onRemoved:event,onMoved:event,onChildrenReordered:event,onImportEnded:event } } }; });
+vi.mock('wxt/utils/storage', () => ({ storage: { defineItem: () => ({ watch: state.watch }) } }));
+vi.mock('../services/database', () => ({ db: {} }));
+vi.mock('../services/settings', () => ({ settingsItem: {} }));
+vi.mock('../services/favicons', () => ({ faviconBlob: vi.fn(async () => null) }));
+vi.mock('../services/repository', () => ({ Repository: class { load = state.load; initialize = state.initialize; }, withDataLock: (fn: ()=>Promise<unknown>) => fn() }));
+import { useDial } from '../composables/useDial';
+import { defaults } from '../types/models';
+const snapshot = (title: string) => ({ tabs: [{ id:'x', parentId:'root', title, url:'https://example.com/', index:0, favicon:null, thumbnail:null }], categories:[],rootId:'root',activeId:'root',settings:defaults,background:null });
+beforeEach(() => { vi.useFakeTimers(); state.mounted.length=0;state.unmounted.length=0;state.listeners.clear();state.load.mockReset().mockResolvedValue(snapshot('Initial'));state.initialize.mockReset().mockResolvedValue(undefined);vi.stubGlobal('BroadcastChannel',class { postMessage=state.post; close=state.close; onmessage=null; });vi.stubGlobal('navigator',{}); });
+afterEach(() => { state.unmounted.forEach(callback=>callback());vi.useRealTimers();vi.unstubAllGlobals(); });
+describe('browser event refresh lifecycle', () => {
+ it('coalesces fast bookmark events and unsubscribes on teardown', async () => { const dial=useDial();await state.mounted[0]!();state.load.mockClear().mockResolvedValue(snapshot('External'));for(let i=0;i<15;i++)state.listeners.forEach(callback=>callback());await vi.advanceTimersByTimeAsync(65);expect(state.load).toHaveBeenCalledTimes(1);expect(dial.snapshot.value.tabs[0]?.title).toBe('External');state.unmounted.forEach(callback=>callback());expect(state.listeners.size).toBe(0); });
+ it('slow older reads cannot overwrite a newer view', async () => { const dial=useDial();await state.mounted[0]!();let resolveOld!: (value:ReturnType<typeof snapshot>)=>void;state.load.mockImplementationOnce(()=>new Promise(resolve=>{resolveOld=resolve;})).mockResolvedValueOnce(snapshot('New'));const old=dial.refresh();await dial.refresh();resolveOld(snapshot('Old'));await old;expect(dial.snapshot.value.tabs[0]?.title).toBe('New'); });
+ it('mutation failure rereads actual browser state', async () => { const dial=useDial();await state.mounted[0]!();state.load.mockResolvedValue(snapshot('Actual'));expect(await dial.run(async()=>{throw new Error('move failed');})).toBe(false);expect(dial.snapshot.value.tabs[0]?.title).toBe('Actual');expect(dial.notice.value).toBe('move failed'); });
+ it('does not publish a read after unmount', async () => { const dial=useDial();await state.mounted[0]!();let finish!: (value:ReturnType<typeof snapshot>)=>void;state.load.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));const pending=dial.refresh();state.unmounted.forEach(callback=>callback());finish(snapshot('Late'));await pending;expect(dial.snapshot.value.tabs[0]?.title).toBe('Initial'); });
+});

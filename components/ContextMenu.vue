@@ -41,6 +41,7 @@ function keys(event: KeyboardEvent) {
       <template v-else>
         <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'add')">Новая закладка</button><hr class="context-divider h-[2px] my-[9px] border border-solid border-t-[#9a9a9a] border-l-[#9a9a9a] border-r-[#eeeeee] border-b-[#eeeeee] bg-black/20 text-[#808080]" />
         <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'settings')">Настройки</button>
+        <button role="menuitem" @click="emit('action', 'category')">Новая категория</button>
       </template>
     </div>
   </div>

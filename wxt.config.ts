@@ -13,9 +13,9 @@ export default defineConfig({
       id: 'speed-dial-x@pawelermakov.github.io', strict_min_version: '140.0',
       data_collection_permissions: { required: ['searchTerms', 'personallyIdentifyingInfo', 'browsingActivity'] },
     } } } : {}),
-    // Existing legacy permissions, explicitly retained by SPEC §3.1/3.9.
+    // Keep capture/network permissions; Chrome-only optional APIs are excluded from Firefox.
     // all_urls is required by captureVisibleTab for automatically created tabs.
-    permissions: manifest.permissions,
+    permissions: [...manifest.permissions, ...(browser === 'firefox' ? [] : ['favicon', 'identity', 'identity.email'])],
     host_permissions: manifest.host_permissions,
     icons: manifest.icons,
   }),

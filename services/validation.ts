@@ -41,11 +41,3 @@ export function safeFavicon(value: unknown): string {
   if (/^data:image\/(?:png|jpeg|webp|gif|x-icon|vnd.microsoft.icon);base64,/i.test(value)) return value;
   return normalizeUrl(value);
 }
-export function legacySettings(source: Pick<Storage, 'getItem'> | null): Record<string, unknown> {
-  const data: Record<string, unknown> = {};
-  for (const key of [...Object.keys(defaults), 'background']) {
-    const value = source?.getItem(key);
-    if (value !== null && value !== undefined) data[key] = value;
-  }
-  return data;
-}

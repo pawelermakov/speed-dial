@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { ui } from '../utils/ui';
-import { reactive, shallowRef, ref } from 'vue';
+import { syncStatus, type SyncStatus } from '../services/sync';
+import { reactive, shallowRef, ref, onMounted } from 'vue';
 import type { Settings } from '../types/models';
 import { readImage } from '../services/images';
 const props = defineProps<{ settings: Settings; busy: boolean }>();
-const emit = defineEmits<{ close: []; save: [settings: Settings, background: Blob | null | undefined]; import: []; export: []; reset: [] }>();
+const emit = defineEmits<{ close: []; save: [settings: Settings, background: Blob | null | undefined]; import: []; export: []; reset: []; folder: []; clear: [] }>();
+const sync = ref<SyncStatus>('unknown');
+onMounted(async () => { sync.value = await syncStatus(); });
+const syncLabels = { enabled: 'Включена', disabled: 'Выключена', unknown: 'Не удалось определить', unsupported: 'Статус синхронизации недоступен в Firefox' };
 const draft = reactive({ ...props.settings });
 const background = shallowRef<Blob | null | undefined>();
 const error = ref('');
@@ -20,9 +24,10 @@ async function file(event: Event) {
 </script>
 <template>
   <div class="fixed inset-0 z-20" @click.self="!busy && emit('close')">
-    <aside class="settings fixed top-0 right-0 h-full w-[min(300px,100vw)] p-[15px] bg-white/80 backdrop-blur-[10px] shadow-[0_1px_3px_rgb(50_50_50/0.3)] overflow-y-auto animate-slide motion-reduce:animate-none" aria-label="Настройки">
-      <header class="settings-header text-base font-bold text-center border-b border-black/20 mb-4 pb-4 [&_h2]:text-base [&_h2]:font-bold [&_h2]:leading-[normal]"><h2>Настройки</h2><button class="sr-only focus:not-sr-only" aria-label="Закрыть настройки" :disabled="busy" @click="emit('close')">×</button></header>
-      <form class="settings-form flex flex-col min-h-[calc(100%-51px)]" @submit.prevent="emit('save', { ...draft }, background)">
+    <aside class="settings fixed top-0 right-0 h-full w-[min(300px,100vw)] p-[15px] bg-white/80 backdrop-blur-[10px] shadow-[0_1px_3px_rgb(50_50_50/0.3)] overflow-y-auto flex flex-col animate-slide motion-reduce:animate-none" aria-label="Настройки">
+      <header class="settings-header shrink-0 text-base font-bold text-center border-b border-black/20 mb-4 pb-4 [&_h2]:text-base [&_h2]:font-bold [&_h2]:leading-[normal]"><h2>Настройки</h2><button class="sr-only focus:not-sr-only" aria-label="Закрыть настройки" :disabled="busy" @click="emit('close')">×</button></header>
+      <div class="mb-4 text-sm"><p>Синхронизация Chrome: {{ syncLabels[sync] }}</p><p v-if="sync === 'disabled'">Включите синхронизацию Chrome, чтобы закладки были доступны на других устройствах.</p><p v-if="sync === 'unsupported'">Проверьте синхронизацию в настройках Firefox.</p><p>Общий статус не подтверждает включение синхронизации закладок или доставку изменений.</p><button class="mt-3" :disabled="busy" @click="emit('folder')">Выбрать основную папку</button></div>
+      <form class="settings-form flex flex-col flex-1" @submit.prevent="emit('save', { ...draft }, background)">
         <label class="settings-row flex justify-between items-center mb-2 text-sm leading-[normal] [&_input:not([type=checkbox])]:w-16 [&_input]:m-0 has-[[type=checkbox]]:relative has-[[type=checkbox]]:cursor-pointer [&_input[type=checkbox]]:absolute [&_input[type=checkbox]]:right-0 [&_input[type=checkbox]]:w-6 [&_input[type=checkbox]]:h-6 [&_input[type=checkbox]]:opacity-0 [&_input[type=checkbox]]:z-1">Ширина (%):<input aria-label="Ширина (%)" v-model.number="draft.width" class="input" :class="ui.input" type="number" min="50" max="100" required :disabled="busy" /></label>
         <label class="settings-row flex justify-between items-center mb-2 text-sm leading-[normal] [&_input:not([type=checkbox])]:w-16 [&_input]:m-0 has-[[type=checkbox]]:relative has-[[type=checkbox]]:cursor-pointer [&_input[type=checkbox]]:peer [&_input[type=checkbox]]:absolute [&_input[type=checkbox]]:right-0 [&_input[type=checkbox]]:w-6 [&_input[type=checkbox]]:h-6 [&_input[type=checkbox]]:opacity-0 [&_input[type=checkbox]]:z-1">Количество столбцов:<input aria-label="Количество столбцов" v-model.number="draft.countColumns" class="input" :class="ui.input" type="number" min="2" max="12" required :disabled="busy" /></label>
         <label class="settings-row flex justify-between items-center mb-2 text-sm leading-[normal] [&_input:not([type=checkbox])]:w-16 [&_input]:m-0 has-[[type=checkbox]]:relative has-[[type=checkbox]]:cursor-pointer [&_input[type=checkbox]]:peer [&_input[type=checkbox]]:absolute [&_input[type=checkbox]]:right-0 [&_input[type=checkbox]]:w-6 [&_input[type=checkbox]]:h-6 [&_input[type=checkbox]]:opacity-0 [&_input[type=checkbox]]:z-1">Расстояние (px):<input aria-label="Расстояние (px)" v-model.number="draft.space" class="input" :class="ui.input" type="number" min="0" max="48" required :disabled="busy" /></label>
@@ -35,7 +40,8 @@ async function file(event: Event) {
         <button class="button" :class="ui.button" :disabled="busy || reading">Сохранить</button>
         <div class="settings-bottom mt-auto [&_.settings-row]:mb-4 [&_.button]:w-[calc(50%-8px)] [&>.button]:w-full">
           <div class="settings-row flex justify-between items-center mb-2 text-sm leading-[normal] [&_input:not([type=checkbox])]:w-16 [&_input]:m-0 has-[[type=checkbox]]:relative has-[[type=checkbox]]:cursor-pointer [&_input[type=checkbox]]:peer [&_input[type=checkbox]]:absolute [&_input[type=checkbox]]:right-0 [&_input[type=checkbox]]:w-6 [&_input[type=checkbox]]:h-6 [&_input[type=checkbox]]:opacity-0 [&_input[type=checkbox]]:z-1"><button type="button" class="button" :class="ui.button" :disabled="busy || reading" @click="emit('import')">Импорт</button><button type="button" class="button" :class="ui.button" :disabled="busy || reading" @click="emit('export')">Экспорт</button></div>
-          <button type="button" class="button danger  !bg-[#dc3545] !border-[#dc3545] !text-white enabled:hover:!bg-[#bb2d3b]" :class="ui.button" :disabled="busy || reading" @click="emit('reset')">Удалить все данные</button>
+          <button type="button" class="button danger  !bg-[#dc3545] !border-[#dc3545] !text-white enabled:hover:!bg-[#bb2d3b]" :class="ui.button" :disabled="busy || reading" @click="emit('reset')">Сбросить настройки и кэш</button>
+          <button type="button" class="button" :class="ui.button" :disabled="busy" @click="emit('clear')">Очистить выбранную папку</button>
         </div>
       </form>
     </aside>

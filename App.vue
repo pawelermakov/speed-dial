@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, watch, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
+import FolderDialog from './components/FolderDialog.vue';
+import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
 import BookmarkDialog from './components/BookmarkDialog.vue';
 import SearchBar from './components/SearchBar.vue';
@@ -14,8 +16,11 @@ import { parseImport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
 import type { Bookmark, Settings } from './types/models';
 
-const { snapshot, loading, busy, notice, run } = useDial();
+const { snapshot, loading, busy, notice, run, refresh, announce } = useDial();
 const capturing = ref(false);
+const folderOpen = ref(false);
+const folderError = ref('');
+const categoryDrag = ref<string>();
 const disabled = computed(() => loading.value || busy.value || capturing.value);
 const settingsOpen = ref(false);
 const bookmarkDialog = ref(false);
@@ -39,25 +44,26 @@ function showContext(event: MouseEvent, bookmark?: Bookmark) {
   event.preventDefault();
   context.value = { x: event.clientX, y: event.clientY, bookmark };
 }
-async function saveBookmark(value: { url: string; title: string; capture: boolean }) {
+async function saveBookmark(value: { url: string; title: string; capture: boolean; parentId?: string }) {
   if (disabled.value) return;
   dialogError.value = '';
   try {
     const url = normalizeUrl(value.url);
     const selected = editing.value;
     if (selected) {
-      if (await run(() => repository.edit(selected.id, url, value.title))) bookmarkDialog.value = false;
+      if (await run(() => repository.edit(selected.id, url, value.title, value.parentId))) bookmarkDialog.value = false;
       else dialogError.value = notice.value;
       return;
     }
-    let metadata = { title: new URL(url).hostname, favicon: '', thumbnail: null as Blob | null };
+    const idResult = { id: '' };
+    if (!await run(async () => { idResult.id = await repository.add({ url, title: value.title }); })) { dialogError.value = notice.value; return; }
+    bookmarkDialog.value = false;
     if (value.capture) {
       capturing.value = true;
-      try { metadata = await requestThumbnail(url); }
+      try { await updateImages(idResult.id, url); }
+      catch (error) { notice.value = 'Закладка сохранена. ' + fail(error); }
       finally { capturing.value = false; }
     }
-    if (await run(() => repository.add({ url, ...metadata }))) bookmarkDialog.value = false;
-    else dialogError.value = notice.value;
   } catch (error) { dialogError.value = fail(error); }
 }
 async function action(name: string) {
@@ -65,19 +71,19 @@ async function action(name: string) {
   context.value = undefined;
   try {
     if (name === 'add') add();
+    if (name === 'category') await categoryAction('create');
     if (name === 'settings') settingsOpen.value = true;
     if (!selected) return;
     if (name === 'open') await browser.tabs.create({ url: selected.url });
     if (name === 'edit') { editing.value = selected; dialogError.value = ''; bookmarkDialog.value = true; }
-    if (name === 'delete' && confirm('Вы действительно хотите удалить закладку?'))
+    if (name === 'delete' && confirm('Удалить настоящую закладку браузера? Удаление может синхронизироваться на другие устройства.'))
       await run(() => repository.remove(selected.id));
     if (name === 'thumbnail') {
       notice.value = 'Сайт временно откроется для обновления эскиза…';
       capturing.value = true;
       try {
-        const result = await requestThumbnail(selected.url);
-        capturing.value = false;
-        if (await run(() => repository.thumbnail(selected.id, selected.url, result.thumbnail, result.favicon))) notice.value = 'Эскиз обновлён.';
+        await updateImages(selected.id, selected.url);
+        notice.value = 'Изображения обновлены.';
       } finally { capturing.value = false; }
     }
   } catch (error) { notice.value = fail(error); }
@@ -88,7 +94,7 @@ async function saveSettings(value: Settings, background?: Blob | null) {
 async function openExport() {
   if (disabled.value) return;
   try {
-    if (await run(async () => { exportText.value = await serializeExport(await repository.load()); })) {
+    if (await run(async () => { exportText.value = await serializeExport(await repository.exportData()); })) {
       settingsOpen.value = false; transfer.value = 'export';
     }
   } catch (error) { notice.value = fail(error); }
@@ -98,16 +104,47 @@ async function importData(text: string) {
   try {
     importError.value = '';
     const next = parseImport(text);
-    if (!confirm('Импорт заменит все текущие закладки, настройки и фон. Продолжить?')) return;
-    if (await run(() => repository.replace(next))) { transfer.value = undefined; mailRevision.value++; notice.value = 'Данные импортированы.'; }
+    if (!confirm('Импорт добавит закладки и категории в выбранную папку; возможны дубликаты. Настройки и фон будут применены. Продолжить?')) return;
+    if (await run(() => repository.importData(next))) { transfer.value = undefined; mailRevision.value++; notice.value = 'Данные импортированы.'; }
     else importError.value = notice.value;
   } catch (error) { importError.value = fail(error); }
 }
-function reorder(ids: number[]) { void run(() => repository.reorder(ids)); }
+function reorder(ids: string[]) { void run(() => repository.reorder(ids)); }
 async function reset() {
-  if (confirm('Вы действительно хотите удалить все данные SpeedDial X?')) {
-    if (await run(() => repository.reset())) { settingsOpen.value = false; notice.value = 'Данные удалены. Настройки восстановлены.'; }
+  if (confirm('Сбросить настройки, фон и локальный кэш изображений? Закладки браузера сохранятся.')) {
+    if (await run(() => repository.reset())) { settingsOpen.value = false; notice.value = 'Настройки и локальный кэш сброшены. Закладки сохранены.'; }
   }
+}
+async function updateImages(id: string, url: string) {
+  const results = await Promise.allSettled([
+    requestThumbnail(url).then(async result => {
+      await repository.cache(id, url, 'thumbnail', result.thumbnail);
+      const icon = await faviconBlob(url, result.favicon);
+      if (icon) await repository.cache(id, url, 'favicon', icon);
+    }),
+    faviconBlob(url).then(async blob => { if (blob) await repository.cache(id, url, 'favicon', blob); }),
+  ]);
+  await refresh(); announce();
+  if (results[0]?.status === 'rejected') throw results[0].reason;
+}
+async function selectFolder(id: string, create = false) {
+  folderError.value = '';
+  if (await run(() => create ? repository.createRoot(id) : repository.selectRoot(id))) folderOpen.value = false;
+  else folderError.value = notice.value;
+}
+async function selectCategory(id: string) { repository.activeId = id; try { await refresh(); } catch (error) { notice.value = fail(error); } }
+async function categoryAction(name: 'create' | 'rename' | 'delete') {
+  const id = snapshot.value.activeId;
+  if (name === 'create') { const title = prompt('Название новой категории'); if (title) await run(() => repository.createCategory(title)); }
+  if (!id || id === snapshot.value.rootId) return;
+  if (name === 'rename') { const title = prompt('Название категории', snapshot.value.categories.find(row => row.id === id)?.title); if (title) await run(() => repository.renameCategory(id, title)); }
+  if (name === 'delete' && confirm('Удалить реальную папку браузера и ВСЕ её потомки, включая скрытые вложенные папки? Удаление может синхронизироваться на другие устройства.')) await run(() => repository.removeCategory(id));
+}
+async function clearFolder() { if (confirm('Удалить все закладки и категории выбранной папки браузера? Это реальное удаление с возможной синхронизацией. При скрытых вложенных папках очистка будет заблокирована.')) await run(() => repository.clear()); }
+async function dropCategory(id: string) {
+  const source = categoryDrag.value;
+  categoryDrag.value = undefined;
+  if (source && source !== id) await run(() => repository.moveCategory(source, id));
 }
 function beforeDialogLeave(element: Element) { (element as HTMLElement).inert = true; }
 function escape(event: KeyboardEvent) {
@@ -129,8 +166,15 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
       </header>
       <div class="bookmark-area flex flex-col flex-1" :class="{ 'justify-center': snapshot.settings.verticalCenter }">
         <p v-if="loading" role="status" class="text-white text-center">Загрузка…</p>
-        <BookmarkGrid v-else :tabs="snapshot.tabs" :settings="snapshot.settings" :disabled="disabled"
+        <div v-else-if="!snapshot.rootId" class="text-white text-center my-8"><p>Выберите или создайте основную папку закладок.</p><button class="mt-3" :disabled="disabled" @click="folderOpen = true">Выбрать папку</button></div>
+        <template v-else>
+        <nav v-if="snapshot.categories.length" aria-label="Категории" class="flex flex-wrap gap-3 my-4">
+          <button v-for="category in snapshot.categories" :key="category.id" :disabled="disabled" :aria-pressed="category.id === snapshot.activeId" class="p-2 rounded bg-white/80 aria-pressed:bg-[#ffcc00]" :draggable="!category.virtual && !disabled" @click="selectCategory(category.id)" @dragstart="categoryDrag = category.id" @dragend="categoryDrag = undefined" @dragover.prevent @drop.prevent="!category.virtual && dropCategory(category.id)">{{ category.title }}</button>
+        </nav>
+        <div v-if="snapshot.categories.length" class="flex flex-wrap gap-3 text-white my-3"><button :disabled="disabled" @click="categoryAction('create')">Новая категория</button><template v-if="snapshot.activeId !== snapshot.rootId"><button :disabled="disabled" @click="categoryAction('rename')">Переименовать категорию</button><button :disabled="disabled" @click="categoryAction('delete')">Удалить категорию</button></template></div>
+        <BookmarkGrid :tabs="snapshot.tabs" :settings="snapshot.settings" :disabled="disabled"
           @add="add" @context="showContext" @reorder="reorder" />
+        </template>
       </div>
     </main>
     <div v-if="notice" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded shadow-xl flex justify-between items-start gap-3 bg-[#fff8d6] z-50 [overflow-wrap:anywhere]">
@@ -138,14 +182,15 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     </div>
     <Transition leave-active-class="[&_.settings]:animate-none [&_.settings]:transition-transform [&_.settings]:duration-250 motion-reduce:[&_.settings]:transition-none" leave-to-class="[&_.settings]:translate-x-full" :duration="250" @before-leave="beforeDialogLeave">
     <SettingsPanel v-if="settingsOpen" :settings="snapshot.settings" :busy="disabled" @close="settingsOpen = false" @save="saveSettings"
-      @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" />
+      @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" @folder="settingsOpen = false; folderOpen = true" @clear="clearFolder" />
     </Transition>
     <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
-    <BookmarkDialog v-if="bookmarkDialog" :bookmark="editing" :busy="disabled" :error="dialogError" @close="bookmarkDialog = false" @save="saveBookmark" />
+    <BookmarkDialog v-if="bookmarkDialog" :bookmark="editing" :categories="[{ id: snapshot.rootId!, title: 'Главная', index: -1 }, ...snapshot.categories.filter(row => !row.virtual)]" :busy="disabled" :error="dialogError" @close="bookmarkDialog = false" @save="saveBookmark" />
     </Transition>
     <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
     <ImportExportDialog v-if="transfer" :mode="transfer" :value="exportText" :busy="disabled" :operation-error="importError" @close="transfer = undefined" @import="importData" />
     </Transition>
+    <FolderDialog v-if="folderOpen" :busy="disabled" :error="folderError" @close="folderOpen = false" @select="selectFolder" @create="selectFolder($event, true)" />
     <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" @close="context = undefined" @action="action" />
   </div>
 </template>

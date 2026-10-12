@@ -13,7 +13,7 @@ async function read(event: Event) {
   if (!file) return;
   error.value = ''; reading.value = true;
   try {
-    if (file.size > 100 * 1024 * 1024) throw new Error('JSON больше 100 МБ.');
+    if (file.size > 40 * 1024 * 1024) throw new Error('JSON больше 40 МБ.');
     text.value = await file.text();
   } catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause); }
   finally { reading.value = false; }
@@ -22,8 +22,8 @@ async function read(event: Event) {
 <template>
   <ModalDialog :title="mode === 'import' ? 'Импорт данных' : 'Экспорт данных'" :busy="busy || reading" wide @close="emit('close')">
     <form class="transfer-form [&_textarea]:block [&_textarea]:w-full [&_textarea]:h-[500px] [&_textarea]:mt-0 [&_textarea]:mb-4 [&_textarea]:resize-none [&_textarea]:font-[monospace] [&_textarea]:text-base [&_.file-button]:w-full [&_.file-button]:h-[38px] [&_.file-button]:mb-4 [&:has(textarea[readonly])_.button]:font-[Times_New_Roman,serif]" @submit.prevent="emit('import', text)">
-      <p class="sr-only" v-if="mode === 'import'">Импорт заменит текущие закладки, настройки и фон после подтверждения. Поддерживается старый export.json.</p>
-      <p class="sr-only" v-else>Эскизы исключены из экспорта, как в старой версии. Фон и настройки включены; эскизы можно обновить из меню карточки.</p>
+      <p class="mb-3" v-if="mode === 'import'">Импорт версии 2 добавит закладки и категории в выбранную папку. Возможны дубликаты. Настройки и фон будут применены после подтверждения.</p>
+      <p class="sr-only" v-else>Скриншоты и favicon исключены из экспорта. Фон и настройки включены; эскизы можно обновить из меню карточки.</p>
       <label class="block"><span class="sr-only">JSON</span><textarea v-model="text" class="input mt-1" :class="ui.input" :readonly="mode === 'export'" :disabled="busy || reading" required /></label>
       <input v-if="mode === 'import'" aria-label="Выберите JSON-файл" id="fileimport" class="file-input" :class="ui.fileInput" type="file" accept=".json,application/json" :disabled="busy || reading" @change="read" /><label v-if="mode === 'import'" class="file-button" :class="ui.fileButton" for="fileimport">Открыть файл...</label>
       <p v-if="error || operationError" role="alert" class="text-red-800">{{ error || operationError }}</p>

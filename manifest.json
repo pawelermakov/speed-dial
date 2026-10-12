@@ -3,9 +3,24 @@
   "description": "При открытии новой вкладки вы увидите свои любимые сайты, и сможете перейти к ним в одно нажатие",
   "version": "2.0.0",
   "manifest_version": 3,
-  "background": { "service_worker": "background.js" },
-  "chrome_url_overrides": { "newtab": "newtab.html" },
-  "icons": { "16": "images/icon16.png", "48": "images/icon48.png", "128": "images/icon128.png" },
-  "permissions": ["storage", "tabs", "unlimitedStorage"],
-  "host_permissions": ["<all_urls>"]
+  "background": {
+    "service_worker": "background.js"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "unlimitedStorage",
+    "bookmarks"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ]
 }

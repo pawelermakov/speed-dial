@@ -34,12 +34,12 @@ describe('capture ownership and queue', () => {
     expect(mocked.tabs.onUpdated.removeListener).toHaveBeenCalledTimes(1);
     expect(mocked.tabs.onActivated.removeListener).toHaveBeenCalledTimes(1);
   });
-  it('uses the Yandex icon fallback when the site has no favicon', async () => {
+  it('returns no external icon fallback when the site has no favicon', async () => {
     const get = mocked.tabs.get.getMockImplementation()!;
     mocked.tabs.get.mockImplementation(async (id: number) => ({ ...await get(id), favIconUrl: undefined }));
     const result = await createCaptureQueue()(request(), 1, new AbortController().signal);
     expect(result.error).toBeUndefined();
-    expect(result.favicon).toBe('https://favicon.yandex.net/favicon/v2/https://example.com/?size=32&stub=1');
+    expect(result.favicon).toBe('');
   });
   it('waits through Firefox initial about:blank complete state', async () => {
     const get = mocked.tabs.get.getMockImplementation()!;
