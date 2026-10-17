@@ -119,6 +119,39 @@ try {
   await settingsButton.focus(); expect((await settingsButton.boundingBox()).width).toBeGreaterThan(1);
   await settingsButton.press('Enter'); await expect(page.locator('.settings')).toBeVisible();
   await page.keyboard.press('Escape'); await expect(page.locator('.settings')).toHaveCount(0); console.log('PASS keyboard access to settings');
+  const originalRoot=await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId);
+  const longPathFolder=await page.evaluate(async root=>{
+    const node=(await chrome.bookmarks.get(root))[0];
+    const parent=await chrome.bookmarks.create({parentId:node.parentId,title:'Тест выбора папок'});
+    for(let i=0;i<300;i++) await chrome.bookmarks.create({parentId:parent.id,title:'Рабочая папка '+i});
+    let id=parent.id;
+    for(let i=0;i<25;i++) id=(await chrome.bookmarks.create({parentId:id,title:'Очень длинное название вложенной папки '+i})).id;
+    return id;
+  },originalRoot);
+  for(const [width,height] of [[360,800],[1280,800],[1920,1080]]) {
+    await page.setViewportSize({width,height});
+    await settingsButton.focus();await settingsButton.press('Enter');
+    const source=page.getByLabel('Папка закладок',{exact:true});
+    await expect(source).toBeEnabled();
+    expect(await source.locator('option').count()).toBeGreaterThan(300);
+    await source.selectOption(longPathFolder);
+    expect((await source.getAttribute('title')).length).toBeGreaterThan(500);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    expect(await page.locator('.settings').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+    await expect(page.getByRole('button',{name:'Очистить выбранную папку',exact:true})).toHaveCount(0);
+    await page.locator('.settings').screenshot({path:resolve(out,`folder-settings-${width}.png`)});
+    await page.keyboard.press('Escape');await expect(page.locator('.settings')).toHaveCount(0);
+    expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(originalRoot);
+  }
+  await settingsButton.focus();await settingsButton.press('Enter');
+  const source=page.getByLabel('Папка закладок',{exact:true});
+  await expect(source).toBeEnabled();await source.selectOption(longPathFolder);
+  await page.evaluate(id=>chrome.bookmarks.remove(id),longPathFolder);
+  await expect(page.locator('.settings').getByRole('alert')).toContainText('Выбранная папка недоступна');
+  await expect(source).toHaveValue(longPathFolder);
+  await expect(page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true})).toBeDisabled();
+  await page.keyboard.press('Escape');await expect(page.locator('.settings')).toHaveCount(0);
+  console.log('PASS folder select: 300+ folders, full deep paths, responsive widths, cancel and removed draft selection');
   expect(results.map(result => result.name).sort()).toEqual(Object.keys(provenance.sha256).sort());
   await writeFile(resolve(out, 'results.json'), JSON.stringify(results, null, 2));
 } finally { await ctx.close(); }

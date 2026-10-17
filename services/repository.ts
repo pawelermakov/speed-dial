@@ -3,39 +3,49 @@ import type { DialDatabase } from './database';
 import type { SettingsPort } from './settings';
 import { defaults, type Bookmark, type Settings, type Snapshot, type ImportData } from '../types/models';
 import { normalizeUrl, validateSettings } from './validation';
-import { folderChoices, selectable, type BookmarksPort, type RootPort, type BookmarkNode } from './bookmarks';
+import { folderChoices, defaultFolderId, type BookmarksPort, type RootPort, type BookmarkNode } from './bookmarks';
 export async function withDataLock<T>(operation: () => Promise<T>): Promise<T> { return navigator.locks ? navigator.locks.request('speed-dial-data', operation) : operation(); }
 export class Repository {
   rootId: string | null = null;
   activeId: string | null = null;
   private readGeneration = 0;
+  private sourceNotice: string | undefined;
+  clearSourceNotice() { this.sourceNotice = undefined; }
   private images: BookmarkAssetStore;
   constructor(private db: DialDatabase, private settings: SettingsPort, readonly bookmarks: BookmarksPort, private root: RootPort) { this.images = new BookmarkAssetStore(db); }
   async choices() { return folderChoices(await this.bookmarks.getTree()); }
   async node(id: string) { const node = (await this.bookmarks.get(id))[0]; if (!node) throw new Error('Элемент больше не существует.'); return node; }
-  async folder(id: string, allowStandard = false) {
-    const node = await this.node(id);
+  async folder(id: string) {
     const choices = await this.choices();
-    if (!choices.some(choice => choice.id === id && (allowStandard || !choice.standard)) || (!allowStandard && !selectable(node))) throw new Error('Выберите изменяемую пользовательскую папку.');
-    return node;
+    if (!choices.some(choice => choice.id === id)) throw new Error('Папка закладок недоступна. Выберите другую папку в настройках.');
+    return this.node(id);
   }
-  async adoptRoot(id: string) { await this.folder(id); this.rootId = id; this.activeId = null; }
-  async selectRoot(id: string) { await this.folder(id); await this.root.setValue(id); this.rootId = id; this.activeId = null; }
+  async adoptRoot(id: string | null) {
+    const previous = this.rootId;
+    this.readGeneration++;
+    this.rootId = id;
+    this.activeId = null;
+    const choices = await this.choices();
+    const selected = choices.find(choice => choice.id === id);
+    if (id && !selected) throw new Error('Папка закладок недоступна.');
+    if (previous && selected && !choices.some(choice => choice.id === previous))
+      this.sourceNotice = 'Выбранная папка недоступна. Используется папка «' + selected.path + '».';
+  }
+  async selectRoot(id: string) {
+    await this.folder(id);
+    if (await this.root.getValue() !== id) await this.root.setValue(id);
+    this.readGeneration++;
+    const changed = this.rootId !== id;
+    this.rootId = id;
+    this.sourceNotice = undefined;
+    if (changed) this.activeId = null;
+  }
   async initialize() {
-    const saved = await this.root.getValue();
-    if (saved) { try { await this.selectRoot(saved); return await this.load(); } catch { /* Search an unambiguous replacement. */ } }
-    const candidates = (await this.choices()).filter(node => node.title === 'Speed Dial' && !node.standard);
-    if (candidates.length === 1) await this.selectRoot(candidates[0]!.id);
+    this.rootId = await this.root.getValue();
+    this.activeId = null;
     return this.load();
   }
-  async createRoot(parentId: string) {
-    const candidates = (await this.choices()).filter(node => node.title === 'Speed Dial' && !node.standard);
-    if (candidates.length) throw new Error('Папка Speed Dial уже существует. Выберите её в списке.');
-    await this.folder(parentId, true);
-    const node = await this.bookmarks.create({ parentId, title: 'Speed Dial' });
-    await this.selectRoot(node.id);
-  }
-  async rootNode() { if (!this.rootId) throw new Error('Сначала выберите основную папку.'); return this.folder(this.rootId); }
+  async rootNode() { if (!this.rootId) throw new Error('Выберите папку закладок в настройках.'); return this.folder(this.rootId); }
   async parent(id = this.activeId ?? this.rootId) {
     const root = await this.rootNode();
     if (id === root.id) return root;
@@ -56,30 +66,57 @@ export class Repository {
     let rootId = initialRoot, activeId = this.activeId;
     const envelope = await this.settings.getValue();
     const background = await this.db.assets.get('background').catch(() => undefined);
-    let tabs: Bookmark[] = [], categories: Snapshot['categories'] = [];
-    if (rootId) {
-      const choices = await this.choices();
-      if (!choices.some(node => node.id === rootId && !node.standard)) { rootId = null; activeId = null; }
-      if (rootId) {
-        const children = await this.bookmarks.getChildren(rootId);
-        const folders = children.filter(node => !node.url);
-        categories = folders.map(node => ({ id: node.id, title: node.title === 'Главная' ? 'Главная (папка)' : node.title, index: node.index ?? 0 }));
-        if (folders.length && children.some(node => node.url)) categories.unshift({ id: rootId, title: 'Главная', index: -1, virtual: true });
-        if (!activeId || (categories.length ? !categories.some(node => node.id === activeId) : activeId !== rootId)) activeId = categories[0]?.id ?? rootId;
-        const nodes = activeId === rootId ? children : await this.bookmarks.getChildren(activeId);
-        tabs = await Promise.all(nodes.filter(node => node.url).map(async node => {
-          const url = node.url!;
-          const cache = await this.images.get(node.id, url);
-          return { id: node.id, parentId: node.parentId!, url, title: node.title || url, index: node.index ?? 0, thumbnail: cache?.thumbnail ?? null, favicon: cache?.favicon ?? null, faviconColor: cache?.faviconColor ?? undefined, thumbnailUpdatedAt: cache?.thumbnailUpdatedAt, faviconUpdatedAt: cache?.faviconUpdatedAt };
-        }));
+    let rootNotice = this.sourceNotice;
+    const choices = await this.choices();
+    if (!rootId || !choices.some(choice => choice.id === rootId)) {
+      rootId = defaultFolderId(choices);
+      activeId = null;
+      if (rootId && generation === this.readGeneration && initialRoot === this.rootId) {
+        await this.root.setValue(rootId);
+        if (initialRoot) rootNotice = this.sourceNotice = 'Выбранная папка недоступна. Используется папка «Другие закладки».';
       }
     }
+    let tabs: Bookmark[] = [], categories: Snapshot['categories'] = [];
+    if (rootId) {
+      const children = await this.bookmarks.getChildren(rootId);
+      const folders = children.filter(node => !node.url);
+      categories = folders.map(node => ({ id: node.id, title: node.title === 'Главная' ? 'Главная (папка)' : node.title, index: node.index ?? 0 }));
+      if (folders.length && children.some(node => node.url)) categories.unshift({ id: rootId, title: 'Главная', index: -1, virtual: true });
+      if (!activeId || (categories.length ? !categories.some(node => node.id === activeId) : activeId !== rootId)) activeId = categories[0]?.id ?? rootId;
+      const nodes = activeId === rootId ? children : await this.bookmarks.getChildren(activeId);
+      tabs = await Promise.all(nodes.filter(node => node.url).map(async node => {
+        const url = node.url!;
+        const cache = await this.images.get(node.id, url);
+        return { id: node.id, parentId: node.parentId!, url, title: node.title || url, index: node.index ?? 0, thumbnail: cache?.thumbnail ?? null, favicon: cache?.favicon ?? null, faviconColor: cache?.faviconColor ?? undefined, thumbnailUpdatedAt: cache?.thumbnailUpdatedAt, faviconUpdatedAt: cache?.faviconUpdatedAt };
+      }));
+    }
     if (generation === this.readGeneration && initialRoot === this.rootId) { this.rootId = rootId; this.activeId = activeId; }
-    return { tabs, categories, rootId, activeId, settings: envelope ? validateSettings(envelope.value) : { ...defaults }, background: background?.blob ?? null };
+    return { tabs, categories, rootId, activeId, settings: envelope ? validateSettings(envelope.value) : { ...defaults }, background: background?.blob ?? null, rootNotice };
   }
-  async saveSettings(settings: Settings, background?: Blob | null) {
-    await this.settings.setValue({ value: validateSettings(settings) });
-    if (background !== undefined) { if (background) await this.db.assets.put({ key: 'background', blob: background }); else await this.db.assets.delete('background'); }
+  async saveSettings(settings: Settings, background?: Blob | null, rootId?: string) {
+    const next = validateSettings(settings);
+    if (rootId !== undefined) await this.folder(rootId);
+    const previous = await this.settings.getValue();
+    const settingsChanged = (Object.keys(defaults) as Array<keyof Settings>).some(key => next[key] !== (previous?.value ?? defaults)[key]);
+    const previousBackground = background !== undefined ? await this.db.assets.get('background') : undefined;
+    let wroteSettings = false, wroteBackground = false;
+    try {
+      if (settingsChanged) { await this.settings.setValue({ value:next }); wroteSettings = true; }
+      if (background !== undefined) {
+        if (background) await this.db.assets.put({ key:'background', blob:background });
+        else await this.db.assets.delete('background');
+        wroteBackground = true;
+      }
+      // Commit the source last: failed writes cannot silently switch the root.
+      if (rootId !== undefined) await this.selectRoot(rootId);
+    } catch (error) {
+      const rollback = await Promise.allSettled([
+        wroteSettings ? this.settings.setValue(previous ?? {value:{...defaults}}) : Promise.resolve(),
+        wroteBackground ? previousBackground ? this.db.assets.put(previousBackground) : this.db.assets.delete('background') : Promise.resolve(),
+      ]);
+      const detail = rollback.some(result => result.status === 'rejected') ? ' Часть настроек не удалось восстановить; проверьте значения.' : '';
+      throw new Error((error instanceof Error ? error.message : String(error)) + detail);
+    }
   }
   async reset() { await this.saveSettings({ ...defaults }, null); await this.images.clear(); }
   async add(input: { url: string; title: string }) {
@@ -111,23 +148,6 @@ export class Repository {
   async renameCategory(id: string, title: string) { await this.category(id); if (!title.trim()) throw new Error('Введите название.'); await this.bookmarks.update(id, { title: title.trim() }); }
   async removeCategory(id: string) { await this.category(id); await this.bookmarks.removeTree(id); }
   async moveCategory(id: string, beforeId: string) { await this.category(id); const target = await this.category(beforeId); await this.bookmarks.move(id, { parentId: this.rootId!, index: target.index ?? 0 }); }
-  async clear() {
-    const root = await this.rootNode(); const children = await this.bookmarks.getChildren(root.id);
-    for (const child of children.filter(node => !node.url)) if ((await this.bookmarks.getChildren(child.id)).some(node => !node.url)) throw new Error('Есть вложенные папки. Очистите их в менеджере закладок браузера.');
-    for (const child of children) {
-      if (child.url) await this.remove(child.id);
-      else {
-        await this.category(child.id);
-        for (const bookmark of await this.bookmarks.getChildren(child.id)) {
-          if (!bookmark.url) throw new Error('Появилась вложенная папка. Очистка прервана; используйте менеджер закладок.');
-          await this.remove(bookmark.id);
-        }
-        await this.category(child.id);
-        // remove fails if an external edit added any unseen descendant.
-        await this.bookmarks.remove(child.id);
-      }
-    }
-  }
   async exportData(): Promise<ImportData> {
     const root = await this.rootNode(); const children = await this.bookmarks.getChildren(root.id);
     const row = (node: BookmarkNode) => ({ title: node.title, url: node.url! });

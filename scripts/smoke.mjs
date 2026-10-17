@@ -22,16 +22,49 @@ try {
   let page = await context.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message));
   let acceptDialogs=true, promptValue='UI category';
   page.on('dialog', dialog => acceptDialogs ? dialog.accept(dialog.type()==='prompt' ? promptValue : undefined) : dialog.dismiss());
-  await page.goto(url); await page.getByRole('button',{name:'Выбрать папку',exact:true}).click();
-  const folder = page.getByRole('dialog');
-  const parentId = await page.evaluate(async () => { const tree = await chrome.bookmarks.getTree(); return tree[0].children.find(node=>!node.unmodifiable && (node.folderType==='other' || !node.url)).id; });
-  await folder.locator('select').nth(1).selectOption(parentId);
-  await folder.getByRole('button',{name:'Создать Speed Dial',exact:true}).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  const rootId = await page.evaluate(async () => (await chrome.storage.local.get('rootFolderId')).rootFolderId);
-  const openSettings = async () => { await expect(page.locator('dialog')).toHaveCount(0); await expect(page.locator('.settings')).toHaveCount(0); const button=page.getByRole('button',{name:'Настройки',exact:true}); await button.focus(); await button.press('Enter'); await expect(page.locator('.settings')).toBeVisible(); };
+  await page.addInitScript(() => {
+    window.bookmarkMutations = [];
+    for (const name of ['create','update','move','remove','removeTree']) {
+      const original = chrome.bookmarks[name];
+      chrome.bookmarks[name] = (...args) => { window.bookmarkMutations.push(name); return original.apply(chrome.bookmarks,args); };
+    }
+  });
+  await page.goto(url);
+  await expect(page.getByRole('button',{name:'Настройки',exact:true})).toBeEnabled();
+  const parentId = await page.evaluate(async () => {
+    const tree=await chrome.bookmarks.getTree();
+    const others=tree[0].children.filter(node=>node.folderType==='other'&&!node.unmodifiable);
+    const account=others.filter(node=>node.syncing);
+    return (account.length===1?account[0]:others.length===1?others[0]:null)?.id;
+  });
+  expect(parentId).toBeTruthy();
+  await expect.poll(()=>page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(parentId);
+  expect(await page.evaluate(()=>window.bookmarkMutations)).toEqual([]);
+  expect(await page.evaluate(async id=>(await chrome.bookmarks.getChildren(id)).filter(node=>node.title==='Speed Dial'),parentId)).toEqual([]);
+  pass('chrome: clean profile selects system Other without a single bookmark mutation');
+  const sources=await page.evaluate(async parent=>{
+    const a=await chrome.bookmarks.create({parentId:parent,title:'Source A'});
+    const b=await chrome.bookmarks.create({parentId:parent,title:'Source B'});
+    return {a:a.id,b:b.id};
+  },parentId);
+  const rootId=sources.a;
+  const openSettings = async () => {
+    await expect(page.locator('dialog')).toHaveCount(0); await expect(page.locator('.settings')).toHaveCount(0);
+    const button=page.getByRole('button',{name:'Настройки',exact:true}); await button.focus(); await button.press('Enter');
+    await expect(page.locator('.settings')).toBeVisible();
+    await expect(page.getByLabel('Папка закладок',{exact:true})).toBeEnabled();
+  };
+  const chooseSource = async id => {
+    await openSettings();
+    await page.getByLabel('Папка закладок',{exact:true}).selectOption(id);
+    await page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true}).click();
+    await expect(page.locator('.settings')).toHaveCount(0);
+    await expect.poll(()=>page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(id);
+  };
+  await page.evaluate(()=>{window.bookmarkMutations=[];});
+  await chooseSource(rootId);
+  expect(await page.evaluate(()=>window.bookmarkMutations)).toEqual([]);
   const state = () => page.evaluate(id=>chrome.bookmarks.getChildren(id),rootId);
-  pass('chrome: clean setup creates exactly one browser folder');
   await page.getByRole('button',{name:'Новая закладка',exact:true}).click();
   await page.locator('dialog input').nth(0).fill(siteUrl); await page.locator('dialog input').nth(1).fill('Custom title');
   await page.getByRole('button',{name:'Добавить',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(1);
@@ -46,6 +79,54 @@ try {
     return !!row?.favicon?.size && !!row?.thumbnail?.size;
   },id)).toBe(true);
   pass('chrome: browser-backed create and real capture preserve custom title');
+  const peer = await context.newPage(); await peer.goto(url);
+  await expect(peer.locator('.bookmark')).toHaveCount(1);
+  await openSettings();
+  await page.getByLabel('Папка закладок',{exact:true}).selectOption(sources.b);
+  expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(rootId);
+  await page.keyboard.press('Escape'); await expect(page.locator('.settings')).toHaveCount(0);
+  expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(rootId);
+  await openSettings(); await page.getByLabel('Папка закладок',{exact:true}).selectOption(sources.b);
+  await page.evaluate(id=>chrome.bookmarks.update(id,{title:'Source B renamed'}),sources.b);
+  await expect(page.getByLabel('Папка закладок',{exact:true}).locator('option:checked')).toContainText('Source B renamed');
+  await expect(page.getByLabel('Папка закладок',{exact:true})).toHaveValue(sources.b);
+  const untouchedTree=await page.evaluate(()=>chrome.bookmarks.getTree());
+  await page.evaluate(()=>{window.bookmarkMutations=[];});
+  await page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true}).click();
+  await expect(page.locator('.settings')).toHaveCount(0);
+  await expect(peer.locator('.bookmark')).toHaveCount(0);
+  await chooseSource(rootId);
+  await expect(page.locator('.bookmark-title')).toHaveCount(1);
+  await expect(peer.locator('.bookmark-title')).toHaveCount(1);
+  expect(await page.evaluate(()=>window.bookmarkMutations)).toEqual([]);
+  expect(await page.evaluate(()=>chrome.bookmarks.getTree())).toEqual(untouchedTree);
+  await peer.close();
+  pass('chrome: settings draft cancel, live folder rename, A→B→A preserves cache, two tabs agree; zero bookmark writes');
+  await openSettings();
+  await page.getByLabel('Папка закладок',{exact:true}).selectOption(sources.b);
+  await page.getByLabel('Ширина (%)',{exact:true}).fill('50');
+  await page.evaluate(() => {
+    window.originalStorageSet=chrome.storage.local.set;
+    chrome.storage.local.set=(values,...args)=>'rootFolderId' in values ? Promise.reject(new Error('Test root storage failure')) : window.originalStorageSet.call(chrome.storage.local,values,...args);
+  });
+  await page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true}).click();
+  await expect(page.locator('.settings').getByRole('alert')).toContainText('Test root storage failure');
+  expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(rootId);
+  expect(await page.evaluate(async()=> (await chrome.storage.local.get('settings')).settings?.value.width ?? 100)).toBe(100);
+  await page.evaluate(()=>{chrome.storage.local.set=window.originalStorageSet;});
+  await page.keyboard.press('Escape'); await expect(page.locator('.settings')).toHaveCount(0);
+  await page.evaluate(()=>{
+    window.originalGetTree=chrome.bookmarks.getTree;
+    chrome.bookmarks.getTree=()=>Promise.reject(new Error('Test folder access failure'));
+  });
+  const settingsButton=page.getByRole('button',{name:'Настройки',exact:true});await settingsButton.focus();await settingsButton.press('Enter');
+  await expect(page.locator('.settings').getByRole('alert')).toContainText('Test folder access failure');
+  await expect(page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true})).toBeDisabled();
+  await page.evaluate(()=>{chrome.bookmarks.getTree=window.originalGetTree;});
+  await page.locator('.settings').getByRole('button',{name:'Повторить',exact:true}).click();
+  await expect(page.getByLabel('Папка закладок',{exact:true})).toBeEnabled();
+  await page.keyboard.press('Escape');await expect(page.locator('.settings')).toHaveCount(0);
+  pass('chrome: folder/storage failures keep settings open, preserve old source and roll back changed preferences');
   await page.evaluate(id=>chrome.bookmarks.update(id,{title:'External title'}),id); await expect(page.locator('.bookmark')).toContainText('External title');
   const structure = await page.evaluate(async root => {
     const a=await chrome.bookmarks.create({parentId:root,title:'A'}); const b=await chrome.bookmarks.create({parentId:root,title:'Главная'});
@@ -106,10 +187,11 @@ try {
   acceptDialogs=false; await page.getByRole('button',{name:'UI renamed',exact:true}).click({button:'right'}); await page.getByRole('menuitem',{name:'Удалить',exact:true}).click(); expect((await state()).some(node=>node.id===uiFolder.id)).toBe(true);
   acceptDialogs=true; await page.getByRole('button',{name:'UI renamed',exact:true}).focus(); await page.getByRole('button',{name:'UI renamed',exact:true}).press('Shift+F10'); await page.getByRole('menuitem',{name:'Удалить',exact:true}).click(); await expect(page.getByRole('button',{name:'UI renamed',exact:true})).toHaveCount(0);
   acceptDialogs=false; await page.locator('.bookmark').first().click({button:'right'}); await page.getByRole('menuitem',{name:'Удалить',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(2); acceptDialogs=true;
-  await openSettings(); await page.getByRole('button',{name:'Очистить выбранную папку',exact:true}).click(); await expect(page.locator('.notice')).toContainText('вложенные папки');
-  expect((await state()).filter(node=>node.url).length).toBe(2); await page.getByRole('button',{name:'Закрыть настройки',exact:true}).evaluate(element=>element.click());
-  await expect(page.locator('.settings')).toHaveCount(0);
-  pass('chrome: UI category create/rename/DnD/delete confirmation; hidden descendants block mass clear');
+  await openSettings();
+  await expect(page.getByRole('button',{name:'Очистить выбранную папку',exact:true})).toHaveCount(0);
+  expect((await state()).filter(node=>node.url).length).toBe(2);
+  await page.keyboard.press('Escape'); await expect(page.locator('.settings')).toHaveCount(0);
+  pass('chrome: UI category create/rename/DnD/delete confirmation; mass clear absent');
   await openSettings();
   await expect(page.locator('.settings')).toContainText('Синхронизация Chrome: Выключена');
   await page.getByRole('button',{name:'Экспорт',exact:true}).click(); const exported=JSON.parse(await page.locator('dialog textarea').inputValue());
@@ -119,10 +201,13 @@ try {
   await page.locator('dialog textarea').fill(JSON.stringify({version:2,entries:[{title:'Imported',url:siteUrl}],settings:exported.settings})); await page.getByRole('button',{name:'Импортировать',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(3);
   await openSettings(); await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(3);
   pass('chrome: Sync off, versioned export/append import, reset keeps browser bookmarks');
-  await page.evaluate(async root=>chrome.bookmarks.removeTree(root),rootId); await expect(page.getByRole('button',{name:'Выбрать папку',exact:true})).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('Настройки и локальный кэш сброшены');
+  await page.evaluate(async root=>chrome.bookmarks.removeTree(root),rootId);
+  await expect.poll(()=>page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(parentId);
+  await expect(page.getByRole('status')).toContainText('Другие закладки');
   expect((await page.evaluate(async id=>chrome.bookmarks.getChildren(id),parentId)).filter(node=>node.title==='Speed Dial')).toEqual([]);
   expect(errors).toEqual([]); await page.screenshot({path:'.browser-test/chrome-bookmarks.png'});
-  pass('chrome: deleted root requests selection without silent recreation; no page errors');
+  pass('chrome: deleted source falls back to system Other without creating folders; no page errors');
   await context.close(); context=null;
  }
  if (!process.argv.includes('--chrome-only')) await firefoxSmoke(siteUrl, { push: pass });

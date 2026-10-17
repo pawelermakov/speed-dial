@@ -17,9 +17,10 @@ export function useDial() {
   const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
   const refresh = async () => {
     const sequence = ++generation;
-    const next = await repository.load();
+    const next = await withDataLock(() => repository.load());
     if (sequence !== generation || disposed) return;
     snapshot.value = next;
+    if (next.rootNotice) { notice.value = next.rootNotice; repository.clearSourceNotice?.(); }
     for (const tab of next.tabs.filter(tab => !tab.favicon)) {
       const key = tab.id + tab.url;
       if (attempted.has(key)) continue; attempted.add(key);
@@ -39,7 +40,18 @@ export function useDial() {
     finally { busy.value = false; }
   };
   channel.onmessage = schedule;
-  const unwatchRoot = rootItem.watch(async id => { if (id && id !== repository.rootId) { try { await repository.adoptRoot(id); schedule(); } catch (error) { notice.value = errorText(error); } } });
+  const unwatchRoot = rootItem.watch(async id => {
+    if (disposed || id === repository.rootId) return;
+    try {
+      const changed = await withDataLock(async () => {
+        if (disposed || id === repository.rootId) return false;
+        generation++;
+        await repository.adoptRoot(id);
+        return true;
+      });
+      if (changed) schedule();
+    } catch (error) { notice.value = errorText(error); schedule(); }
+  });
   const api = browser.bookmarks;
   const events = [api?.onCreated, api?.onRemoved, api?.onChanged, api?.onMoved, api?.onChildrenReordered, api?.onImportEnded];
   const bookmarkEvent = () => { attempted.clear(); schedule(); };
@@ -49,7 +61,9 @@ export function useDial() {
   onMounted(async () => {
     try {
       if (!api) throw new Error('Bookmarks API недоступен. Проверьте разрешение «Закладки» и переустановите расширение.');
-      await withDataLock(() => repository.initialize()); await refresh();
+      const initial = await withDataLock(() => repository.initialize());
+      if (initial?.rootNotice) notice.value = initial.rootNotice;
+      await refresh();
     } catch (error) { notice.value = 'Не удалось открыть закладки. Проверьте разрешение расширения. ' + errorText(error); }
     finally { loading.value = false; }
   });

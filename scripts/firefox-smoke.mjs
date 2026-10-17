@@ -5,8 +5,19 @@ export async function firefoxSmoke(siteUrl, results) {
  try {
   await driver.command('WebDriver:Navigate',{url:firefoxUrl});
   await driver.until('return !!document.querySelector(".page") && !document.querySelector("button[aria-label=Настройки]").disabled;');
-  const rootId = await driver.exec('const tree=await browser.bookmarks.getTree(); const parent=tree[0].children.find(node=>!node.unmodifiable && !node.url); const root=await browser.bookmarks.create({parentId:parent.id,title:"Speed Dial"}); await browser.storage.local.set({rootFolderId:root.id}); return root.id;');
-  await driver.command('WebDriver:Refresh');
+  const defaultId = await driver.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;');
+  assert.equal(defaultId,'unfiled_____');
+  assert.equal(await driver.exec('return (await browser.bookmarks.getChildren(arguments[0])).filter(row=>row.title==="Speed Dial").length;',defaultId),0);
+  results.push('firefox: clean profile selects native unfiled without creating Speed Dial');
+  const rootId = await driver.exec('const root=await browser.bookmarks.create({parentId:arguments[0],title:"Firefox source"}); return root.id;',defaultId);
+  await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
+  await driver.until('return !!document.querySelector("#bookmark-folder") && !document.querySelector("#bookmark-folder").disabled;');
+  await driver.exec('const select=document.querySelector("#bookmark-folder");select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}));',rootId);
+  assert.equal(await driver.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),defaultId);
+  await driver.exec('Array.from(document.querySelectorAll(".settings button")).find(button=>button.textContent.trim()==="Сохранить").click();');
+  await driver.until('return !document.querySelector(".settings");');
+  assert.equal(await driver.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),rootId);
+  results.push('firefox: native folder select applies only after Save');
   await driver.until('return !!document.querySelector(".add-card, .empty-state");');
   const click = text => driver.exec('Array.from(document.querySelectorAll("button")).find(button=>button.textContent.trim()===arguments[0] || button.getAttribute("aria-label")===arguments[0]).click();',text);
   await click('Новая закладка');
@@ -32,9 +43,10 @@ export async function firefoxSmoke(siteUrl, results) {
   await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
   await driver.until('return document.querySelector(".settings")?.textContent.includes("Статус синхронизации недоступен в Firefox");');
   await driver.exec('window.confirm=()=>true;'); await click('Сбросить настройки и кэш');
+  await driver.until('return document.querySelector(".notice")?.textContent.includes("Настройки и локальный кэш сброшены");');
   assert.ok((await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].id;',rootId))===rootId);
   await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',rootId);
-  await driver.until('return !!document.querySelector(".bookmark-area").textContent.includes("Выберите или создайте");');
-  results.push('firefox: unsupported Sync, safe reset and deleted root setup');
+  await driver.until('return document.querySelector(".notice")?.textContent.includes("Другие закладки");');
+  results.push('firefox: unsupported Sync, safe reset and fallback after source deletion');
  } finally { await driver.close(); }
 }

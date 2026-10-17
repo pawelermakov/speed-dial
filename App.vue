@@ -2,7 +2,6 @@
 import { ref, shallowRef, computed, watch, nextTick, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
 import CategoryNameInput from './components/CategoryNameInput.vue';
-import FolderDialog from './components/FolderDialog.vue';
 import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
 import BookmarkDialog from './components/BookmarkDialog.vue';
@@ -19,8 +18,6 @@ import type { Bookmark, Category, Settings } from './types/models';
 
 const { snapshot, loading, busy, notice, run, refresh, announce } = useDial();
 const capturing = ref(false);
-const folderOpen = ref(false);
-const folderError = ref('');
 const categoryDrag = ref<string>();
 const creatingCategory = ref(false);
 const editingCategory = shallowRef<{ id: string; title: string }>();
@@ -28,6 +25,8 @@ const categoryAddButton = ref<HTMLButtonElement>();
 watch(() => snapshot.value.rootId, () => { creatingCategory.value = false; editingCategory.value = undefined; });
 const disabled = computed(() => loading.value || busy.value || capturing.value);
 const settingsOpen = ref(false);
+const settingsError = ref('');
+function openSettings() { settingsError.value = ''; settingsOpen.value = true; }
 const bookmarkDialog = ref(false);
 const editing = shallowRef<Bookmark>();
 const dialogError = ref('');
@@ -50,7 +49,7 @@ function showContext(event: MouseEvent, bookmark?: Bookmark) {
   context.value = { x: event.clientX, y: event.clientY, bookmark };
 }
 function showCategoryContext(event: MouseEvent | KeyboardEvent, category: Category) {
-  if (category.virtual || disabled.value || settingsOpen.value || bookmarkDialog.value || transfer.value || folderOpen.value) return;
+  if (category.virtual || disabled.value || settingsOpen.value || bookmarkDialog.value || transfer.value) return;
   const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
   context.value = { x: event instanceof MouseEvent ? event.clientX : bounds.left, y: event instanceof MouseEvent ? event.clientY : bounds.bottom, category };
 }
@@ -87,7 +86,7 @@ async function action(name: string) {
     }
     if (name === 'add') add();
     if (name === 'category') await categoryAction('create');
-    if (name === 'settings') settingsOpen.value = true;
+    if (name === 'settings') openSettings();
     if (!selected) return;
     if (name === 'open') await browser.tabs.create({ url: selected.url });
     if (name === 'edit') { editing.value = selected; dialogError.value = ''; bookmarkDialog.value = true; }
@@ -103,8 +102,10 @@ async function action(name: string) {
     }
   } catch (error) { notice.value = fail(error); }
 }
-async function saveSettings(value: Settings, background?: Blob | null) {
-  if (await run(() => repository.saveSettings(value, background))) { settingsOpen.value = false; mailRevision.value++; }
+async function saveSettings(value: Settings, background: Blob | null | undefined, rootId: string) {
+  settingsError.value = '';
+  if (await run(() => repository.saveSettings(value, background, rootId))) { settingsOpen.value = false; mailRevision.value++; }
+  else settingsError.value = notice.value;
 }
 async function openExport() {
   if (disabled.value) return;
@@ -119,7 +120,9 @@ async function importData(text: string) {
   try {
     importError.value = '';
     const next = parseImport(text);
-    if (!confirm('Импорт добавит закладки и категории в выбранную папку; возможны дубликаты. Настройки и фон будут применены. Продолжить?')) return;
+    const path = (await repository.choices()).find(row => row.id === snapshot.value.rootId)?.path;
+    if (!path) throw new Error('Выберите папку закладок в настройках.');
+    if (!confirm('Импорт добавит закладки и категории в папку «' + path + '»; возможны дубликаты. Настройки и фон будут применены. Продолжить?')) return;
     if (await run(() => repository.importData(next))) { transfer.value = undefined; mailRevision.value++; notice.value = 'Данные импортированы.'; }
     else importError.value = notice.value;
   } catch (error) { importError.value = fail(error); }
@@ -141,11 +144,6 @@ async function updateImages(id: string, url: string) {
   ]);
   await refresh(); announce();
   if (results[0]?.status === 'rejected') throw results[0].reason;
-}
-async function selectFolder(id: string, create = false) {
-  folderError.value = '';
-  if (await run(() => create ? repository.createRoot(id) : repository.selectRoot(id))) folderOpen.value = false;
-  else folderError.value = notice.value;
 }
 async function selectCategory(id: string) { repository.activeId = id; try { await refresh(); } catch (error) { notice.value = fail(error); } }
 async function beginCategory() {
@@ -177,7 +175,6 @@ async function categoryAction(name: 'create' | 'rename' | 'delete', id = snapsho
   }
   if (name === 'delete' && confirm('Удалить реальную папку браузера и ВСЕ её потомки, включая скрытые вложенные папки? Удаление может синхронизироваться на другие устройства.')) await run(() => repository.removeCategory(id));
 }
-async function clearFolder() { if (confirm('Удалить все закладки и категории выбранной папки браузера? Это реальное удаление с возможной синхронизацией. При скрытых вложенных папках очистка будет заблокирована.')) await run(() => repository.clear()); }
 async function dropCategory(id: string) {
   const source = categoryDrag.value;
   categoryDrag.value = undefined;
@@ -198,12 +195,12 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         <SearchBar />
         <div class="tools flex items-center gap-4 absolute right-0 top-0 block">
           <MailIndicator :key="mailRevision" :email="snapshot.settings.email" />
-          <button class="sr-only focus:not-sr-only" aria-label="Настройки" :disabled="disabled" @click="settingsOpen = true">Настройки</button>
+          <button class="sr-only focus:not-sr-only" aria-label="Настройки" :disabled="disabled" @click="openSettings">Настройки</button>
         </div>
       </header>
       <div class="bookmark-area flex flex-col flex-1" :class="{ 'justify-center': snapshot.settings.verticalCenter }">
         <p v-if="loading" role="status" class="text-white text-center">Загрузка…</p>
-        <div v-else-if="!snapshot.rootId" class="text-white text-center my-8"><p>Выберите или создайте основную папку закладок.</p><button class="mt-3" :disabled="disabled" @click="folderOpen = true">Выбрать папку</button></div>
+        <div v-else-if="!snapshot.rootId" class="text-white text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
         <template v-else>
         <nav v-if="snapshot.categories.length || creatingCategory" aria-label="Категории" class="flex flex-wrap gap-3 my-4">
           <template v-for="category in snapshot.categories" :key="category.id">
@@ -217,12 +214,12 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         </template>
       </div>
     </main>
-    <div v-if="notice" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded shadow-xl flex justify-between items-start gap-3 bg-[#fff8d6] z-50 [overflow-wrap:anywhere]">
+    <div v-if="notice && !settingsOpen" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded shadow-xl flex justify-between items-start gap-3 bg-[#fff8d6] z-50 [overflow-wrap:anywhere]">
       <span>{{ notice }}</span><button aria-label="Закрыть уведомление" @click="notice = ''">×</button>
     </div>
     <Transition leave-active-class="[&_.settings]:animate-none [&_.settings]:transition-transform [&_.settings]:duration-250 motion-reduce:[&_.settings]:transition-none" leave-to-class="[&_.settings]:translate-x-full" :duration="250" @before-leave="beforeDialogLeave">
-    <SettingsPanel v-if="settingsOpen" :settings="snapshot.settings" :busy="disabled" @close="settingsOpen = false" @save="saveSettings"
-      @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" @folder="settingsOpen = false; folderOpen = true" @clear="clearFolder" />
+    <SettingsPanel v-if="settingsOpen" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="settingsError" :busy="disabled" @close="settingsOpen = false" @save="saveSettings"
+      @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" />
     </Transition>
     <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
     <BookmarkDialog v-if="bookmarkDialog" :bookmark="editing" :categories="[{ id: snapshot.rootId!, title: 'Главная', index: -1 }, ...snapshot.categories.filter(row => !row.virtual)]" :busy="disabled" :error="dialogError" @close="bookmarkDialog = false" @save="saveBookmark" />
@@ -230,7 +227,6 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
     <ImportExportDialog v-if="transfer" :mode="transfer" :value="exportText" :busy="disabled" :operation-error="importError" @close="transfer = undefined" @import="importData" />
     </Transition>
-    <FolderDialog v-if="folderOpen" :busy="disabled" :error="folderError" @close="folderOpen = false" @select="selectFolder" @create="selectFolder($event, true)" />
     <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" :category="context.category" @close="context = undefined" @action="action" />
   </div>
 </template>
