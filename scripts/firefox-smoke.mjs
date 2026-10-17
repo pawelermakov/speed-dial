@@ -7,8 +7,8 @@ export async function firefoxSmoke(siteUrl, results) {
   await driver.until('return !!document.querySelector(".page") && !document.querySelector("button[aria-label=Настройки]").disabled;');
   const rootId = await driver.exec('const tree=await browser.bookmarks.getTree(); const parent=tree[0].children.find(node=>!node.unmodifiable && !node.url); const root=await browser.bookmarks.create({parentId:parent.id,title:"Speed Dial"}); await browser.storage.local.set({rootFolderId:root.id}); return root.id;');
   await driver.command('WebDriver:Refresh');
-  await driver.until('return !!document.querySelector(".empty-state");');
-  const click = text => driver.exec('Array.from(document.querySelectorAll("button")).find(button=>button.textContent.trim()===arguments[0]).click();',text);
+  await driver.until('return !!document.querySelector(".add-card, .empty-state");');
+  const click = text => driver.exec('Array.from(document.querySelectorAll("button")).find(button=>button.textContent.trim()===arguments[0] || button.getAttribute("aria-label")===arguments[0]).click();',text);
   await click('Новая закладка');
   await driver.until('return !!document.querySelector("dialog input");');
   await driver.exec('const inputs=document.querySelectorAll("dialog input"); inputs[0].value=arguments[0];inputs[1].value="Firefox custom";for(const input of inputs)input.dispatchEvent(new Event("input",{bubbles:true}));',siteUrl);

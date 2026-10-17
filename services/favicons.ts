@@ -13,25 +13,37 @@ async function fetchBlob(source: string): Promise<Blob | null> {
   const blob = await response.blob();
   return blob.size <= 1024 * 1024 ? blob : null;
 }
+async function siteIcon(url: string, hint?: string): Promise<Blob | null> {
+  if (hint?.startsWith('data:')) return imageFromDataUrl(hint, 'Favicon');
+  const origin = new URL(url).origin;
+  if (hint) {
+    const source = normalizeUrl(hint);
+    if (new URL(source).origin !== origin) return null;
+    return fetchBlob(source);
+  }
+  // An unvisited site often has no entry in Chrome's local favicon database.
+  return fetchBlob(new URL('/favicon.ico', origin).href);
+}
 export async function faviconBlob(url: string, hint?: string): Promise<Blob | null> {
   try {
     let blob: Blob | null;
     if (import.meta.env.BROWSER !== 'firefox') {
-      blob = await fetchBlob(endpoint(normalizeUrl(url)));
-      if (!blob) return null;
-      const bytes = new Uint8Array(await blob.arrayBuffer());
+      url = normalizeUrl(url);
+      blob = await fetchBlob(endpoint(url)).catch(() => null);
+      const bytes = blob ? new Uint8Array(await blob.arrayBuffer()) : new Uint8Array();
       // Chrome's internal endpoint returns PNG bytes without a Content-Type.
-      if (!blob.type) {
-        if (![137,80,78,71,13,10,26,10].every((value,index) => bytes[index] === value)) return null;
-        blob = blob.slice(0, blob.size, 'image/png');
+      if (blob && !blob.type) {
+        blob = [137,80,78,71,13,10,26,10].every((value,index) => bytes[index] === value)
+          ? blob.slice(0, blob.size, 'image/png') : null;
       }
       chromePlaceholder ??= fetchBlob(endpoint('https://' + crypto.randomUUID() + '.invalid/')).then(async value => value ? new Uint8Array(await value.arrayBuffer()) : null).catch(() => null);
       const placeholder = await chromePlaceholder;
-      if (placeholder && bytes.length === placeholder.length && bytes.every((value,index) => value === placeholder[index])) return null;
+      if (placeholder && bytes.length === placeholder.length && bytes.every((value,index) => value === placeholder[index])) blob = null;
+      if (!blob) blob = await siteIcon(url, hint);
     } else {
       const value = hint || (await browser.tabs.query({})).find(tab => tab.url === url)?.favIconUrl;
-      if (!value) return null;
-      if (value.startsWith('data:')) blob = imageFromDataUrl(value, 'Favicon');
+      if (!value) blob = await siteIcon(normalizeUrl(url));
+      else if (value.startsWith('data:')) blob = imageFromDataUrl(value, 'Favicon');
       else {
         const source = normalizeUrl(value);
         if (new URL(source).origin !== new URL(url).origin) return null;

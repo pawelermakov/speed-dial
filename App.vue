@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, watch, onUnmounted } from 'vue';
+import { ref, shallowRef, computed, watch, nextTick, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
+import CategoryNameInput from './components/CategoryNameInput.vue';
 import FolderDialog from './components/FolderDialog.vue';
 import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
@@ -14,13 +15,17 @@ import { useDial, repository } from './composables/useDial';
 import { requestThumbnail } from './services/thumbnails';
 import { parseImport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
-import type { Bookmark, Settings } from './types/models';
+import type { Bookmark, Category, Settings } from './types/models';
 
 const { snapshot, loading, busy, notice, run, refresh, announce } = useDial();
 const capturing = ref(false);
 const folderOpen = ref(false);
 const folderError = ref('');
 const categoryDrag = ref<string>();
+const creatingCategory = ref(false);
+const editingCategory = shallowRef<{ id: string; title: string }>();
+const categoryAddButton = ref<HTMLButtonElement>();
+watch(() => snapshot.value.rootId, () => { creatingCategory.value = false; editingCategory.value = undefined; });
 const disabled = computed(() => loading.value || busy.value || capturing.value);
 const settingsOpen = ref(false);
 const bookmarkDialog = ref(false);
@@ -30,7 +35,7 @@ const importError = ref('');
 const mailRevision = ref(0);
 const transfer = ref<'import' | 'export'>();
 const exportText = ref('');
-const context = shallowRef<{ x: number; y: number; bookmark?: Bookmark }>();
+const context = shallowRef<{ x: number; y: number; bookmark?: Bookmark; category?: Category }>();
 const backgroundUrl = ref('');
 watch(() => snapshot.value.background, blob => {
   if (backgroundUrl.value) URL.revokeObjectURL(backgroundUrl.value);
@@ -43,6 +48,11 @@ function showContext(event: MouseEvent, bookmark?: Bookmark) {
   if ((event.target as HTMLElement).closest('input,textarea,button,dialog') || disabled.value || settingsOpen.value || bookmarkDialog.value || transfer.value) return;
   event.preventDefault();
   context.value = { x: event.clientX, y: event.clientY, bookmark };
+}
+function showCategoryContext(event: MouseEvent | KeyboardEvent, category: Category) {
+  if (category.virtual || disabled.value || settingsOpen.value || bookmarkDialog.value || transfer.value || folderOpen.value) return;
+  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  context.value = { x: event instanceof MouseEvent ? event.clientX : bounds.left, y: event instanceof MouseEvent ? event.clientY : bounds.bottom, category };
 }
 async function saveBookmark(value: { url: string; title: string; capture: boolean; parentId?: string }) {
   if (disabled.value) return;
@@ -68,8 +78,13 @@ async function saveBookmark(value: { url: string; title: string; capture: boolea
 }
 async function action(name: string) {
   const selected = context.value?.bookmark;
+  const category = context.value?.category;
   context.value = undefined;
   try {
+    if (category) {
+      if (name === 'edit' || name === 'delete') await categoryAction(name === 'edit' ? 'rename' : 'delete', category.id);
+      return;
+    }
     if (name === 'add') add();
     if (name === 'category') await categoryAction('create');
     if (name === 'settings') settingsOpen.value = true;
@@ -133,11 +148,33 @@ async function selectFolder(id: string, create = false) {
   else folderError.value = notice.value;
 }
 async function selectCategory(id: string) { repository.activeId = id; try { await refresh(); } catch (error) { notice.value = fail(error); } }
-async function categoryAction(name: 'create' | 'rename' | 'delete') {
-  const id = snapshot.value.activeId;
-  if (name === 'create') { const title = prompt('Название новой категории'); if (title) await run(() => repository.createCategory(title)); }
+async function beginCategory() {
+  if (disabled.value || !snapshot.value.rootId) return;
+  context.value = undefined;
+  editingCategory.value = undefined;
+  creatingCategory.value = true;
+}
+async function cancelCategory() {
+  if (disabled.value) return;
+  creatingCategory.value = false;
+  editingCategory.value = undefined;
+  await nextTick();
+  categoryAddButton.value?.focus();
+}
+async function saveCategory(title: string) {
+  if (disabled.value || (!creatingCategory.value && !editingCategory.value)) return;
+  const selected = editingCategory.value;
+  if (await run(() => selected ? repository.renameCategory(selected.id, title) : repository.createCategory(title))) await cancelCategory();
+}
+async function categoryAction(name: 'create' | 'rename' | 'delete', id = snapshot.value.activeId) {
+  if (name === 'create') { await beginCategory(); return; }
   if (!id || id === snapshot.value.rootId) return;
-  if (name === 'rename') { const title = prompt('Название категории', snapshot.value.categories.find(row => row.id === id)?.title); if (title) await run(() => repository.renameCategory(id, title)); }
+  if (name === 'rename') {
+    if (disabled.value) return;
+    const category = await repository.category(id);
+    creatingCategory.value = false;
+    editingCategory.value = { id, title: category.title };
+  }
   if (name === 'delete' && confirm('Удалить реальную папку браузера и ВСЕ её потомки, включая скрытые вложенные папки? Удаление может синхронизироваться на другие устройства.')) await run(() => repository.removeCategory(id));
 }
 async function clearFolder() { if (confirm('Удалить все закладки и категории выбранной папки браузера? Это реальное удаление с возможной синхронизацией. При скрытых вложенных папках очистка будет заблокирована.')) await run(() => repository.clear()); }
@@ -168,10 +205,13 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         <p v-if="loading" role="status" class="text-white text-center">Загрузка…</p>
         <div v-else-if="!snapshot.rootId" class="text-white text-center my-8"><p>Выберите или создайте основную папку закладок.</p><button class="mt-3" :disabled="disabled" @click="folderOpen = true">Выбрать папку</button></div>
         <template v-else>
-        <nav v-if="snapshot.categories.length" aria-label="Категории" class="flex flex-wrap gap-3 my-4">
-          <button v-for="category in snapshot.categories" :key="category.id" :disabled="disabled" :aria-pressed="category.id === snapshot.activeId" class="p-2 rounded bg-white/80 aria-pressed:bg-[#ffcc00]" :draggable="!category.virtual && !disabled" @click="selectCategory(category.id)" @dragstart="categoryDrag = category.id" @dragend="categoryDrag = undefined" @dragover.prevent @drop.prevent="!category.virtual && dropCategory(category.id)">{{ category.title }}</button>
+        <nav v-if="snapshot.categories.length || creatingCategory" aria-label="Категории" class="flex flex-wrap gap-3 my-4">
+          <template v-for="category in snapshot.categories" :key="category.id">
+          <CategoryNameInput v-if="editingCategory?.id === category.id" :title="editingCategory.title" :disabled="disabled" @save="saveCategory" @cancel="cancelCategory" />
+          <button v-else :disabled="disabled" :aria-pressed="category.id === snapshot.activeId" class="p-2 rounded bg-white/80 aria-pressed:bg-[#ffcc00]" :draggable="!category.virtual && !disabled" :aria-haspopup="!category.virtual ? 'menu' : undefined" @contextmenu.stop.prevent="showCategoryContext($event, category)" @keydown.shift.f10.stop.prevent="showCategoryContext($event, category)" @click="selectCategory(category.id)" @dragstart="categoryDrag = category.id" @dragend="categoryDrag = undefined" @dragover.prevent @drop.prevent="!category.virtual && dropCategory(category.id)">{{ category.title }}</button></template>
+          <CategoryNameInput v-if="creatingCategory" :disabled="disabled" @save="saveCategory" @cancel="cancelCategory" />
+          <button v-else ref="categoryAddButton" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 rounded bg-white/80" aria-label="Новая категория" title="Новая категория" :disabled="disabled" @click="beginCategory">+</button>
         </nav>
-        <div v-if="snapshot.categories.length" class="flex flex-wrap gap-3 text-white my-3"><button :disabled="disabled" @click="categoryAction('create')">Новая категория</button><template v-if="snapshot.activeId !== snapshot.rootId"><button :disabled="disabled" @click="categoryAction('rename')">Переименовать категорию</button><button :disabled="disabled" @click="categoryAction('delete')">Удалить категорию</button></template></div>
         <BookmarkGrid :tabs="snapshot.tabs" :settings="snapshot.settings" :disabled="disabled"
           @add="add" @context="showContext" @reorder="reorder" />
         </template>
@@ -191,6 +231,6 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     <ImportExportDialog v-if="transfer" :mode="transfer" :value="exportText" :busy="disabled" :operation-error="importError" @close="transfer = undefined" @import="importData" />
     </Transition>
     <FolderDialog v-if="folderOpen" :busy="disabled" :error="folderError" @close="folderOpen = false" @select="selectFolder" @create="selectFolder($event, true)" />
-    <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" @close="context = undefined" @action="action" />
+    <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" :category="context.category" @close="context = undefined" @action="action" />
   </div>
 </template>

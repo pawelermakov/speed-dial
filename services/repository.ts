@@ -70,7 +70,7 @@ export class Repository {
         tabs = await Promise.all(nodes.filter(node => node.url).map(async node => {
           const url = node.url!;
           const cache = await this.images.get(node.id, url);
-          return { id: node.id, parentId: node.parentId!, url, title: node.title || url, index: node.index ?? 0, thumbnail: cache?.thumbnail ?? null, favicon: cache?.favicon ?? null };
+          return { id: node.id, parentId: node.parentId!, url, title: node.title || url, index: node.index ?? 0, thumbnail: cache?.thumbnail ?? null, favicon: cache?.favicon ?? null, faviconColor: cache?.faviconColor ?? undefined, thumbnailUpdatedAt: cache?.thumbnailUpdatedAt, faviconUpdatedAt: cache?.faviconUpdatedAt };
         }));
       }
     }

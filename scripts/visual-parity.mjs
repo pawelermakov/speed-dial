@@ -41,7 +41,9 @@ try {
   const freeze = () => page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important}' });
   await freeze();
   async function shot(name) {
-    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await page.evaluate(async () => {
+      for (let frame = 0; frame < 5; frame++) await new Promise(requestAnimationFrame);
+    });
     await page.mouse.move(0, 0);
     if (name !== 'search') await page.evaluate(() => document.activeElement?.blur());
     await page.evaluate(() => document.fonts.ready);
@@ -60,11 +62,14 @@ try {
       return { changed, total: x.length / 4, percent: changed / (x.length / 4) * 100 };
     }, ['data:image/png;base64,' + baseline.toString('base64'), 'data:image/png;base64,' + current.toString('base64')]);
     results.push({ name, ...diff }); console.log(name, diff);
-    const changedBySpec = ['settings', 'add', 'edit', 'import', 'export', 'page-context'].includes(name);
+    const changedBySpec = ['grid-360', 'settings', 'add', 'edit', 'import', 'export', 'page-context'].includes(name);
     if (changedBySpec) {
-      console.log('REVIEW', name, 'intentional folder/category/safety controls; original baseline retained');
+      console.log('REVIEW', name, 'intentional responsive grid / folder / category controls; original baseline retained');
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
       expect(overflow, name + ' horizontal overflow').toBe(false);
+      if (name === 'grid-360') {
+        expect(await page.locator('.bookmark').first().evaluate(el => el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(140);
+      }
     } else expect(diff.changed, name + ' differs from the fixed original-design reference').toBeLessThanOrEqual(4);
   }
   const settings = async () => {
@@ -73,7 +78,13 @@ try {
   };
   const close = () => page.getByRole('button', { name: 'Закрыть', exact: true }).click();
   for (const [width, height] of [[360, 800], [1280, 800], [1920, 1080]]) {
-    await page.setViewportSize({ width, height }); await shot('grid-' + width);
+    await page.setViewportSize({ width, height });
+    if (width !== 1920) {
+      await page.reload();
+      await expect(page.locator('.bookmark-title')).toHaveCount(8);
+      await freeze();
+    }
+    await shot('grid-' + width);
   }
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.locator('.page').click({ button: 'right', position: { x: 10, y: 10 } }); await shot('page-context');
