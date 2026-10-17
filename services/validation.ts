@@ -32,7 +32,7 @@ export function validateSettings(input: unknown): Settings {
     throw new Error('Некорректный E-mail.');
   return {
     width: number('width', 50, 100), countColumns: number('countColumns', 2, 12), space: number('space', 0, 48),
-    verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), email: email.trim(),
+    verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch: boolean(data.bookmarkSearch, true), email: email.trim(),
   };
 }
 export function safeFavicon(value: unknown): string {

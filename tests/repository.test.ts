@@ -18,6 +18,47 @@ afterEach(async () => { await db.delete(); });
 async function setup() { const node = await api.create({parentId:'other',title:'Speed Dial'}); await repo.selectRoot(node.id); }
 const add = (url = 'https://example.com/') => repo.add({ url, title: 'Свой заголовок' });
 describe('browser bookmarks source', () => {
+  it('defaults bookmark search on for old preferences and persists an explicit opt-out', async () => {
+    await setup();
+    const legacy = { ...defaults } as Partial<typeof defaults>;
+    delete legacy.bookmarkSearch;
+    stored = { value:legacy as typeof defaults };
+    expect((await repo.load()).settings.bookmarkSearch).toBe(true);
+    const write=vi.spyOn(settingsPort,'setValue');
+    await repo.saveSettings({...defaults},undefined,repo.rootId!);
+    expect(write).not.toHaveBeenCalled();
+    await repo.saveSettings({...defaults,bookmarkSearch:false});
+    expect((await repo.load()).settings.bookmarkSearch).toBe(false);
+    await repo.reset();expect((await repo.load()).settings.bookmarkSearch).toBe(true);
+  });
+  it('searches titles and URLs in root and direct categories without changing active category or bookmarks', async () => {
+    await setup(); const root=repo.rootId!;
+    const direct=await api.create({parentId:root,title:'MATCH root',url:'https://root.example/'});
+    const a=await api.create({parentId:root,title:'Work'}), b=await api.create({parentId:root,title:'Personal'});
+    const first=await api.create({parentId:a.id,title:'First',url:'https://example.com/MATCH'});
+    const second=await api.create({parentId:b.id,title:'Match second',url:'https://second.example/'});
+    const deep=await api.create({parentId:a.id,title:'Hidden'});
+    await api.create({parentId:deep.id,title:'Match hidden',url:'https://hidden.example/'});
+    repo.activeId=b.id;
+    const tree=await api.getTree();
+    const results=await repo.search('  mAtCh  ');
+    expect(results.map(row=>[row.id,row.parentId])).toEqual([[direct.id,root],[first.id,a.id],[second.id,b.id]]);
+    expect(repo.activeId).toBe(b.id);expect(await api.getTree()).toEqual(tree);
+    expect(await repo.search('  ')).toEqual([]);expect(await repo.search('missing')).toEqual([]);
+  });
+  it('search rereads external edits and never reuses images for an updated URL', async () => {
+    await setup();const id=await add('https://example.com/match');
+    await repo.cache(id,'https://example.com/match','thumbnail',new Blob(['image'],{type:'image/png'}));
+    expect((await repo.search('match'))[0]?.thumbnail).toBeTruthy();
+    await api.update(id,{url:'https://other.example/match',title:'Changed'});
+    expect((await repo.search('match'))[0]).toMatchObject({title:'Changed',url:'https://other.example/match',thumbnail:null});
+    await api.remove(id);expect(await repo.search('match')).toEqual([]);
+  });
+  it('propagates search read failures and handles a missing source', async () => {
+    expect(await repo.search('match')).toEqual([]);await setup();
+    vi.spyOn(api,'getSubTree').mockRejectedValueOnce(new Error('read failed'));
+    await expect(repo.search('match')).rejects.toThrow('read failed');
+  });
   it('preserves a valid saved source across updates and renames', async () => {
     await setup(); const id=repo.rootId!; await add();
     await api.update(id,{title:'Моя папка'});

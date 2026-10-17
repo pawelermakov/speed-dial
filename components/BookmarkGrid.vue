@@ -4,7 +4,7 @@ import { BookmarkImages } from '../utils/bookmarkImages';
 import type { Bookmark, Settings } from '../types/models';
 import TileHostname from './TileHostname.vue';
 import { tileHostname, tileColor, fitTileColumns } from '../utils/tile';
-const props = defineProps<{ tabs: Bookmark[]; settings: Settings; disabled: boolean }>();
+const props = defineProps<{ tabs: Bookmark[]; settings: Settings; disabled: boolean; searching?: boolean }>();
 const emit = defineEmits<{ add: []; context: [event: MouseEvent, bookmark: Bookmark]; reorder: [ids: string[]] }>();
 const previews = ref<Record<string, string>>({});
 const icons = ref<Record<string, string>>({});
@@ -34,7 +34,7 @@ onMounted(() => {
 });
 onUnmounted(() => { disposed = true; generation++; observer?.disconnect(); images.dispose(); });
 function start(event: DragEvent, id: string) {
-  if (props.disabled) { event.preventDefault(); return; }
+  if (props.disabled || props.searching) { event.preventDefault(); return; }
   dragId.value = id;
   event.dataTransfer?.setData('text/plain', String(id));
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
@@ -43,7 +43,7 @@ function finish() { dragId.value = null; overId.value = null; }
 function drop(target?: string) {
   const ids = props.tabs.map(tab => tab.id);
   const from = ids.indexOf(dragId.value!);
-  if (from < 0 || props.disabled) { finish(); return; }
+  if (from < 0 || props.disabled || props.searching) { finish(); return; }
   const to = target === undefined ? ids.length - 1 : ids.indexOf(target);
   if (to < 0) { finish(); return; }
   const [id] = ids.splice(from, 1);
@@ -58,7 +58,7 @@ function drop(target?: string) {
     }" @dragover.prevent @drop.self.prevent="drop()">
     <a v-for="tab in tabs" :key="tab.id" class="bookmark relative overflow-hidden group block min-w-0 pt-[56.25%] h-auto rounded-[5px] bg-white/80 bg-center bg-cover bg-no-repeat text-black shadow-[0_1px_3px_rgb(50_50_50/0.3)] hover:shadow-[0_0_15px_rgb(50_50_50/0.5)] [&.dragging]:opacity-40 [&.drop-target]:outline-3 [&.drop-target]:outline-[#ffcc00] transition-all duration-250 ease-in-out motion-reduce:transition-none"
       :class="{ dragging: dragId === tab.id, 'drop-target': overId === tab.id }"
-      :href="tab.url" :title="tab.title + ' — ' + tab.url" :aria-label="tab.title + ' — ' + tab.url" :draggable="!disabled"
+      :href="tab.url" :title="tab.title + ' — ' + tab.url" :aria-label="tab.title + ' — ' + tab.url" :draggable="!disabled && !searching"
       :style="{ backgroundImage: previews[tab.id] ? 'url(' + previews[tab.id] + ')' : undefined, backgroundColor: previews[tab.id] ? undefined : tab.faviconColor ?? tileColor(tileHostname(tab.url)) }"
       @contextmenu.stop.prevent="emit('context', $event, tab)"
       @dragstart="start($event, tab.id)" @dragend="finish" @dragenter.prevent="overId = tab.id"
@@ -70,6 +70,6 @@ function drop(target?: string) {
         <span class="truncate">{{ tab.title }}</span>
       </span>
     </a>
-    <button v-if="(!tabs.length || settings.addButton) && dragId === null" class="add-card block min-w-0 pt-[56.25%] h-auto rounded-[5px] border border-black/20 bg-black/10 bg-[url(/images/newtab.png)] bg-center bg-no-repeat bg-size-[auto] shadow-[inset_0_0_3px_rgb(50_50_50/0.5)] hover:bg-black/30 transition-all duration-250 ease-in-out motion-reduce:transition-none" aria-label="Новая закладка" :disabled="disabled" @click="emit('add')" />
+    <button v-if="!searching && (!tabs.length || settings.addButton) && dragId === null" class="add-card block min-w-0 pt-[56.25%] h-auto rounded-[5px] border border-black/20 bg-black/10 bg-[url(/images/newtab.png)] bg-center bg-no-repeat bg-size-[auto] shadow-[inset_0_0_3px_rgb(50_50_50/0.5)] hover:bg-black/30 transition-all duration-250 ease-in-out motion-reduce:transition-none" aria-label="Новая закладка" :disabled="disabled" @click="emit('add')" />
   </section>
 </template>

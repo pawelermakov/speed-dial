@@ -4,6 +4,8 @@ import { browser } from 'wxt/browser';
 import CategoryNameInput from './components/CategoryNameInput.vue';
 import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
+import BookmarkSearch from './components/BookmarkSearch.vue';
+import { useBookmarkSearch } from './composables/useBookmarkSearch';
 import BookmarkDialog from './components/BookmarkDialog.vue';
 import SearchBar from './components/SearchBar.vue';
 import MailIndicator from './components/MailIndicator.vue';
@@ -16,7 +18,23 @@ import { parseImport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
 import type { Bookmark, Category, Settings } from './types/models';
 
-const { snapshot, loading, busy, notice, run, refresh, announce } = useDial();
+const { snapshot, loading, busy, notice, run, refresh, announce, revision } = useDial();
+const { query, results, pending: searchPending, error: searchError } = useBookmarkSearch(repository, snapshot, revision);
+const searchOpen = ref(false);
+const searchControl = ref<InstanceType<typeof BookmarkSearch>>();
+const searching = computed(() => searchOpen.value && !!query.value.trim());
+const showEmptySearch = ref(false);
+let emptySearchTimer: ReturnType<typeof setTimeout> | undefined;
+watch([query, searchOpen, searchPending, searchError, results], () => {
+  clearTimeout(emptySearchTimer);
+  showEmptySearch.value = false;
+  if (searching.value && !searchPending.value && !searchError.value && !results.value.length)
+    emptySearchTimer = setTimeout(() => { showEmptySearch.value = true; }, 400);
+}, { flush: 'sync' });
+onUnmounted(() => clearTimeout(emptySearchTimer));
+function openSearch() { if (!snapshot.value.settings.bookmarkSearch) return; searchOpen.value = true; void searchControl.value?.focus(); }
+function closeSearch(restoreFocus = true) { searchOpen.value = false; query.value = ''; if (restoreFocus) void searchControl.value?.restoreFocus(); }
+watch(() => snapshot.value.settings.bookmarkSearch, enabled => { if (!enabled) closeSearch(false); });
 const capturing = ref(false);
 const categoryDrag = ref<string>();
 const creatingCategory = ref(false);
@@ -127,7 +145,7 @@ async function importData(text: string) {
     else importError.value = notice.value;
   } catch (error) { importError.value = fail(error); }
 }
-function reorder(ids: string[]) { void run(() => repository.reorder(ids)); }
+function reorder(ids: string[]) { if (!searching.value) void run(() => repository.reorder(ids)); }
 async function reset() {
   if (confirm('Сбросить настройки, фон и локальный кэш изображений? Закладки браузера сохранятся.')) {
     if (await run(() => repository.reset())) { settingsOpen.value = false; notice.value = 'Настройки и локальный кэш сброшены. Закладки сохранены.'; }
@@ -145,7 +163,7 @@ async function updateImages(id: string, url: string) {
   await refresh(); announce();
   if (results[0]?.status === 'rejected') throw results[0].reason;
 }
-async function selectCategory(id: string) { repository.activeId = id; try { await refresh(); } catch (error) { notice.value = fail(error); } }
+async function selectCategory(id: string) { if (searchOpen.value) closeSearch(); repository.activeId = id; try { await refresh(); } catch (error) { notice.value = fail(error); } }
 async function beginCategory() {
   if (disabled.value || !snapshot.value.rootId) return;
   context.value = undefined;
@@ -182,7 +200,11 @@ async function dropCategory(id: string) {
 }
 function beforeDialogLeave(element: Element) { (element as HTMLElement).inert = true; }
 function escape(event: KeyboardEvent) {
+  if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !disabled.value && snapshot.value.settings.bookmarkSearch && snapshot.value.rootId && !settingsOpen.value && !bookmarkDialog.value && !transfer.value && !context.value && !(event.target as HTMLElement).closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),dialog,[role="dialog"]')) {
+    event.preventDefault(); openSearch(); return;
+  }
   if (event.key !== 'Escape' || disabled.value) return;
+  if (searchOpen.value && !settingsOpen.value && !bookmarkDialog.value && !transfer.value && !context.value) { event.preventDefault(); closeSearch(); return; }
   context.value = undefined; settingsOpen.value = false;
 }
 window.addEventListener('keydown', escape);
@@ -202,14 +224,23 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         <p v-if="loading" role="status" class="text-white text-center">Загрузка…</p>
         <div v-else-if="!snapshot.rootId" class="text-white text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
         <template v-else>
-        <nav v-if="snapshot.categories.length || creatingCategory" aria-label="Категории" class="flex flex-wrap gap-3 my-4">
+        <div v-if="snapshot.settings.bookmarkSearch || snapshot.categories.length || creatingCategory" class="bookmark-toolbar relative flex items-center min-h-9 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
+        <nav v-if="snapshot.categories.length || creatingCategory" aria-label="Категории" class="flex flex-wrap gap-3 min-w-0 w-full" :class="{ invisible: searchOpen, 'pr-12': snapshot.settings.bookmarkSearch }" :inert="searchOpen" :aria-hidden="searchOpen || undefined">
           <template v-for="category in snapshot.categories" :key="category.id">
           <CategoryNameInput v-if="editingCategory?.id === category.id" :title="editingCategory.title" :disabled="disabled" @save="saveCategory" @cancel="cancelCategory" />
           <button v-else :disabled="disabled" :aria-pressed="category.id === snapshot.activeId" class="p-2 rounded bg-white/80 aria-pressed:bg-[#ffcc00]" :draggable="!category.virtual && !disabled" :aria-haspopup="!category.virtual ? 'menu' : undefined" @contextmenu.stop.prevent="showCategoryContext($event, category)" @keydown.shift.f10.stop.prevent="showCategoryContext($event, category)" @click="selectCategory(category.id)" @dragstart="categoryDrag = category.id" @dragend="categoryDrag = undefined" @dragover.prevent @drop.prevent="!category.virtual && dropCategory(category.id)">{{ category.title }}</button></template>
           <CategoryNameInput v-if="creatingCategory" :disabled="disabled" @save="saveCategory" @cancel="cancelCategory" />
           <button v-else ref="categoryAddButton" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 rounded bg-white/80" aria-label="Новая категория" title="Новая категория" :disabled="disabled" @click="beginCategory">+</button>
         </nav>
-        <BookmarkGrid :tabs="snapshot.tabs" :settings="snapshot.settings" :disabled="disabled"
+        <BookmarkSearch v-if="snapshot.settings.bookmarkSearch" ref="searchControl" :open="searchOpen" v-model:query="query" :disabled="disabled" @open="openSearch" @close="closeSearch" />
+        </div>
+        <p v-if="searching && searchError" role="alert" class="text-white text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
+        <div v-else-if="showEmptySearch" role="status" class="mx-auto min-h-36 flex flex-col items-center justify-center gap-2 rounded-[5px] bg-white/65 p-6 text-center text-[#454952]" :style="{ width: snapshot.settings.width + '%' }">
+          <svg class="mb-1 opacity-50" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+          <p>Закладки не найдены</p>
+          <p class="text-sm opacity-75">Попробуйте другое название или адрес сайта.</p>
+        </div>
+        <BookmarkGrid :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
           @add="add" @context="showContext" @reorder="reorder" />
         </template>
       </div>

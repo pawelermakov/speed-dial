@@ -60,6 +60,23 @@ export class Repository {
     await this.parent(node.parentId);
     return node;
   }
+  async search(query: string): Promise<Bookmark[]> {
+    const text = query.trim().toLocaleLowerCase();
+    const rootId = this.rootId;
+    if (!text || !rootId) return [];
+    const tree = await this.bookmarks.getSubTree(rootId);
+    const root = tree[0];
+    if (!root || root.unmodifiable) throw new Error('Папка закладок недоступна.');
+    const children = root.children ?? [];
+    const rows = children.flatMap(node => node.url ? [node] : (node.children ?? []).filter(child => child.url));
+    return Promise.all(rows.filter(node => (node.title + '\n' + node.url).toLocaleLowerCase().includes(text)).map(async node => {
+      const url = node.url!;
+      const cache = await this.images.get(node.id, url);
+      return { id:node.id, parentId:node.parentId!, url, title:node.title || url, index:node.index ?? 0,
+        thumbnail:cache?.thumbnail ?? null, favicon:cache?.favicon ?? null, faviconColor:cache?.faviconColor ?? undefined,
+        thumbnailUpdatedAt:cache?.thumbnailUpdatedAt, faviconUpdatedAt:cache?.faviconUpdatedAt };
+    }));
+  }
   async load(): Promise<Snapshot> {
     const generation = ++this.readGeneration;
     const initialRoot = this.rootId;
@@ -97,7 +114,8 @@ export class Repository {
     const next = validateSettings(settings);
     if (rootId !== undefined) await this.folder(rootId);
     const previous = await this.settings.getValue();
-    const settingsChanged = (Object.keys(defaults) as Array<keyof Settings>).some(key => next[key] !== (previous?.value ?? defaults)[key]);
+    const previousSettings = validateSettings(previous?.value);
+    const settingsChanged = (Object.keys(defaults) as Array<keyof Settings>).some(key => next[key] !== previousSettings[key]);
     const previousBackground = background !== undefined ? await this.db.assets.get('background') : undefined;
     let wroteSettings = false, wroteBackground = false;
     try {

@@ -11,6 +11,7 @@ export const repository = new Repository(db, settingsItem, browser.bookmarks, ro
 export function useDial() {
   const snapshot = shallowRef<Snapshot>({ tabs: [], categories: [], rootId: null, activeId: null, settings: { ...defaults }, background: null });
   const loading = ref(true), busy = ref(false), notice = ref('');
+  const revision = ref(0);
   const channel = new BroadcastChannel('speed-dial-updates');
   let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, disposed = false;
   const attempted = new Set<string>();
@@ -31,7 +32,7 @@ export function useDial() {
       }).catch(() => {});
     }
   };
-  const schedule = () => { generation++; clearTimeout(timer); timer = setTimeout(() => { void refresh().catch(error => { notice.value = errorText(error); }); }, 60); };
+  const schedule = () => { generation++; revision.value++; clearTimeout(timer); timer = setTimeout(() => { void refresh().catch(error => { notice.value = errorText(error); }); }, 60); };
   const run = async (operation: () => Promise<unknown>): Promise<boolean> => {
     if (busy.value || loading.value) return false;
     busy.value = true;
@@ -69,5 +70,5 @@ export function useDial() {
   });
   onUnmounted(() => { unwatchRoot(); disposed = true; generation++; clearTimeout(timer); events.forEach(event => event?.removeListener(bookmarkEvent)); browser.tabs?.onUpdated?.removeListener(tabUpdated); channel.close(); });
   const announce = () => channel.postMessage('updated');
-  return { snapshot, loading, busy, notice, run, refresh, announce };
+  return { snapshot, loading, busy, notice, run, refresh, announce, revision };
 }
