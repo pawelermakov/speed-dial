@@ -4,13 +4,18 @@ import type { SettingsPort } from './settings';
 import { defaults, type Bookmark, type Settings, type Snapshot, type ImportData, type SearchProviderId } from '../types/models';
 import { normalizeUrl, validateSettings } from './validation';
 import { folderChoices, defaultFolderId, type BookmarksPort, type RootPort, type BookmarkNode } from './bookmarks';
-export async function withDataLock<T>(operation: () => Promise<T>): Promise<T> { return navigator.locks ? navigator.locks.request('speed-dial-data', operation) : operation(); }
+let localQueue:Promise<unknown>=Promise.resolve();
+export async function withDataLock<T>(operation: () => Promise<T>): Promise<T> {
+  if(navigator.locks)return navigator.locks.request('speed-dial-data', operation);
+  const pending=localQueue.then(operation);localQueue=pending.catch(()=>{});return pending;
+}
 export class Repository {
   rootId: string | null = null;
   activeId: string | null = null;
   private readGeneration = 0;
   private sourceNotice: string | undefined;
   clearSourceNotice() { this.sourceNotice = undefined; }
+  selectCategory(id:string) { this.readGeneration++;this.activeId=id; }
   private images: BookmarkAssetStore;
   constructor(private db: DialDatabase, private settings: SettingsPort, readonly bookmarks: BookmarksPort, private root: RootPort) { this.images = new BookmarkAssetStore(db); }
   async choices() { return folderChoices(await this.bookmarks.getTree()); }
@@ -77,12 +82,12 @@ export class Repository {
         thumbnailUpdatedAt:cache?.thumbnailUpdatedAt, faviconUpdatedAt:cache?.faviconUpdatedAt };
     }));
   }
-  async load(): Promise<Snapshot> {
+  async load(includeBackground = true): Promise<Snapshot> {
     const generation = ++this.readGeneration;
     const initialRoot = this.rootId;
     let rootId = initialRoot, activeId = this.activeId;
     const envelope = await this.settings.getValue();
-    const background = await this.db.assets.get('background').catch(() => undefined);
+    const background = includeBackground ? await this.db.assets.get('background') : undefined;
     let rootNotice = this.sourceNotice;
     const choices = await this.choices();
     if (!rootId || !choices.some(choice => choice.id === rootId)) {
@@ -137,10 +142,20 @@ export class Repository {
     }
   }
   async saveSearchProvider(searchProvider: SearchProviderId) {
+    await this.patchSettings({ searchProvider });
+  }
+  async patchSettings(patch: Partial<Settings>): Promise<Settings> {
+    if (Object.keys(patch).some(key => !Object.hasOwn(defaults,key))) throw new Error('Неизвестный параметр настроек.');
     const current = validateSettings((await this.settings.getValue())?.value);
-    await this.saveSettings({ ...current, searchProvider });
+    const next = validateSettings({ ...current, ...patch });
+    await this.saveSettings(next);
+    return next;
   }
   async reset() { await this.saveSettings({ ...defaults }, null); await this.images.clear(); }
+  async saveBackground(background: Blob | null) {
+    if (background) await this.db.assets.put({ key:'background', blob:background });
+    else await this.db.assets.delete('background');
+  }
   async add(input: { url: string; title: string }) {
     const parent = await this.parent(); const url = normalizeUrl(input.url);
     return (await this.bookmarks.create({ parentId: parent.id, url, title: input.title || new URL(url).hostname })).id;

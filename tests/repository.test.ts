@@ -18,6 +18,24 @@ afterEach(async () => { await db.delete(); });
 async function setup() { const node = await api.create({parentId:'other',title:'Speed Dial'}); await repo.selectRoot(node.id); }
 const add = (url = 'https://example.com/') => repo.add({ url, title: 'Свой заголовок' });
 describe('browser bookmarks source', () => {
+  it('an older category read cannot reset the latest requested category',async()=>{
+    await setup();const a=await api.create({parentId:repo.rootId!,title:'A'}),b=await api.create({parentId:repo.rootId!,title:'B'});
+    const original=api.getChildren.bind(api);let release!:(value:Awaited<ReturnType<typeof api.getChildren>>)=>void;
+    vi.spyOn(api,'getChildren').mockImplementationOnce(()=>new Promise(resolve=>{release=resolve;}));
+    repo.selectCategory(a.id);const old=repo.load(false);await vi.waitFor(()=>expect(release).toBeTypeOf('function'));
+    repo.selectCategory(b.id);release(await original(repo.rootId!));await old;
+    expect(repo.activeId).toBe(b.id);expect((await repo.load(false)).activeId).toBe(b.id);
+  });
+  it('patches only current keys and does not reload background for bookmark-only reads',async()=>{
+    await setup();await repo.patchSettings({width:80});
+    const peer=new Repository(db,settingsPort,api,rootPort);
+    await peer.patchSettings({space:12});await repo.patchSettings({searchProvider:'google'});
+    expect(stored?.value).toMatchObject({width:80,space:12,searchProvider:'google'});
+    const get=vi.spyOn(db.assets,'get');await repo.load(false);expect(get).not.toHaveBeenCalled();
+    await repo.load();expect(get).toHaveBeenCalledWith('background');
+    await expect(repo.patchSettings({width:999})).rejects.toThrow();
+    expect(stored?.value.width).toBe(80);
+  });
   it('saves the search provider without overwriting current preferences or changing the bookmark source',async()=>{
     await setup();const source=repo.rootId;const bookmark=await add();
     await repo.saveSettings({...defaults,width:75,bookmarkSearch:false});

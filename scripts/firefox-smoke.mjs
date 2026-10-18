@@ -13,11 +13,10 @@ export async function firefoxSmoke(siteUrl, results) {
   await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
   await driver.until('return !!document.querySelector("#bookmark-folder") && !document.querySelector("#bookmark-folder").disabled;');
   await driver.exec('const select=document.querySelector("#bookmark-folder");select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}));',rootId);
-  assert.equal(await driver.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),defaultId);
-  await driver.exec('Array.from(document.querySelectorAll(".settings button")).find(button=>button.textContent.trim()==="Сохранить").click();');
+  await driver.exec(`document.querySelector('button[aria-label="Закрыть настройки"]').click();`);
   await driver.until('return !document.querySelector(".settings");');
   assert.equal(await driver.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),rootId);
-  results.push('firefox: native folder select applies only after Save');
+  results.push('firefox: native folder select autosaves and survives close');
   await driver.until('return !!document.querySelector(".add-card, .empty-state");');
   const click = text => driver.exec('Array.from(document.querySelectorAll("button")).find(button=>button.textContent.trim()===arguments[0] || button.getAttribute("aria-label")===arguments[0]).click();',text);
   await click('Новая закладка');
@@ -53,7 +52,7 @@ export async function firefoxSmoke(siteUrl, results) {
   await driver.until('return document.querySelectorAll(".bookmark").length===0;');
   results.push('firefox: category transfer, external change, UI edit and external category removal');
   await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
-  await driver.until('return document.querySelector(".settings")?.textContent.includes("Статус синхронизации недоступен в Firefox");');
+  await driver.until('return document.querySelector(".settings")?.textContent.includes("Статус недоступен");');
   await driver.exec('window.confirm=()=>true;'); await click('Сбросить настройки и кэш');
   await driver.until('return document.querySelector(".notice")?.textContent.includes("Настройки и локальный кэш сброшены");');
   assert.ok((await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].id;',rootId))===rootId);

@@ -4,7 +4,8 @@ import { storage } from 'wxt/utils/storage';
 import { db } from '../services/database';
 import { settingsItem } from '../services/settings';
 import { Repository, withDataLock } from '../services/repository';
-import { defaults, searchProviderIds, type SearchProviderId, type Snapshot } from '../types/models';
+import { defaults, type SearchProviderId, type Settings, type Snapshot } from '../types/models';
+import { validateSettings } from '../services/validation';
 import { faviconBlob } from '../services/favicons';
 const rootItem = storage.defineItem<string>('local:rootFolderId');
 export const repository = new Repository(db, settingsItem, browser.bookmarks, rootItem);
@@ -12,52 +13,92 @@ export function useDial() {
   const snapshot = shallowRef<Snapshot>({ tabs: [], categories: [], rootId: null, activeId: null, settings: { ...defaults }, background: null });
   const loading = ref(true), busy = ref(false), notice = ref('');
   const revision = ref(0);
+  const settingErrors = ref<Record<string,string>>({});
+  let confirmed: Settings = { ...defaults };
+  const pendingFields = new Map<keyof Settings, { version:number; value:Settings[keyof Settings] }>();
+  const saves = new Set<Promise<unknown>>();
+  let settingsVersion = 0, settingsRead = 0, rootVersion = 0, backgroundVersion = 0;
+  let backgroundDirty = true;
+  const fieldLabels:Record<keyof Settings,string> = {width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка «+»',bookmarkSearch:'Поиск по закладкам',searchProvider:'Источник поиска',email:'E-mail Mail.ru'};
+  function publishSettings() {
+    const settings = { ...confirmed };
+    for (const [key,entry] of pendingFields) Object.assign(settings,{[key]:entry.value});
+    snapshot.value = { ...snapshot.value, settings };
+  }
+  function track<T>(promise:Promise<T>):Promise<T> { saves.add(promise);void promise.finally(()=>saves.delete(promise)).catch(()=>{});return promise; }
+  async function flushSettings() { while(saves.size) await Promise.allSettled([...saves]); }
   const channel = new BroadcastChannel('speed-dial-updates');
   let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, disposed = false;
   const attempted = new Set<string>();
   const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
   const refresh = async () => {
     const sequence = ++generation;
-    const next = await withDataLock(() => repository.load());
+    const includeBackground = backgroundDirty;
+    const next = await withDataLock(() => repository.load(includeBackground));
     if (sequence !== generation || disposed) return;
-    snapshot.value = next;
-    if (next.rootNotice) { notice.value = next.rootNotice; repository.clearSourceNotice?.(); }
+    if (includeBackground) backgroundDirty = false;
+    confirmed = next.settings;
+    snapshot.value = { ...next, background:includeBackground ? next.background : snapshot.value.background };
+    publishSettings();
+    if (next.rootNotice) { notice.value = next.rootNotice;settingErrors.value={...settingErrors.value,root:next.rootNotice}; repository.clearSourceNotice?.(); }
     for (const tab of next.tabs.filter(tab => !tab.favicon)) {
       const key = tab.id + tab.url;
       if (attempted.has(key)) continue; attempted.add(key);
       void faviconBlob(tab.url).then(async blob => {
         if (!blob || disposed) return;
         await repository.cache(tab.id, tab.url, 'favicon', blob);
-        schedule(); channel.postMessage('updated');
+        schedule(); channel.postMessage({type:'updated'});
       }).catch(() => {});
     }
   };
   const schedule = () => { generation++; revision.value++; clearTimeout(timer); timer = setTimeout(() => { void refresh().catch(error => { notice.value = errorText(error); }); }, 60); };
-  const run = async (operation: () => Promise<unknown>): Promise<boolean> => {
+  const run = async (operation: () => Promise<unknown>, changesBackground = false): Promise<boolean> => {
     if (busy.value || loading.value) return false;
     busy.value = true;
-    try { await withDataLock(operation); await refresh(); channel.postMessage('updated'); return true; }
-    catch (error) { notice.value = errorText(error); await refresh().catch(() => {}); return false; }
+    try { await flushSettings();await withDataLock(operation);if(changesBackground){backgroundDirty=true;settingErrors.value={};}await refresh(); channel.postMessage({type:'updated',background:changesBackground}); return true; }
+    catch (error) { notice.value = errorText(error);if(changesBackground)backgroundDirty=true;await refresh().catch(() => {});return false; }
     finally { busy.value = false; }
   };
-  const updateSearchProvider = (searchProvider: SearchProviderId) => {
-    snapshot.value = { ...snapshot.value, settings: { ...snapshot.value.settings, searchProvider } };
+  const updateSettings = (patch: Partial<Settings>): Promise<boolean> => {
+    if (busy.value || loading.value) return Promise.resolve(false);
+    const version = ++settingsVersion, keys=Object.keys(patch) as Array<keyof Settings>;
+    try { validateSettings({...snapshot.value.settings,...patch}); }
+    catch(error) { settingErrors.value={...settingErrors.value,settings:errorText(error)};return Promise.resolve(false); }
+    for(const key of keys) { pendingFields.set(key,{version,value:patch[key]!});delete settingErrors.value[key]; }
+    publishSettings();
+    return track((async()=>{
+      try { const next=await withDataLock(()=>repository.patchSettings(patch));confirmed=next;return true; }
+      catch(error) {
+        for(const key of keys)if(pendingFields.get(key)?.version===version)settingErrors.value={...settingErrors.value,[key]:fieldLabels[key]+': не удалось сохранить. '+errorText(error)};
+        return false;
+      } finally {
+        for(const key of keys)if(pendingFields.get(key)?.version===version)pendingFields.delete(key);
+        if(!disposed)publishSettings();
+      }
+    })());
   };
-  const changeSearchProvider = async (searchProvider: SearchProviderId): Promise<boolean> => {
-    if (busy.value || loading.value) return false;
-    try {
-      await withDataLock(() => repository.saveSearchProvider(searchProvider));
-      if (disposed) return false;
-      updateSearchProvider(searchProvider);
-      channel.postMessage({ type: 'search-provider', provider: searchProvider });
-      return true;
-    } catch (error) { notice.value = errorText(error); return false; }
+  const changeSearchProvider = (searchProvider:SearchProviderId) => updateSettings({searchProvider});
+  const changeRoot = (id:string):Promise<boolean> => {
+    const version=++rootVersion;
+    return track((async()=>{try{await withDataLock(()=>repository.selectRoot(id));if(version===rootVersion){delete settingErrors.value.root;await refresh();channel.postMessage({type:'updated'});}return true;}
+      catch(error){if(version===rootVersion){settingErrors.value={...settingErrors.value,root:'Папка закладок: не удалось сохранить. '+errorText(error)};await refresh().catch(()=>{});}return false;}})());
+  };
+  const changeBackground = (blob:Blob|null):Promise<boolean> => {
+    const version=++backgroundVersion;
+    return track((async()=>{try{await withDataLock(()=>repository.saveBackground(blob));if(version===backgroundVersion){snapshot.value={...snapshot.value,background:blob};delete settingErrors.value.background;channel.postMessage({type:'updated',background:true});}return true;}
+      catch(error){if(version===backgroundVersion)settingErrors.value={...settingErrors.value,background:'Фон: не удалось сохранить. '+errorText(error)};return false;}})());
   };
   channel.onmessage = event => {
-    if (event.data?.type === 'search-provider' && searchProviderIds.includes(event.data.provider)) {
-      updateSearchProvider(event.data.provider);
-    } else schedule();
+    if(event.data?.background || event.data==='updated')backgroundDirty=true;
+    schedule();
   };
+  const unwatchSettings = settingsItem.watch?.(() => {
+    const sequence=++settingsRead;
+    void withDataLock(async()=>validateSettings((await settingsItem.getValue())?.value)).then(next=>{
+      if(disposed || sequence!==settingsRead)return;
+      confirmed=next;publishSettings();
+    }).catch(error=>{notice.value=errorText(error);});
+  });
   const unwatchRoot = rootItem.watch(async id => {
     if (disposed || id === repository.rootId) return;
     try {
@@ -85,7 +126,7 @@ export function useDial() {
     } catch (error) { notice.value = 'Не удалось открыть закладки. Проверьте разрешение расширения. ' + errorText(error); }
     finally { loading.value = false; }
   });
-  onUnmounted(() => { unwatchRoot(); disposed = true; generation++; clearTimeout(timer); events.forEach(event => event?.removeListener(bookmarkEvent)); browser.tabs?.onUpdated?.removeListener(tabUpdated); channel.close(); });
-  const announce = () => channel.postMessage('updated');
-  return { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider };
+  onUnmounted(() => { unwatchRoot();unwatchSettings?.(); disposed = true; generation++; clearTimeout(timer); events.forEach(event => event?.removeListener(bookmarkEvent)); browser.tabs?.onUpdated?.removeListener(tabUpdated); channel.close(); });
+  const announce = () => channel.postMessage({type:'updated'});
+  return { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors };
 }

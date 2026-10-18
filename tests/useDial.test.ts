@@ -13,16 +13,42 @@ const snapshot = (title: string) => ({ tabs: [{ id:'x', parentId:'root', title, 
 beforeEach(() => { vi.useFakeTimers(); state.mounted.length=0;state.unmounted.length=0;state.listeners.clear();state.load.mockReset().mockResolvedValue(snapshot('Initial'));state.initialize.mockReset().mockResolvedValue(undefined);vi.stubGlobal('BroadcastChannel',class { postMessage=state.post; close=state.close; onmessage=null; });vi.stubGlobal('navigator',{}); });
 afterEach(() => { state.unmounted.forEach(callback=>callback());vi.useRealTimers();vi.unstubAllGlobals(); });
 describe('browser event refresh lifecycle', () => {
+ it('a failed background write preserves the current image and exposes a persistent error',async()=>{
+   const initial={...snapshot('Initial'),background:new Blob(['old image'])};state.load.mockResolvedValueOnce(initial);
+   const dial=useDial();await state.mounted[0]!();
+   repository.saveBackground=vi.fn().mockRejectedValue(new Error('disk full'));
+   expect(await dial.changeBackground(new Blob(['new image']))).toBe(false);
+   expect(dial.snapshot.value.background).toBe(initial.background);
+   expect(dial.settingErrors.value.background).toContain('Фон');
+ });
+ it('does not let an earlier failed field write undo a later edit or unrelated fields',async()=>{
+   const dial=useDial();await state.mounted[0]!();
+   let rejectOld!:(error:Error)=>void;
+   repository.patchSettings=vi.fn().mockImplementationOnce(()=>new Promise((_resolve,reject)=>{rejectOld=reject;})).mockResolvedValueOnce({...defaults,width:90,space:12});
+   const old=dial.updateSettings({width:80});
+   const latest=dial.updateSettings({width:90,space:12});
+   await latest;rejectOld(new Error('old failure'));await old;
+   expect(dial.snapshot.value.settings).toMatchObject({width:90,space:12});
+   expect(dial.settingErrors.value).toEqual({});
+ });
+ it('rolls a failed latest field back and retains its named error',async()=>{
+   const dial=useDial();await state.mounted[0]!();
+   repository.patchSettings=vi.fn().mockRejectedValue(new Error('storage failed'));
+   expect(await dial.updateSettings({width:80})).toBe(false);
+   expect(dial.snapshot.value.settings.width).toBe(100);
+   expect(dial.settingErrors.value.width).toContain('Ширина');
+   state.load.mockClear();await dial.refresh();expect(state.load).toHaveBeenCalledWith(false);
+ });
  it('saves the search provider without reloading assets or disabling the page', async () => {
-   const save = vi.fn(async () => {});
-   repository.saveSearchProvider = save;
+   const save = vi.fn(async (patch:Partial<typeof defaults>) => ({...defaults,...patch}));
+   repository.patchSettings = save;
    const dial = useDial(); await state.mounted[0]!();
    const before = dial.snapshot.value;
    state.load.mockClear();
    const pending = dial.changeSearchProvider('google');
    expect(dial.busy.value).toBe(false);
    expect(await pending).toBe(true);
-   expect(save).toHaveBeenCalledWith('google');
+   expect(save).toHaveBeenCalledWith({searchProvider:'google'});
    expect(state.load).not.toHaveBeenCalled();
    expect(dial.snapshot.value.tabs).toBe(before.tabs);
    expect(dial.snapshot.value.background).toBe(before.background);

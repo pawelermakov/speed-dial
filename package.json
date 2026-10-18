@@ -21,6 +21,7 @@
     "test:providers": "node scripts/search-providers.mjs",
     "test:providers:live": "node scripts/search-providers.mjs --live",
     "test:providers:live:headed": "node scripts/search-providers.mjs --live --headed",
+    "test:settings": "node scripts/settings-autosave.mjs",
     "postinstall": "wxt prepare",
     "test:visual": "node scripts/visual-parity.mjs && node scripts/text-tiles.mjs",
     "test:tiles": "node scripts/text-tiles.mjs"

@@ -16,9 +16,10 @@ import { useDial, repository } from './composables/useDial';
 import { requestThumbnail } from './services/thumbnails';
 import { parseImport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
-import type { Bookmark, Category, Settings } from './types/models';
+import { BackgroundResource } from './utils/backgroundResource';
+import type { Bookmark, Category } from './types/models';
 
-const { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider } = useDial();
+const { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors } = useDial();
 const { query, results, pending: searchPending, error: searchError } = useBookmarkSearch(repository, snapshot, revision);
 const searchOpen = ref(false);
 const searchControl = ref<InstanceType<typeof BookmarkSearch>>();
@@ -43,22 +44,24 @@ const categoryAddButton = ref<HTMLButtonElement>();
 watch(() => snapshot.value.rootId, () => { creatingCategory.value = false; editingCategory.value = undefined; });
 const disabled = computed(() => loading.value || busy.value || capturing.value);
 const settingsOpen = ref(false);
-const settingsError = ref('');
-function openSettings() { settingsError.value = ''; settingsOpen.value = true; }
+const settingsPanel = ref<InstanceType<typeof SettingsPanel>>();
+async function closeSettings(){await settingsPanel.value?.flush();await flushSettings();settingsOpen.value=false;}
+function openSettings() { settingsOpen.value = true; }
 const bookmarkDialog = ref(false);
 const editing = shallowRef<Bookmark>();
 const dialogError = ref('');
 const importError = ref('');
 const mailRevision = ref(0);
+watch(()=>snapshot.value.settings.email,()=>mailRevision.value++);
 const transfer = ref<'import' | 'export'>();
 const exportText = ref('');
 const context = shallowRef<{ x: number; y: number; bookmark?: Bookmark; category?: Category }>();
 const backgroundUrl = ref('');
-watch(() => snapshot.value.background, blob => {
-  if (backgroundUrl.value) URL.revokeObjectURL(backgroundUrl.value);
-  backgroundUrl.value = blob ? URL.createObjectURL(blob) : '';
+const backgroundResource=new BackgroundResource(async url=>{backgroundUrl.value=url;await nextTick();},async url=>{
+  const image=new Image();image.src=url;await image.decode();
 });
-onUnmounted(() => { if (backgroundUrl.value) URL.revokeObjectURL(backgroundUrl.value); });
+watch(() => snapshot.value.background, blob => {void backgroundResource.replace(blob).catch(error=>{notice.value='Не удалось показать фон. '+String(error);});});
+onUnmounted(() => backgroundResource.dispose());
 const fail = (error: unknown) => error instanceof Error ? error.message : String(error);
 function add() { if (disabled.value) return; editing.value = undefined; dialogError.value = ''; bookmarkDialog.value = true; }
 function showContext(event: MouseEvent, bookmark?: Bookmark) {
@@ -120,11 +123,6 @@ async function action(name: string) {
     }
   } catch (error) { notice.value = fail(error); }
 }
-async function saveSettings(value: Settings, background: Blob | null | undefined, rootId: string) {
-  settingsError.value = '';
-  if (await run(() => repository.saveSettings(value, background, rootId))) { settingsOpen.value = false; mailRevision.value++; }
-  else settingsError.value = notice.value;
-}
 async function openExport() {
   if (disabled.value) return;
   try {
@@ -141,14 +139,14 @@ async function importData(text: string) {
     const path = (await repository.choices()).find(row => row.id === snapshot.value.rootId)?.path;
     if (!path) throw new Error('Выберите папку закладок в настройках.');
     if (!confirm('Импорт добавит закладки и категории в папку «' + path + '»; возможны дубликаты. Настройки и фон будут применены. Продолжить?')) return;
-    if (await run(() => repository.importData(next))) { transfer.value = undefined; mailRevision.value++; notice.value = 'Данные импортированы.'; }
+    if (await run(() => repository.importData(next),true)) { transfer.value = undefined; mailRevision.value++; notice.value = 'Данные импортированы.'; }
     else importError.value = notice.value;
   } catch (error) { importError.value = fail(error); }
 }
 function reorder(ids: string[]) { if (!searching.value) void run(() => repository.reorder(ids)); }
 async function reset() {
   if (confirm('Сбросить настройки, фон и локальный кэш изображений? Закладки браузера сохранятся.')) {
-    if (await run(() => repository.reset())) { settingsOpen.value = false; notice.value = 'Настройки и локальный кэш сброшены. Закладки сохранены.'; }
+    if (await run(() => repository.reset(),true)) { settingsOpen.value = false; notice.value = 'Настройки и локальный кэш сброшены. Закладки сохранены.'; }
   }
 }
 async function updateImages(id: string, url: string) {
@@ -163,7 +161,7 @@ async function updateImages(id: string, url: string) {
   await refresh(); announce();
   if (results[0]?.status === 'rejected') throw results[0].reason;
 }
-async function selectCategory(id: string) { if (searchOpen.value) closeSearch(); repository.activeId = id; try { await refresh(); } catch (error) { notice.value = fail(error); } }
+async function selectCategory(id: string) { if (searchOpen.value) closeSearch(); repository.selectCategory(id); try { await refresh(); } catch (error) { notice.value = fail(error); } }
 async function beginCategory() {
   if (disabled.value || !snapshot.value.rootId) return;
   context.value = undefined;
@@ -205,7 +203,7 @@ function escape(event: KeyboardEvent) {
   }
   if (event.key !== 'Escape' || disabled.value) return;
   if (searchOpen.value && !settingsOpen.value && !bookmarkDialog.value && !transfer.value && !context.value) { event.preventDefault(); closeSearch(); return; }
-  context.value = undefined; settingsOpen.value = false;
+  context.value = undefined;void closeSettings();
 }
 window.addEventListener('keydown', escape);
 onUnmounted(() => window.removeEventListener('keydown', escape));
@@ -245,12 +243,13 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         </template>
       </div>
     </main>
+    <div v-if="!settingsOpen && Object.keys(settingErrors).length" role="alert" class="fixed bottom-4 left-4 right-4 p-4 rounded shadow-xl bg-[#fff8d6] z-50 break-words">{{Object.values(settingErrors).join(' ')}}</div>
     <div v-if="notice && !settingsOpen" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded shadow-xl flex justify-between items-start gap-3 bg-[#fff8d6] z-50 [overflow-wrap:anywhere]">
       <span>{{ notice }}</span><button aria-label="Закрыть уведомление" @click="notice = ''">×</button>
     </div>
     <Transition leave-active-class="[&_.settings]:animate-none [&_.settings]:transition-transform [&_.settings]:duration-250 motion-reduce:[&_.settings]:transition-none" leave-to-class="[&_.settings]:translate-x-full" :duration="250" @before-leave="beforeDialogLeave">
-    <SettingsPanel v-if="settingsOpen" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="settingsError" :busy="disabled" @close="settingsOpen = false" @save="saveSettings"
-      @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" />
+    <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="Object.values(settingErrors).join(' ')" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
+      @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" @error="notice=$event" />
     </Transition>
     <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
     <BookmarkDialog v-if="bookmarkDialog" :bookmark="editing" :categories="[{ id: snapshot.rootId!, title: 'Главная', index: -1 }, ...snapshot.categories.filter(row => !row.virtual)]" :busy="disabled" :error="dialogError" @close="bookmarkDialog = false" @save="saveBookmark" />

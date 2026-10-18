@@ -73,7 +73,7 @@ try {
     // Tile appearance is still compared separately by text-tiles.mjs.
     const changedBySpec = ['grid-360', 'settings', 'add', 'edit', 'import', 'export', 'page-context', 'context', 'search'].includes(name);
     if (changedBySpec) {
-      console.log('REVIEW', name, 'intentional bookmark search toolbar / existing updated controls; original baseline retained');
+      console.log('REVIEW', name, 'intentional F03 toolbar / F04 search / F05 settings; original controls retained; original baseline retained');
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
       expect(overflow, name + ' horizontal overflow').toBe(false);
       if (name === 'grid-360') {
@@ -120,7 +120,7 @@ try {
   await page.reload(); await expect(page.locator('.badge')).toHaveText('3'); await freeze(); await shot('mail');
   const before = await page.locator('.search').boundingBox();
   await settings(); await page.getByLabel('Центрировать по вертикали').check();
-  await page.locator('.settings').getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('.settings')).toHaveCount(0);
+  await page.locator('.settings').getByRole('button', { name: 'Закрыть настройки', exact: true }).click(); await expect(page.locator('.settings')).toHaveCount(0);
   const after = await page.locator('.search').boundingBox(); expect(after.y).toBe(before.y);
   const area = await page.locator('.bookmark-area').boundingBox(); const grid = await page.locator('.bookmarks').boundingBox();
   const toolbar = await page.locator('.bookmark-toolbar').boundingBox();
@@ -152,17 +152,22 @@ try {
     await expect(page.getByRole('button',{name:'Очистить выбранную папку',exact:true})).toHaveCount(0);
     await page.locator('.settings').screenshot({path:resolve(out,`folder-settings-${width}.png`)});
     await page.keyboard.press('Escape');await expect(page.locator('.settings')).toHaveCount(0);
-    expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(originalRoot);
+    expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(longPathFolder);
+    await settingsButton.focus();await settingsButton.press('Enter');
+    await page.getByLabel('Папка закладок',{exact:true}).selectOption(originalRoot);
+    await page.getByRole('button',{name:'Закрыть настройки',exact:true}).click();await expect(page.locator('.settings')).toHaveCount(0);
   }
   await settingsButton.focus();await settingsButton.press('Enter');
   const source=page.getByLabel('Папка закладок',{exact:true});
   await expect(source).toBeEnabled();await source.selectOption(longPathFolder);
+  await expect.poll(()=>page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(longPathFolder);
   await page.evaluate(id=>chrome.bookmarks.remove(id),longPathFolder);
-  await expect(page.locator('.settings').getByRole('alert')).toContainText('Выбранная папка недоступна');
-  await expect(source).toHaveValue(longPathFolder);
-  await expect(page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true})).toBeDisabled();
+  await expect(page.locator('.settings [role=alert]')).toContainText('недоступна');
+  await expect(source).not.toHaveValue(longPathFolder);
+  await expect(source).toBeEnabled();
+  await source.selectOption(originalRoot);
   await page.keyboard.press('Escape');await expect(page.locator('.settings')).toHaveCount(0);
-  console.log('PASS folder select: 300+ folders, full deep paths, responsive widths, cancel and removed draft selection');
+  console.log('PASS folder select: 300+ folders, full deep paths, responsive widths, autosave and removed source fallback');
   for(const [width,height] of [[360,800],[1280,800],[1920,1080]]) {
     await page.setViewportSize({width,height});
     await page.evaluate(async()=>{await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);});
@@ -187,17 +192,17 @@ try {
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.screenshot({path:resolve(out,`bookmark-search-${width}.png`)});
     await input.fill('no-match-in-progress');
-    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.locator('.bookmark-area [role=status]')).toHaveCount(0);
     await input.fill('no-matching-bookmark');
-    await expect(page.getByRole('status')).toContainText('Закладки не найдены');
+    await expect(page.locator('.bookmark-area [role=status]')).toContainText('Закладки не найдены');
     await expect(page.getByText('Поиск…',{exact:true})).toHaveCount(0);
     await page.screenshot({path:resolve(out,`bookmark-search-empty-${width}.png`)});
     await input.fill('Закладка');
-    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.locator('.bookmark-area [role=status]')).toHaveCount(0);
     await expect(page.locator('.bookmark')).toHaveCount(8);
     await input.fill('');
     await expect(page.locator('.bookmark')).toHaveCount(8);
-    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.locator('.bookmark-area [role=status]')).toHaveCount(0);
     await input.press('Escape');await expect(input).toHaveCount(0);
     expect((await page.locator('.bookmarks').boundingBox()).y).toBeCloseTo(beforeGrid.y,0);
     await page.getByRole('button',{name:'Поиск по закладкам',exact:true}).click();
@@ -222,18 +227,18 @@ try {
   const searchPreference=page.getByRole('checkbox',{name:'Показывать поиск по закладкам',exact:true});
   await expect(searchPreference).toBeChecked();await searchPreference.uncheck();
   await page.keyboard.press('Escape');await expect(page.locator('.settings')).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'Поиск по закладкам',exact:true})).toBeVisible();
-  await settings();await searchPreference.uncheck();
-  await page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Поиск по закладкам',exact:true})).toHaveCount(0);
+  await settings();await expect(searchPreference).not.toBeChecked();
+  await page.locator('.settings').getByRole('button',{name:'Закрыть настройки',exact:true}).click();
   await expect(page.locator('.settings')).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Поиск по закладкам',exact:true})).toHaveCount(0);
   await page.reload();await expect(page.locator('.bookmark')).toHaveCount(8);
   await page.locator('.page').click({position:{x:3,y:3}});await page.keyboard.press('/');
   await expect(page.getByRole('searchbox',{name:'Найти закладку',exact:true})).toHaveCount(0);
   await settings();await expect(searchPreference).not.toBeChecked();await searchPreference.check();
-  await page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true}).click();
+  await page.locator('.settings').getByRole('button',{name:'Закрыть настройки',exact:true}).click();
   await expect(page.getByRole('button',{name:'Поиск по закладкам',exact:true})).toBeVisible();
-  console.log('PASS bookmark search preference: default on, cancel, save, reload, shortcut disabled, re-enable');
+  console.log('PASS bookmark search preference: default on, autosave, close, reload, shortcut disabled, re-enable');
   expect(results.map(result => result.name).sort()).toEqual(Object.keys(provenance.sha256).sort());
   await writeFile(resolve(out, 'results.json'), JSON.stringify(results, null, 2));
 } finally { await ctx.close(); }

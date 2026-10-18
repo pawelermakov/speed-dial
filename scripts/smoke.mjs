@@ -57,7 +57,7 @@ try {
   const chooseSource = async id => {
     await openSettings();
     await page.getByLabel('Папка закладок',{exact:true}).selectOption(id);
-    await page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true}).click();
+    await page.locator('.settings').getByRole('button',{name:'Закрыть настройки',exact:true}).click();
     await expect(page.locator('.settings')).toHaveCount(0);
     await expect.poll(()=>page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(id);
   };
@@ -83,16 +83,17 @@ try {
   await expect(peer.locator('.bookmark')).toHaveCount(1);
   await openSettings();
   await page.getByLabel('Папка закладок',{exact:true}).selectOption(sources.b);
-  expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(rootId);
+  await expect.poll(()=>page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(sources.b);
   await page.keyboard.press('Escape'); await expect(page.locator('.settings')).toHaveCount(0);
-  expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(rootId);
+  expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(sources.b);
+  await chooseSource(rootId);
   await openSettings(); await page.getByLabel('Папка закладок',{exact:true}).selectOption(sources.b);
   await page.evaluate(id=>chrome.bookmarks.update(id,{title:'Source B renamed'}),sources.b);
   await expect(page.getByLabel('Папка закладок',{exact:true}).locator('option:checked')).toContainText('Source B renamed');
   await expect(page.getByLabel('Папка закладок',{exact:true})).toHaveValue(sources.b);
   const untouchedTree=await page.evaluate(()=>chrome.bookmarks.getTree());
   await page.evaluate(()=>{window.bookmarkMutations=[];});
-  await page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true}).click();
+  await page.locator('.settings').getByRole('button',{name:'Закрыть настройки',exact:true}).click();
   await expect(page.locator('.settings')).toHaveCount(0);
   await expect(peer.locator('.bookmark')).toHaveCount(0);
   await chooseSource(rootId);
@@ -101,19 +102,21 @@ try {
   expect(await page.evaluate(()=>window.bookmarkMutations)).toEqual([]);
   expect(await page.evaluate(()=>chrome.bookmarks.getTree())).toEqual(untouchedTree);
   await peer.close();
-  pass('chrome: settings draft cancel, live folder rename, A→B→A preserves cache, two tabs agree; zero bookmark writes');
+  pass('chrome: settings autosave survives close, live folder rename, A→B→A preserves cache, two tabs agree; zero bookmark writes');
   await openSettings();
-  await page.getByLabel('Папка закладок',{exact:true}).selectOption(sources.b);
-  await page.getByLabel('Ширина (%)',{exact:true}).fill('50');
   await page.evaluate(() => {
     window.originalStorageSet=chrome.storage.local.set;
     chrome.storage.local.set=(values,...args)=>'rootFolderId' in values ? Promise.reject(new Error('Test root storage failure')) : window.originalStorageSet.call(chrome.storage.local,values,...args);
   });
-  await page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true}).click();
+  await page.getByLabel('Папка закладок',{exact:true}).selectOption(sources.b);
+  await page.getByLabel('Ширина (%)',{exact:true}).fill('50');
+  await page.getByLabel('Ширина (%)',{exact:true}).blur();
   await expect(page.locator('.settings').getByRole('alert')).toContainText('Test root storage failure');
   expect(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(rootId);
-  expect(await page.evaluate(async()=> (await chrome.storage.local.get('settings')).settings?.value.width ?? 100)).toBe(100);
+  await expect.poll(()=>page.evaluate(async()=> (await chrome.storage.local.get('settings')).settings?.value.width ?? 100)).toBe(50);
   await page.evaluate(()=>{chrome.storage.local.set=window.originalStorageSet;});
+  await page.getByLabel('Папка закладок',{exact:true}).selectOption(rootId);
+  await page.getByLabel('Ширина (%)',{exact:true}).fill('100');
   await page.keyboard.press('Escape'); await expect(page.locator('.settings')).toHaveCount(0);
   await page.evaluate(()=>{
     window.originalGetTree=chrome.bookmarks.getTree;
@@ -121,12 +124,12 @@ try {
   });
   const settingsButton=page.getByRole('button',{name:'Настройки',exact:true});await settingsButton.focus();await settingsButton.press('Enter');
   await expect(page.locator('.settings').getByRole('alert')).toContainText('Test folder access failure');
-  await expect(page.locator('.settings').getByRole('button',{name:'Сохранить',exact:true})).toBeDisabled();
+  await expect(page.getByLabel('Папка закладок',{exact:true})).toBeDisabled();
   await page.evaluate(()=>{chrome.bookmarks.getTree=window.originalGetTree;});
   await page.locator('.settings').getByRole('button',{name:'Повторить',exact:true}).click();
   await expect(page.getByLabel('Папка закладок',{exact:true})).toBeEnabled();
   await page.keyboard.press('Escape');await expect(page.locator('.settings')).toHaveCount(0);
-  pass('chrome: folder/storage failures keep settings open, preserve old source and roll back changed preferences');
+  pass('chrome: folder/storage failures keep settings open, preserve old source while unrelated preferences autosave');
   await page.evaluate(id=>chrome.bookmarks.update(id,{title:'External title'}),id); await expect(page.locator('.bookmark')).toContainText('External title');
   const structure = await page.evaluate(async root => {
     const a=await chrome.bookmarks.create({parentId:root,title:'A'}); const b=await chrome.bookmarks.create({parentId:root,title:'Главная'});
@@ -193,7 +196,7 @@ try {
   await page.keyboard.press('Escape'); await expect(page.locator('.settings')).toHaveCount(0);
   pass('chrome: UI category create/rename/DnD/delete confirmation; mass clear absent');
   await openSettings();
-  await expect(page.locator('.settings')).toContainText('Синхронизация Chrome: Выключена');
+  await expect(page.locator('.settings')).toContainText('Выключена');
   await page.getByRole('button',{name:'Экспорт',exact:true}).click(); const exported=JSON.parse(await page.locator('dialog textarea').inputValue());
   expect(exported.version).toBe(2); expect(exported.entries.some(entry=>entry.title==='A' && entry.children.length===1)).toBe(true); expect(JSON.stringify(exported)).not.toContain('Hidden');
   await page.getByRole('button',{name:'Закрыть',exact:true}).click();
@@ -201,7 +204,7 @@ try {
   await page.locator('dialog textarea').fill(JSON.stringify({version:2,entries:[{title:'Imported',url:siteUrl}],settings:exported.settings})); await page.getByRole('button',{name:'Импортировать',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(3);
   await openSettings(); await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(3);
   pass('chrome: Sync off, versioned export/append import, reset keeps browser bookmarks');
-  await expect(page.getByRole('status')).toContainText('Настройки и локальный кэш сброшены');
+  await expect(page.locator('.notice')).toContainText('Настройки и локальный кэш сброшены');
   await page.getByRole('button',{name:'Закрыть уведомление'}).click();
   const searchFixture=await page.evaluate(async root=>{
     const a=await chrome.bookmarks.create({parentId:root,title:'Search Work'}), b=await chrome.bookmarks.create({parentId:root,title:'Search Personal'});

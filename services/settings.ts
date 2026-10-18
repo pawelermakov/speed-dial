@@ -4,5 +4,6 @@ export interface SettingsEnvelope { value: Settings }
 export interface SettingsPort {
   getValue(): Promise<SettingsEnvelope | null>;
   setValue(value: SettingsEnvelope): Promise<void>;
+  watch?(callback: (value: SettingsEnvelope | null) => void): () => void;
 }
 export const settingsItem = storage.defineItem<SettingsEnvelope>('local:settings');
