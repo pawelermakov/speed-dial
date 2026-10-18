@@ -16,13 +16,15 @@ export function useDial() {
   const settingErrors = ref<Record<string,string>>({});
   let confirmed: Settings = { ...defaults };
   const pendingFields = new Map<keyof Settings, { version:number; value:Settings[keyof Settings] }>();
+  const previews=new Map<keyof Settings,Settings[keyof Settings]>();
   const saves = new Set<Promise<unknown>>();
   let settingsVersion = 0, settingsRead = 0, rootVersion = 0, backgroundVersion = 0;
   let backgroundDirty = true;
-  const fieldLabels:Record<keyof Settings,string> = {width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка «+»',bookmarkSearch:'Поиск по закладкам',searchProvider:'Источник поиска',email:'E-mail Mail.ru'};
+  const fieldLabels:Record<keyof Settings,string> = {width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка «+»',bookmarkSearch:'Поиск по закладкам',searchProvider:'Источник поиска',email:'E-mail Mail.ru',uiRadius:'Скругление',uiTransparency:'Прозрачность',uiBlur:'Размытие',uiAccent:'Цвет акцента'};
   function publishSettings() {
     const settings = { ...confirmed };
     for (const [key,entry] of pendingFields) Object.assign(settings,{[key]:entry.value});
+    for(const [key,value] of previews)Object.assign(settings,{[key]:value});
     snapshot.value = { ...snapshot.value, settings };
   }
   function track<T>(promise:Promise<T>):Promise<T> { saves.add(promise);void promise.finally(()=>saves.delete(promise)).catch(()=>{});return promise; }
@@ -64,12 +66,12 @@ export function useDial() {
     const version = ++settingsVersion, keys=Object.keys(patch) as Array<keyof Settings>;
     try { validateSettings({...snapshot.value.settings,...patch}); }
     catch(error) { settingErrors.value={...settingErrors.value,settings:errorText(error)};return Promise.resolve(false); }
-    for(const key of keys) { pendingFields.set(key,{version,value:patch[key]!});delete settingErrors.value[key]; }
+    for(const key of keys) { previews.delete(key);pendingFields.set(key,{version,value:patch[key]!});delete settingErrors.value[key]; }
     publishSettings();
     return track((async()=>{
       try { const next=await withDataLock(()=>repository.patchSettings(patch));confirmed=next;return true; }
       catch(error) {
-        for(const key of keys)if(pendingFields.get(key)?.version===version)settingErrors.value={...settingErrors.value,[key]:fieldLabels[key]+': не удалось сохранить. '+errorText(error)};
+        for(const key of keys)if(pendingFields.get(key)?.version===version&&!previews.has(key))settingErrors.value={...settingErrors.value,[key]:fieldLabels[key]+': не удалось сохранить. '+errorText(error)};
         return false;
       } finally {
         for(const key of keys)if(pendingFields.get(key)?.version===version)pendingFields.delete(key);
@@ -77,6 +79,11 @@ export function useDial() {
       }
     })());
   };
+  function previewSettings(patch:Partial<Settings>){
+    const validated=validateSettings({...snapshot.value.settings,...patch});
+    for(const key of Object.keys(patch) as Array<keyof Settings>)previews.set(key,validated[key]);
+    publishSettings();
+  }
   const changeSearchProvider = (searchProvider:SearchProviderId) => updateSettings({searchProvider});
   const changeRoot = (id:string):Promise<boolean> => {
     const version=++rootVersion;
@@ -128,5 +135,5 @@ export function useDial() {
   });
   onUnmounted(() => { unwatchRoot();unwatchSettings?.(); disposed = true; generation++; clearTimeout(timer); events.forEach(event => event?.removeListener(bookmarkEvent)); browser.tabs?.onUpdated?.removeListener(tabUpdated); channel.close(); });
   const announce = () => channel.postMessage({type:'updated'});
-  return { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors };
+  return { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors,previewSettings };
 }

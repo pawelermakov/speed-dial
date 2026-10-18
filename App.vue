@@ -17,9 +17,15 @@ import { requestThumbnail } from './services/thumbnails';
 import { parseImport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
 import { BackgroundResource } from './utils/backgroundResource';
+import { appearanceTokens } from './utils/appearance';
 import type { Bookmark, Category } from './types/models';
 
-const { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors } = useDial();
+const { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors,previewSettings } = useDial();
+const appearance=computed(()=>appearanceTokens(snapshot.value.settings));
+watch(()=>snapshot.value.settings.uiAccent,accent=>{
+  document.documentElement.style.setProperty('--scrollbar-accent',accent);
+},{immediate:true});
+onUnmounted(()=>document.documentElement.style.removeProperty('--scrollbar-accent'));
 const { query, results, pending: searchPending, error: searchError } = useBookmarkSearch(repository, snapshot, revision);
 const searchOpen = ref(false);
 const searchControl = ref<InstanceType<typeof BookmarkSearch>>();
@@ -209,8 +215,9 @@ window.addEventListener('keydown', escape);
 onUnmounted(() => window.removeEventListener('keydown', escape));
 </script>
 <template>
-  <div class="page font-[Helvetica,sans-serif] leading-[normal] min-h-screen min-h-screen bg-[#808590] bg-center bg-cover bg-no-repeat [&_*:focus]:outline-none [:where(&)_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-100 [:where(&)_button]:font-[Helvetica,sans-serif] [:where(&)_input]:font-[Helvetica,sans-serif] [:where(&)_textarea]:font-[Helvetica,sans-serif] [:where(&)_button]:text-base [:where(&)_input]:text-base [:where(&)_textarea]:text-base [:where(&)_button]:font-normal [:where(&)_button]:leading-[normal] [:where(&)_input]:leading-[normal] [:where(&)_textarea]:leading-[normal] [:where(&)_button]:[-webkit-tap-highlight-color:transparent] [&_a]:[-webkit-tap-highlight-color:transparent] [:where(&)_input]:[-webkit-tap-highlight-color:transparent] [:where(&)_textarea]:[-webkit-tap-highlight-color:transparent] [&_input::placeholder]:text-[#757575] [&_textarea::placeholder]:text-[#757575] [&_input::placeholder]:opacity-100 [&_textarea::placeholder]:opacity-100 [&_button:focus-visible]:outline-1 [&_button:focus-visible]:outline-[#54565a] [&_button:focus-visible]:outline-offset-2 [&_a:focus-visible]:outline-1 [&_a:focus-visible]:outline-[#54565a] [&_a:focus-visible]:outline-offset-2 [&_*]:motion-reduce:transition-none [&_*]:motion-reduce:animate-none [&_*::before]:motion-reduce:transition-none [&_*::after]:motion-reduce:transition-none" :style="{ backgroundImage: backgroundUrl ? 'url(' + backgroundUrl + ')' : undefined }" @contextmenu="showContext">
-    <main class="dial flex flex-col p-6 min-h-screen transition-all duration-250 ease-in-out motion-reduce:transition-none [&.pushed]:-translate-x-[300px] [&.pushed]:blur-[10px] [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen }">
+  <div class="page relative font-[family-name:var(--ui-font)] leading-[normal] min-h-screen bg-[#808590] bg-center bg-cover bg-no-repeat [:where(&)_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-100 [:where(&)_button]:font-[family-name:var(--ui-font)] [:where(&)_input]:font-[family-name:var(--ui-font)] [:where(&)_textarea]:font-[family-name:var(--ui-font)] [:where(&)_button]:text-base [:where(&)_input]:text-base [:where(&)_textarea]:text-base [:where(&)_button]:font-normal [:where(&)_button]:leading-[normal] [:where(&)_input]:leading-[normal] [:where(&)_textarea]:leading-[normal] [:where(&)_button]:[-webkit-tap-highlight-color:transparent] [&_a]:[-webkit-tap-highlight-color:transparent] [:where(&)_input]:[-webkit-tap-highlight-color:transparent] [:where(&)_textarea]:[-webkit-tap-highlight-color:transparent] [&_input::placeholder]:text-[#757575] [&_textarea::placeholder]:text-[#757575] [&_input::placeholder]:opacity-100 [&_textarea::placeholder]:opacity-100 [&_*]:motion-reduce:transition-none [&_*]:motion-reduce:animate-none [&_*::before]:motion-reduce:transition-none [&_*::after]:motion-reduce:transition-none" :style="appearance" @contextmenu="showContext">
+    <div aria-hidden="true" class="page-background absolute inset-0 pointer-events-none bg-[#808590] bg-center bg-cover bg-no-repeat" :class="{ 'is-blurred': settingsOpen }" :style="{ backgroundImage: backgroundUrl ? 'url(' + backgroundUrl + ')' : undefined }"/>
+    <main class="dial relative flex flex-col p-6 min-h-screen transition-all duration-250 ease-in-out motion-reduce:transition-none [&.pushed]:-translate-x-[300px] [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen }">
       <header class="relative shrink-0">
         <SearchBar :provider="snapshot.settings.searchProvider" :disabled="disabled" :save-provider="changeSearchProvider" />
         <div class="tools flex items-center gap-4 absolute right-0 top-0 block">
@@ -226,14 +233,14 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         <nav v-if="snapshot.categories.length || creatingCategory" aria-label="Категории" class="flex flex-wrap gap-3 min-w-0 w-full" :class="{ invisible: searchOpen, 'pr-12': snapshot.settings.bookmarkSearch }" :inert="searchOpen" :aria-hidden="searchOpen || undefined">
           <template v-for="category in snapshot.categories" :key="category.id">
           <CategoryNameInput v-if="editingCategory?.id === category.id" :title="editingCategory.title" :disabled="disabled" @save="saveCategory" @cancel="cancelCategory" />
-          <button v-else :disabled="disabled" :aria-pressed="category.id === snapshot.activeId" class="p-2 rounded bg-white/80 aria-pressed:bg-[#ffcc00]" :draggable="!category.virtual && !disabled" :aria-haspopup="!category.virtual ? 'menu' : undefined" @contextmenu.stop.prevent="showCategoryContext($event, category)" @keydown.shift.f10.stop.prevent="showCategoryContext($event, category)" @click="selectCategory(category.id)" @dragstart="categoryDrag = category.id" @dragend="categoryDrag = undefined" @dragover.prevent @drop.prevent="!category.virtual && dropCategory(category.id)">{{ category.title }}</button></template>
+          <button v-else :disabled="disabled" :aria-pressed="category.id === snapshot.activeId" class="ui-category p-2" :draggable="!category.virtual && !disabled" :aria-haspopup="!category.virtual ? 'menu' : undefined" @contextmenu.stop.prevent="showCategoryContext($event, category)" @keydown.shift.f10.stop.prevent="showCategoryContext($event, category)" @click="selectCategory(category.id)" @dragstart="categoryDrag = category.id" @dragend="categoryDrag = undefined" @dragover.prevent @drop.prevent="!category.virtual && dropCategory(category.id)"><span class="ui-action-label">{{ category.title }}</span></button></template>
           <CategoryNameInput v-if="creatingCategory" :disabled="disabled" @save="saveCategory" @cancel="cancelCategory" />
-          <button v-else ref="categoryAddButton" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 rounded bg-white/80" aria-label="Новая категория" title="Новая категория" :disabled="disabled" @click="beginCategory">+</button>
+          <button v-else ref="categoryAddButton" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 ui-control" aria-label="Новая категория" title="Новая категория" :disabled="disabled" @click="beginCategory">+</button>
         </nav>
         <BookmarkSearch v-if="snapshot.settings.bookmarkSearch" ref="searchControl" :open="searchOpen" v-model:query="query" :disabled="disabled" @open="openSearch" @close="closeSearch" />
         </div>
         <p v-if="searching && searchError" role="alert" class="text-white text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
-        <div v-else-if="showEmptySearch" role="status" class="mx-auto min-h-36 flex flex-col items-center justify-center gap-2 rounded-[5px] bg-white/65 p-6 text-center text-[#454952]" :style="{ width: snapshot.settings.width + '%' }">
+        <div v-else-if="showEmptySearch" role="status" class="mx-auto min-h-36 flex flex-col items-center justify-center gap-2 ui-glass p-6 text-center text-[#454952]" :style="{ width: snapshot.settings.width + '%' }">
           <svg class="mb-1 opacity-50" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
           <p>Закладки не найдены</p>
           <p class="text-sm opacity-75">Попробуйте другое название или адрес сайта.</p>
@@ -243,12 +250,12 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         </template>
       </div>
     </main>
-    <div v-if="!settingsOpen && Object.keys(settingErrors).length" role="alert" class="fixed bottom-4 left-4 right-4 p-4 rounded shadow-xl bg-[#fff8d6] z-50 break-words">{{Object.values(settingErrors).join(' ')}}</div>
-    <div v-if="notice && !settingsOpen" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded shadow-xl flex justify-between items-start gap-3 bg-[#fff8d6] z-50 [overflow-wrap:anywhere]">
+    <div v-if="!settingsOpen && Object.keys(settingErrors).length" role="alert" class="fixed bottom-4 left-4 right-4 p-4 rounded-[var(--ui-radius)] shadow-[var(--ui-shadow-popover)] bg-[#fff8d6] z-50 break-words">{{Object.values(settingErrors).join(' ')}}</div>
+    <div v-if="notice && !settingsOpen" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded-[var(--ui-radius)] shadow-[var(--ui-shadow-popover)] flex justify-between items-start gap-3 bg-[#fff8d6] z-50 [overflow-wrap:anywhere]">
       <span>{{ notice }}</span><button aria-label="Закрыть уведомление" @click="notice = ''">×</button>
     </div>
     <Transition leave-active-class="[&_.settings]:animate-none [&_.settings]:transition-transform [&_.settings]:duration-250 motion-reduce:[&_.settings]:transition-none" leave-to-class="[&_.settings]:translate-x-full" :duration="250" @before-leave="beforeDialogLeave">
-    <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="Object.values(settingErrors).join(' ')" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
+    <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="Object.values(settingErrors).join(' ')" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :preview-settings="previewSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
       @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" @error="notice=$event" />
     </Transition>
     <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">

@@ -40,7 +40,7 @@ onUnmounted(() => {
 });
 </script>
 <template>
-  <span ref="box" class="tile-hostname absolute inset-0 flex items-center justify-center overflow-hidden" style="padding-inline: clamp(8px, 12%, 40px); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif" aria-hidden="true">
+  <span ref="box" class="tile-hostname absolute inset-0 flex items-center justify-center overflow-hidden" style="padding-inline: clamp(8px, 12%, 40px); font-family: var(--ui-font)" aria-hidden="true">
     <span class="block min-w-0 truncate font-medium leading-tight text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.28)]" :style="{ fontSize: size + 'px' }">{{ hostname }}</span>
   </span>
 </template>

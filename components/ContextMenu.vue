@@ -30,22 +30,22 @@ function keys(event: KeyboardEvent) {
 </script>
 <template>
   <div class="fixed inset-0 z-30" @pointerdown.self="close" @contextmenu.self.prevent="close">
-    <div ref="menu" tabindex="-1" role="menu" aria-label="Действия" class="context fixed min-w-[160px] max-w-[calc(100vw-8px)] py-[5px] mt-[2px] text-base leading-[normal] bg-white/80 backdrop-blur-[10px] rounded-[5px] shadow-[0_1px_3px_rgb(50_50_50/0.3)] bg-clip-padding overflow-hidden animate-fade motion-reduce:animate-none focus:outline-none [&_button]:block [&_button]:w-full [&_button]:text-left [&_button]:py-[3px] [&_button]:px-5 [&_button]:text-base [&_button]:leading-[normal] [&_button]:whitespace-nowrap [&_button]:transition-all [&_button]:duration-250 [&_button]:ease-in-out [&_button:hover]:bg-[#ffeba0] [&_.keyboard-active]:bg-[#ffeba0] [&_button:focus]:outline-none"
+    <div ref="menu" tabindex="-1" role="menu" aria-label="Действия" class="context ui-glass fixed min-w-[160px] max-w-[calc(100vw-8px)] overflow-hidden animate-fade motion-reduce:animate-none"
       :style="{ left: left + 'px', top: top + 'px' }" @keydown="keys" @pointermove="keyboardIndex = -1">
       <template v-if="category">
         <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'edit')">Изменить</button>
         <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'delete')">Удалить</button>
       </template>
       <template v-else-if="bookmark">
-        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'open')">Открыть в новой вкладке</button><hr class="context-divider h-[2px] my-[9px] border border-solid border-t-[#9a9a9a] border-l-[#9a9a9a] border-r-[#eeeeee] border-b-[#eeeeee] bg-black/20 text-[#808080]" />
+        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'open')">Открыть в новой вкладке</button><hr class="context-divider" />
         <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'edit')">Изменить</button>
         <button :class="{ 'keyboard-active': keyboardIndex === 2 }" role="menuitem" @click="emit('action', 'thumbnail')">Обновить эскиз</button>
         <button :class="{ 'keyboard-active': keyboardIndex === 3 }" role="menuitem" @click="emit('action', 'delete')">Удалить</button>
       </template>
       <template v-else>
-        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'add')">Новая закладка</button><hr class="context-divider h-[2px] my-[9px] border border-solid border-t-[#9a9a9a] border-l-[#9a9a9a] border-r-[#eeeeee] border-b-[#eeeeee] bg-black/20 text-[#808080]" />
+        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'add')">Новая закладка</button><hr class="context-divider" />
         <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'category')">Новая категория</button>
-        <hr class="context-divider h-[2px] my-[9px] border border-solid border-t-[#9a9a9a] border-l-[#9a9a9a] border-r-[#eeeeee] border-b-[#eeeeee] bg-black/20 text-[#808080]" />
+        <hr class="context-divider" />
         <button :class="{ 'keyboard-active': keyboardIndex === 2 }" role="menuitem" @click="emit('action', 'settings')">Настройки</button>
       </template>
     </div>

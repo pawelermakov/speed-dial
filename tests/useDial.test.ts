@@ -13,6 +13,14 @@ const snapshot = (title: string) => ({ tabs: [{ id:'x', parentId:'root', title, 
 beforeEach(() => { vi.useFakeTimers(); state.mounted.length=0;state.unmounted.length=0;state.listeners.clear();state.load.mockReset().mockResolvedValue(snapshot('Initial'));state.initialize.mockReset().mockResolvedValue(undefined);vi.stubGlobal('BroadcastChannel',class { postMessage=state.post; close=state.close; onmessage=null; });vi.stubGlobal('navigator',{}); });
 afterEach(() => { state.unmounted.forEach(callback=>callback());vi.useRealTimers();vi.unstubAllGlobals(); });
 describe('browser event refresh lifecycle', () => {
+ it('previews appearance without writing, then commits through the same field update API',async()=>{
+   const dial=useDial();await state.mounted[0]!();
+   repository.patchSettings=vi.fn().mockResolvedValue({...defaults,uiRadius:24});
+   dial.previewSettings({uiRadius:24});expect(dial.snapshot.value.settings.uiRadius).toBe(24);expect(repository.patchSettings).not.toHaveBeenCalled();
+   expect(await dial.updateSettings({uiRadius:24})).toBe(true);expect(repository.patchSettings).toHaveBeenCalledWith({uiRadius:24});
+   dial.previewSettings({uiAccent:'#3366CC'});repository.patchSettings=vi.fn().mockRejectedValue(new Error('write denied'));
+   expect(await dial.updateSettings({uiAccent:'#3366CC'})).toBe(false);expect(dial.snapshot.value.settings.uiAccent).toBe(defaults.uiAccent);
+ });
  it('a failed background write preserves the current image and exposes a persistent error',async()=>{
    const initial={...snapshot('Initial'),background:new Blob(['old image'])};state.load.mockResolvedValueOnce(initial);
    const dial=useDial();await state.mounted[0]!();

@@ -56,7 +56,7 @@ function drop(target?: string) {
   <section ref="grid" aria-label="Визуальные закладки" :aria-busy="preparing" class="grid bookmarks grid-cols-[repeat(var(--columns),minmax(0,1fr))] mx-auto" :style="{
       '--columns': columns, '--gap': settings.space + 'px', width: settings.width + '%', gap: settings.space + 'px', visibility: preparing ? 'hidden' : undefined
     }" @dragover.prevent @drop.self.prevent="drop()">
-    <a v-for="tab in tabs" :key="tab.id" class="bookmark relative overflow-hidden group block min-w-0 pt-[56.25%] h-auto rounded-[5px] bg-white/80 bg-center bg-cover bg-no-repeat text-black shadow-[0_1px_3px_rgb(50_50_50/0.3)] hover:shadow-[0_0_15px_rgb(50_50_50/0.5)] [&.dragging]:opacity-40 [&.drop-target]:outline-3 [&.drop-target]:outline-[#ffcc00] transition-all duration-250 ease-in-out motion-reduce:transition-none"
+    <a v-for="tab in tabs" :key="tab.id" class="bookmark relative overflow-hidden group block min-w-0 pt-[56.25%] h-auto rounded-[var(--ui-radius)] bg-center bg-cover bg-no-repeat text-black shadow-[var(--ui-shadow-tile)] hover:shadow-[var(--ui-shadow-raised)] [&.dragging]:opacity-40 [&.drop-target]:outline-3 [&.drop-target]:outline-[var(--ui-accent)] transition-all duration-250 ease-in-out motion-reduce:transition-none"
       :class="{ dragging: dragId === tab.id, 'drop-target': overId === tab.id }"
       :href="tab.url" :title="tab.title + ' — ' + tab.url" :aria-label="tab.title + ' — ' + tab.url" :draggable="!disabled && !searching"
       :style="{ backgroundImage: previews[tab.id] ? 'url(' + previews[tab.id] + ')' : undefined, backgroundColor: previews[tab.id] ? undefined : tab.faviconColor ?? tileColor(tileHostname(tab.url)) }"
@@ -64,12 +64,12 @@ function drop(target?: string) {
       @dragstart="start($event, tab.id)" @dragend="finish" @dragenter.prevent="overId = tab.id"
       @drop.stop.prevent="drop(tab.id)">
       <TileHostname v-if="!previews[tab.id]" :hostname="tileHostname(tab.url)" />
-      <span v-else class="bookmark-title flex items-center gap-2 absolute bottom-[5px] w-full border-y border-black/20 bg-white/80 backdrop-blur-[10px] p-[5px] text-base leading-[normal] transition-transform duration-250 ease-in-out group-hover:translate-y-[calc(100%+5px)] group-focus-visible:translate-y-0 [&_img]:w-4 [&_img]:min-w-4 [&_img]:h-4 [&_img]:object-cover">
+      <span v-else class="bookmark-title flex items-center gap-2 absolute bottom-1 w-full border-y border-black/20 ui-caption p-1 text-base leading-[normal] transition-transform duration-250 ease-in-out group-hover:translate-y-[calc(100%+4px)] group-focus-visible:translate-y-0 [&_img]:w-4 [&_img]:min-w-4 [&_img]:h-4 [&_img]:object-cover">
         <img v-if="icons[tab.id]" :src="icons[tab.id]" width="16" height="16" alt="" class="shrink-0" @error="($event.target as HTMLImageElement).style.visibility = 'hidden'" />
         <span v-else class="bookmark-icon shrink-0 w-4 min-w-4 h-4" aria-hidden="true"></span>
         <span class="truncate">{{ tab.title }}</span>
       </span>
     </a>
-    <button v-if="!searching && (!tabs.length || settings.addButton) && dragId === null" class="add-card block min-w-0 pt-[56.25%] h-auto rounded-[5px] border border-black/20 bg-black/10 bg-[url(/images/newtab.png)] bg-center bg-no-repeat bg-size-[auto] shadow-[inset_0_0_3px_rgb(50_50_50/0.5)] hover:bg-black/30 transition-all duration-250 ease-in-out motion-reduce:transition-none" aria-label="Новая закладка" :disabled="disabled" @click="emit('add')" />
+    <button v-if="!searching && (!tabs.length || settings.addButton) && dragId === null" class="add-card ui-glass relative block min-w-0 pt-[56.25%] h-auto rounded-[var(--ui-radius)] ui-hover transition-all duration-250 ease-in-out motion-reduce:transition-none" aria-label="Новая закладка" :disabled="disabled" @click="emit('add')"><svg class="absolute left-1/2 top-1/2 w-[40%] max-w-14 h-auto max-h-[60%] -translate-x-1/2 -translate-y-1/2" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6v28M6 20h28"/></svg></button>
   </section>
 </template>

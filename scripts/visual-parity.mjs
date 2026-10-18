@@ -69,11 +69,11 @@ try {
       return { changed, total: x.length / 4, percent: changed / (x.length / 4) * 100 };
     }, ['data:image/png;base64,' + baseline.toString('base64'), 'data:image/png;base64,' + current.toString('base64'), alignGrid ? Math.round(toolbarBox.height + 32) : 0, alignGrid ? Math.round(toolbarBox.y - 16) : Infinity]);
     results.push({ name, ...diff }); console.log(name, diff);
-    // F03 shifts the grid; F04 intentionally changes the header. Compare unchanged grid pixels.
-    // Tile appearance is still compared separately by text-tiles.mjs.
-    const changedBySpec = ['grid-360', 'settings', 'add', 'edit', 'import', 'export', 'page-context', 'context', 'search'].includes(name);
+    // F06 intentionally changes surfaces, shadows and caption padding. Retain
+    // original PNGs; protected F01 interior pixels are checked in text-tiles.mjs.
+    const changedBySpec = ['grid-360','grid-1280','grid-1920','mail','settings','add','edit','import','export','page-context','context','search'].includes(name);
     if (changedBySpec) {
-      console.log('REVIEW', name, 'intentional F03 toolbar / F04 search / F05 settings; original controls retained; original baseline retained');
+      console.log('REVIEW', name, 'intentional F06 surfaces; original baseline retained, see appearance matrix and F01 pixel checks');
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
       expect(overflow, name + ' horizontal overflow').toBe(false);
       if (name === 'grid-360') {

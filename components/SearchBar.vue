@@ -43,23 +43,23 @@ function key(event:KeyboardEvent) {
 <template>
   <form class="search flex relative mx-auto mb-6 w-full max-w-[700px] h-10 items-center" :style="{'--search-accent':theme.accent,'--search-ink':theme.ink}" @submit.prevent="submit()">
     <div class="relative h-10 w-[120px] min-w-0 shrink-0">
-    <select aria-label="Где искать" :value="provider" :disabled="disabled" class="h-10 w-full appearance-none rounded-l-[5px] border-2 border-[var(--search-accent)] bg-white pl-2 pr-7 text-black text-sm" @change="changeProvider">
+    <select aria-label="Где искать" :value="provider" :disabled="disabled" class="h-10 w-full appearance-none rounded-l-[var(--ui-radius)] border-2 border-[var(--search-accent)] bg-white pl-2 pr-7 text-black text-sm" @change="changeProvider">
       <option v-for="source in searchProviders" :key="source.id" :value="source.id">{{ source.label }}</option>
     </select>
-    <svg class="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-black/60" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><path d="M2 4h8L6 8z" /></svg>
+    <svg class="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-[var(--ui-text)]" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><path d="M2 4h8L6 8z" /></svg>
     </div>
     <input v-model="query" class="min-w-0 flex-1 h-10 leading-10 px-2 sm:px-4 py-0 border-2 border-l-0 border-[var(--search-accent)] rounded-none bg-white text-black" name="text" :placeholder="inputLabel+'…'"
       :aria-label="inputLabel" autocomplete="off" role="combobox" :aria-expanded="focused && items.length > 0"
       aria-controls="suggestions" :aria-activedescendant="focused && selected >= 0 ? 'suggestion-' + selected : undefined"
       @input="focused = true" @focus="focused = true" @blur="focused = false" @keydown="key" />
-    <button class="button w-[64px] sm:w-[85px] h-10 p-0 border-0 shrink-0 rounded-l-none rounded-r-[5px] bg-[var(--search-accent)] enabled:hover:brightness-95 transition-[filter] text-[var(--search-ink)] disabled:[color:color-mix(in_srgb,var(--search-ink)_40%,transparent)]" :disabled="!query.trim()">Найти</button>
-    <ul v-if="focused && items.length" id="suggestions" class="suggestions absolute w-full text-base top-[43px] z-5 bg-white/80 backdrop-blur-[10px] rounded-[5px] shadow-[0_1px_3px_rgb(50_50_50/0.3)] overflow-hidden text-black" role="listbox">
+    <button class="button w-[64px] sm:w-[85px] h-10 p-0 border-0 shrink-0 rounded-l-none rounded-r-[var(--ui-radius)] bg-[var(--search-accent)] enabled:hover:brightness-95 transition-[filter] duration-250 text-[var(--search-ink)] disabled:[color:color-mix(in_srgb,var(--search-ink)_40%,transparent)]" :disabled="!query.trim()">Найти</button>
+    <ul v-if="focused && items.length" id="suggestions" class="suggestions absolute w-full text-base top-[43px] z-5 ui-glass overflow-hidden text-black" role="listbox">
       <li v-for="(item,index) in items" :id="'suggestion-'+index" :key="item.id" role="option" :aria-selected="index===selected" :title="[item.label,item.subtitle].filter(Boolean).join(' · ')"
         class="px-4 py-2 min-h-[35px] cursor-pointer transition-colors duration-250 aria-selected:[background-color:color-mix(in_srgb,var(--search-accent)_35%,white)]"
         @mouseenter="selected=index" @mouseleave="selected=-1" @mousedown.prevent="submit(item)">
-        <span class="block truncate">{{ item.label }}</span><span v-if="item.subtitle" class="block truncate text-xs text-black/60">{{ item.subtitle }}</span>
+        <span class="block truncate">{{ item.label }}</span><span v-if="item.subtitle" class="block truncate text-sm text-[var(--ui-text)]">{{ item.subtitle }}</span>
       </li>
     </ul>
-    <span v-if="focused && loaded && query.trim() && !items.length" role="status" class="absolute top-[43px] z-5 w-full rounded-[5px] bg-white/90 px-3 py-2 text-sm text-black/70">{{ error || 'Нет подсказок' }}</span>
+    <span v-if="focused && loaded && query.trim() && !items.length" role="status" class="absolute top-[43px] z-5 w-full ui-glass px-4 py-2 text-sm">{{ error || 'Нет подсказок' }}</span>
   </form>
 </template>

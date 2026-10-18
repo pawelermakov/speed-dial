@@ -37,11 +37,11 @@ function keydown(event: KeyboardEvent) {
 </script>
 <template>
   <span ref="editor" class="inline-flex items-center gap-1 max-w-full">
-  <span class="relative inline-grid min-w-24 rounded bg-white/80 text-base font-normal leading-[normal]">
+  <span class="relative inline-grid box-content min-w-24 ui-control text-base font-normal leading-[normal]">
     <span ref="measure" aria-hidden="true" class="invisible overflow-hidden whitespace-pre py-2 pl-2 pr-3 [grid-area:1/1]">{{ draft || ' ' }}</span>
-    <input ref="input" v-model="draft" class="absolute inset-0 w-full min-w-0 p-2 rounded bg-transparent focus-visible:outline-1 focus-visible:outline-[#54565a] focus-visible:outline-offset-2" :aria-label="title === undefined ? 'Название новой категории' : 'Название категории'" placeholder="Название" maxlength="4096" :disabled="disabled" @input="resize" @keydown="keydown" />
+    <input ref="input" v-model="draft" class="absolute inset-0 w-full min-w-0 p-2 rounded-[var(--ui-radius)] bg-transparent" :aria-label="title === undefined ? 'Название новой категории' : 'Название категории'" placeholder="Название" maxlength="4096" :disabled="disabled" @input="resize" @keydown="keydown" />
   </span>
-    <button type="button" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 rounded bg-white/80" aria-label="Применить название категории" title="Применить (Enter)" :disabled="disabled || !draft.trim()" @click="finish">✓</button>
-    <button type="button" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 rounded bg-white/80" aria-label="Отменить изменение категории" title="Отменить (Esc)" :disabled="disabled" @click="emit('cancel')">×</button>
+    <button type="button" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 ui-control" aria-label="Применить название категории" title="Применить (Enter)" :disabled="disabled || !draft.trim()" @click="finish">✓</button>
+    <button type="button" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 ui-control" aria-label="Отменить изменение категории" title="Отменить (Esc)" :disabled="disabled" @click="emit('cancel')">×</button>
   </span>
 </template>

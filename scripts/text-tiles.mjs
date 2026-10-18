@@ -110,7 +110,18 @@ try {
   const baselinePath = resolve('tests/fixtures/visual/text-tiles.png');
   const screenshot = await page.locator('.bookmarks').screenshot({ path: '.browser-test/text-tiles/reference.png' });
   if (process.argv.includes('--update-text-baseline')) await writeFile(baselinePath, screenshot);
-  else expect(screenshot.equals(await readFile(baselinePath)), 'text tiles differ from the reviewed reference').toBe(true);
+  else {
+    // F06 intentionally changes surface shadows and screenshot captions. Keep the
+    // original PNG and compare the protected F01 interiors, including all text.
+    const rects=await page.locator('.tile-hostname').evaluateAll(nodes=>{const grid=document.querySelector('.bookmarks').getBoundingClientRect();return nodes.map(node=>{const box=node.parentElement.getBoundingClientRect();return{x:box.x-grid.x,y:box.y-grid.y,width:box.width,height:box.height};});});
+    const changed=await page.evaluate(async({old,current,rects})=>{
+      const load=async source=>{const image=new Image();image.src=source;await image.decode();const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const context=canvas.getContext('2d');context.drawImage(image,0,0);return{width:canvas.width,data:context.getImageData(0,0,canvas.width,canvas.height).data};};
+      const a=await load(old),b=await load(current);let count=0;
+      for(const box of rects)for(let y=Math.ceil(box.y+8);y<Math.floor(box.y+box.height-8);y++)for(let x=Math.ceil(box.x+8);x<Math.floor(box.x+box.width-8);x++){const i=(y*a.width+x)*4,j=(y*b.width+x)*4;if([0,1,2].some(k=>a.data[i+k]!==b.data[j+k]))count++;}
+      return count;
+    },{old:'data:image/png;base64,'+(await readFile(baselinePath)).toString('base64'),current:'data:image/png;base64,'+screenshot.toString('base64'),rects});
+    expect(changed,'F01 text and colors differ from original reviewed pixels').toBe(0);
+  }
   for (const width of [360, 1280, 1920]) {
     await page.setViewportSize({ width, height: 800 });
     for (const columns of [2, 6, 12]) {
