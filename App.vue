@@ -18,7 +18,7 @@ import { parseImport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
 import type { Bookmark, Category, Settings } from './types/models';
 
-const { snapshot, loading, busy, notice, run, refresh, announce, revision } = useDial();
+const { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider } = useDial();
 const { query, results, pending: searchPending, error: searchError } = useBookmarkSearch(repository, snapshot, revision);
 const searchOpen = ref(false);
 const searchControl = ref<InstanceType<typeof BookmarkSearch>>();
@@ -214,7 +214,7 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
   <div class="page font-[Helvetica,sans-serif] leading-[normal] min-h-screen min-h-screen bg-[#808590] bg-center bg-cover bg-no-repeat [&_*:focus]:outline-none [:where(&)_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-100 [:where(&)_button]:font-[Helvetica,sans-serif] [:where(&)_input]:font-[Helvetica,sans-serif] [:where(&)_textarea]:font-[Helvetica,sans-serif] [:where(&)_button]:text-base [:where(&)_input]:text-base [:where(&)_textarea]:text-base [:where(&)_button]:font-normal [:where(&)_button]:leading-[normal] [:where(&)_input]:leading-[normal] [:where(&)_textarea]:leading-[normal] [:where(&)_button]:[-webkit-tap-highlight-color:transparent] [&_a]:[-webkit-tap-highlight-color:transparent] [:where(&)_input]:[-webkit-tap-highlight-color:transparent] [:where(&)_textarea]:[-webkit-tap-highlight-color:transparent] [&_input::placeholder]:text-[#757575] [&_textarea::placeholder]:text-[#757575] [&_input::placeholder]:opacity-100 [&_textarea::placeholder]:opacity-100 [&_button:focus-visible]:outline-1 [&_button:focus-visible]:outline-[#54565a] [&_button:focus-visible]:outline-offset-2 [&_a:focus-visible]:outline-1 [&_a:focus-visible]:outline-[#54565a] [&_a:focus-visible]:outline-offset-2 [&_*]:motion-reduce:transition-none [&_*]:motion-reduce:animate-none [&_*::before]:motion-reduce:transition-none [&_*::after]:motion-reduce:transition-none" :style="{ backgroundImage: backgroundUrl ? 'url(' + backgroundUrl + ')' : undefined }" @contextmenu="showContext">
     <main class="dial flex flex-col p-6 min-h-screen transition-all duration-250 ease-in-out motion-reduce:transition-none [&.pushed]:-translate-x-[300px] [&.pushed]:blur-[10px] [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen }">
       <header class="relative shrink-0">
-        <SearchBar />
+        <SearchBar :provider="snapshot.settings.searchProvider" :disabled="disabled" :save-provider="changeSearchProvider" />
         <div class="tools flex items-center gap-4 absolute right-0 top-0 block">
           <MailIndicator :key="mailRevision" :email="snapshot.settings.email" />
           <button class="sr-only focus:not-sr-only" aria-label="Настройки" :disabled="disabled" @click="openSettings">Настройки</button>

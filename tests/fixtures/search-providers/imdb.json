@@ -1,0 +1,50 @@
+{
+  "q": "Matrix",
+  "d": [
+    {
+      "id": "tt0133093",
+      "l": "The Matrix",
+      "y": 1999,
+      "qid": "movie"
+    },
+    {
+      "id": "tt0234215",
+      "l": "The Matrix Reloaded",
+      "y": 2003,
+      "qid": "movie"
+    },
+    {
+      "id": "tt10838180",
+      "l": "The Matrix Resurrections",
+      "y": 2021,
+      "qid": "movie"
+    },
+    {
+      "id": "tt0242653",
+      "l": "The Matrix Revolutions",
+      "y": 2003,
+      "qid": "movie"
+    },
+    {
+      "id": "tt31998838",
+      "l": "Matrix 5",
+      "qid": "movie"
+    },
+    {
+      "id": "tt0106062",
+      "l": "Matrix",
+      "y": 1993,
+      "qid": "tvSeries"
+    },
+    {
+      "id": "in0000304",
+      "l": "The Matrix"
+    },
+    {
+      "id": "tt0109151",
+      "l": "Armitage III: Poly-Matrix",
+      "y": 1996,
+      "qid": "video"
+    }
+  ]
+}

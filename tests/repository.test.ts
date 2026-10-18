@@ -18,6 +18,13 @@ afterEach(async () => { await db.delete(); });
 async function setup() { const node = await api.create({parentId:'other',title:'Speed Dial'}); await repo.selectRoot(node.id); }
 const add = (url = 'https://example.com/') => repo.add({ url, title: 'Свой заголовок' });
 describe('browser bookmarks source', () => {
+  it('saves the search provider without overwriting current preferences or changing the bookmark source',async()=>{
+    await setup();const source=repo.rootId;const bookmark=await add();
+    await repo.saveSettings({...defaults,width:75,bookmarkSearch:false});
+    await repo.saveSearchProvider('imdb');
+    expect((await repo.load()).settings).toEqual({...defaults,width:75,bookmarkSearch:false,searchProvider:'imdb'});
+    expect(repo.rootId).toBe(source);expect((await repo.load()).tabs[0]?.id).toBe(bookmark);
+  });
   it('defaults bookmark search on for old preferences and persists an explicit opt-out', async () => {
     await setup();
     const legacy = { ...defaults } as Partial<typeof defaults>;

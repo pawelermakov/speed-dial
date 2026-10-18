@@ -4,7 +4,7 @@ import { storage } from 'wxt/utils/storage';
 import { db } from '../services/database';
 import { settingsItem } from '../services/settings';
 import { Repository, withDataLock } from '../services/repository';
-import { defaults, type Snapshot } from '../types/models';
+import { defaults, searchProviderIds, type SearchProviderId, type Snapshot } from '../types/models';
 import { faviconBlob } from '../services/favicons';
 const rootItem = storage.defineItem<string>('local:rootFolderId');
 export const repository = new Repository(db, settingsItem, browser.bookmarks, rootItem);
@@ -40,7 +40,24 @@ export function useDial() {
     catch (error) { notice.value = errorText(error); await refresh().catch(() => {}); return false; }
     finally { busy.value = false; }
   };
-  channel.onmessage = schedule;
+  const updateSearchProvider = (searchProvider: SearchProviderId) => {
+    snapshot.value = { ...snapshot.value, settings: { ...snapshot.value.settings, searchProvider } };
+  };
+  const changeSearchProvider = async (searchProvider: SearchProviderId): Promise<boolean> => {
+    if (busy.value || loading.value) return false;
+    try {
+      await withDataLock(() => repository.saveSearchProvider(searchProvider));
+      if (disposed) return false;
+      updateSearchProvider(searchProvider);
+      channel.postMessage({ type: 'search-provider', provider: searchProvider });
+      return true;
+    } catch (error) { notice.value = errorText(error); return false; }
+  };
+  channel.onmessage = event => {
+    if (event.data?.type === 'search-provider' && searchProviderIds.includes(event.data.provider)) {
+      updateSearchProvider(event.data.provider);
+    } else schedule();
+  };
   const unwatchRoot = rootItem.watch(async id => {
     if (disposed || id === repository.rootId) return;
     try {
@@ -70,5 +87,5 @@ export function useDial() {
   });
   onUnmounted(() => { unwatchRoot(); disposed = true; generation++; clearTimeout(timer); events.forEach(event => event?.removeListener(bookmarkEvent)); browser.tabs?.onUpdated?.removeListener(tabUpdated); channel.close(); });
   const announce = () => channel.postMessage('updated');
-  return { snapshot, loading, busy, notice, run, refresh, announce, revision };
+  return { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider };
 }

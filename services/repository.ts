@@ -1,7 +1,7 @@
 import { BookmarkAssetStore } from './bookmarkAssets';
 import type { DialDatabase } from './database';
 import type { SettingsPort } from './settings';
-import { defaults, type Bookmark, type Settings, type Snapshot, type ImportData } from '../types/models';
+import { defaults, type Bookmark, type Settings, type Snapshot, type ImportData, type SearchProviderId } from '../types/models';
 import { normalizeUrl, validateSettings } from './validation';
 import { folderChoices, defaultFolderId, type BookmarksPort, type RootPort, type BookmarkNode } from './bookmarks';
 export async function withDataLock<T>(operation: () => Promise<T>): Promise<T> { return navigator.locks ? navigator.locks.request('speed-dial-data', operation) : operation(); }
@@ -135,6 +135,10 @@ export class Repository {
       const detail = rollback.some(result => result.status === 'rejected') ? ' Часть настроек не удалось восстановить; проверьте значения.' : '';
       throw new Error((error instanceof Error ? error.message : String(error)) + detail);
     }
+  }
+  async saveSearchProvider(searchProvider: SearchProviderId) {
+    const current = validateSettings((await this.settings.getValue())?.value);
+    await this.saveSettings({ ...current, searchProvider });
   }
   async reset() { await this.saveSettings({ ...defaults }, null); await this.images.clear(); }
   async add(input: { url: string; title: string }) {

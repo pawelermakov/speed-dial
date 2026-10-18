@@ -1,0 +1,36 @@
+{
+  "jsonrpc": "2.0",
+  "result": [
+    {
+      "id": 187,
+      "title": "Breaking Bad",
+      "titleOriginal": "Breaking Bad",
+      "year": 2008
+    },
+    {
+      "id": 49983,
+      "title": "The Legend of the Blue Sea",
+      "titleOriginal": "The Legend of the Blue Sea",
+      "year": 2016
+    },
+    {
+      "id": 53523,
+      "title": "Breaking Bad: Original Minisodes",
+      "titleOriginal": "Breaking Bad: Original Minisodes",
+      "year": 2009
+    },
+    {
+      "id": 96820,
+      "title": "The Bad Guys: The Series",
+      "titleOriginal": "The Bad Guys: The Series",
+      "year": 2025
+    },
+    {
+      "id": 32266,
+      "title": "Talking Bad",
+      "titleOriginal": "Talking Bad",
+      "year": 2013
+    }
+  ],
+  "id": 1
+}

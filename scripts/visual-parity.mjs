@@ -63,13 +63,13 @@ try {
       for (let i = 0; i < x.length; i += 4) {
         const row = Math.floor(i / 4 / canvas.width);
         const aligned = row >= boundary ? i + shift * canvas.width * 4 : i;
-        if (aligned >= y.length) continue;
+        if (aligned >= y.length || (shift && row < boundary)) continue;
         if (Math.max(...[0, 1, 2].map(k => Math.abs(x[i + k] - y[aligned + k]))) > 16) changed++;
       }
       return { changed, total: x.length / 4, percent: changed / (x.length / 4) * 100 };
     }, ['data:image/png;base64,' + baseline.toString('base64'), 'data:image/png;base64,' + current.toString('base64'), alignGrid ? Math.round(toolbarBox.height + 32) : 0, alignGrid ? Math.round(toolbarBox.y - 16) : Infinity]);
     results.push({ name, ...diff }); console.log(name, diff);
-    // F03 adds a toolbar above the grid on every page; retain the original full-page PNGs.
+    // F03 shifts the grid; F04 intentionally changes the header. Compare unchanged grid pixels.
     // Tile appearance is still compared separately by text-tiles.mjs.
     const changedBySpec = ['grid-360', 'settings', 'add', 'edit', 'import', 'export', 'page-context', 'context', 'search'].includes(name);
     if (changedBySpec) {
@@ -110,11 +110,11 @@ try {
   }
   await expect(page.locator('dialog')).toHaveCount(0);
   await page.route('https://suggest.yandex.ru/**', route => route.fulfill({ json: ['тест', ['тестовая строка', 'тест поиска']] }));
-  await page.bringToFront(); await page.getByRole('combobox').focus(); await page.getByRole('combobox').fill('тест');
-  await expect(page.getByRole('option')).toHaveCount(2);
+  await page.bringToFront(); await page.getByRole('combobox',{name:'Поиск в Яндексе',exact:true}).focus(); await page.getByRole('combobox',{name:'Поиск в Яндексе',exact:true}).fill('тест');
+  await expect(page.locator('.suggestions [role=option]')).toHaveCount(2);
   await page.addStyleTag({ content: ':focus-visible{outline:none!important}' });
   await shot('search');
-  await page.getByRole('combobox').fill('');
+  await page.getByRole('combobox',{name:'Поиск в Яндексе',exact:true}).fill('');
   await page.route('https://portal.mail.ru/**', route => route.fulfill({ json: { data: { mail_cnt: '3' } } }));
   await page.evaluate(async () => { const { settings } = await chrome.storage.local.get('settings'); settings.value.email = 'test@example.invalid'; await chrome.storage.local.set({ settings }); });
   await page.reload(); await expect(page.locator('.badge')).toHaveText('3'); await freeze(); await shot('mail');
@@ -202,8 +202,8 @@ try {
     expect((await page.locator('.bookmarks').boundingBox()).y).toBeCloseTo(beforeGrid.y,0);
     await page.getByRole('button',{name:'Поиск по закладкам',exact:true}).click();
     await input.click();await expect(input).toBeVisible();
-    await page.getByRole('combobox').click();await expect(input).toHaveCount(0);
-    await expect(page.getByRole('combobox')).toBeFocused();
+    await page.getByRole('combobox',{name:'Поиск в Яндексе',exact:true}).click();await expect(input).toHaveCount(0);
+    await expect(page.getByRole('combobox',{name:'Поиск в Яндексе',exact:true})).toBeFocused();
   }
   await page.evaluate(async()=>{
     const {rootFolderId}=await chrome.storage.local.get('rootFolderId');

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseImport, serializeExport } from '../services/importExport';
 import { normalizeUrl } from '../services/validation';
 import { imageFromDataUrl } from '../services/images';
-import { parseMailCount, parseSuggestions } from '../services/network';
+import { parseMailCount } from '../services/network';
 import { defaults } from '../types/models';
 describe('versioned append import validation', () => {
   it('round trips categories/order/settings without cache or profile IDs', async () => {
@@ -16,10 +16,6 @@ describe('versioned append import validation', () => {
   it('normalizes HTTP/HTTPS', () => { expect(normalizeUrl(' example.com ')).toBe('https://example.com/'); expect(normalizeUrl('http://example.com')).toBe('http://example.com/'); });
 });
 describe('service responses', () => {
-  it('extracts only textual Yandex suggestions', () => {
-    expect(parseSuggestions(['q', ['a', '<img src=x onerror=x>', 3]])).toEqual(['a', '<img src=x onerror=x>']);
-    expect(() => parseSuggestions({})).toThrow();
-  });
   it('does not invent Mail.ru unread counts', () => {
     expect(parseMailCount({ data: { mail_cnt: 0 } })).toBe(0);
     expect(parseMailCount({ data: { mail_cnt: 7 } })).toBe(7);

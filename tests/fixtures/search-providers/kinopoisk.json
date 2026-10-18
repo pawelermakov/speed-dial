@@ -1,0 +1,100 @@
+{
+  "data": {
+    "suggest": {
+      "top": {
+        "topResult": {
+          "global": {
+            "id": 301,
+            "title": {
+              "russian": "Матрица",
+              "original": "The Matrix",
+              "__typename": "Title"
+            },
+            "__typename": "Film",
+            "productionYear": 1999
+          }
+        },
+        "movies": [
+          {
+            "movie": {
+              "id": 1294123,
+              "title": {
+                "russian": "Матрица: Воскрешение",
+                "original": "The Matrix Resurrections",
+                "__typename": "Title"
+              },
+              "__typename": "Film",
+              "productionYear": 2021
+            }
+          },
+          {
+            "movie": {
+              "id": 299,
+              "title": {
+                "russian": "Матрица: Перезагрузка",
+                "original": "The Matrix Reloaded",
+                "__typename": "Title"
+              },
+              "__typename": "Film",
+              "productionYear": 2003
+            }
+          },
+          {
+            "movie": {
+              "id": 556944,
+              "title": {
+                "russian": "Матрица времени",
+                "original": "Before I Fall",
+                "__typename": "Title"
+              },
+              "__typename": "Film",
+              "productionYear": 2016
+            }
+          },
+          {
+            "movie": {
+              "id": 316,
+              "title": {
+                "russian": "Матрица: Революция",
+                "original": "The Matrix Revolutions",
+                "__typename": "Title"
+              },
+              "__typename": "Film",
+              "productionYear": 2003
+            }
+          },
+          {
+            "movie": {
+              "id": 400787,
+              "title": {
+                "russian": "Матрица",
+                "original": "Matrix",
+                "__typename": "Title"
+              },
+              "__typename": "TvSeries",
+              "releaseYears": [
+                {
+                  "end": 1993,
+                  "start": 1993,
+                  "__typename": "YearsRange"
+                }
+              ]
+            }
+          },
+          {
+            "movie": {
+              "id": 5516267,
+              "title": {
+                "russian": "Матрица 5",
+                "original": "Matrix 5",
+                "__typename": "Title"
+              },
+              "__typename": "Film",
+              "productionYear": null
+            }
+          }
+        ]
+      }
+    }
+  }
+}

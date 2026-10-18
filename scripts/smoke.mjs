@@ -241,7 +241,7 @@ try {
   await localSearch.fill('');await expect(page.locator('.bookmark')).toHaveCount(1);await expect(page.locator('.bookmark')).toHaveAttribute('title','Renamed externally — https://work.example/changed');
   await localSearch.press('Escape');await expect(localSearch).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Search Work',exact:true})).toHaveAttribute('aria-pressed','true');
-  const webSearch=page.getByRole('combobox');await webSearch.fill('');await webSearch.press('/');await expect(webSearch).toHaveValue('/');await webSearch.fill('');
+  const webSearch=page.getByRole('combobox',{name:'Поиск в Яндексе',exact:true});await webSearch.fill('');await webSearch.press('/');await expect(webSearch).toHaveValue('/');await webSearch.fill('');
   await page.evaluate(async f=>{await chrome.bookmarks.removeTree(f.a);await chrome.bookmarks.removeTree(f.b);await chrome.bookmarks.remove(f.direct);},searchFixture);
   pass('chrome: local search spans direct categories only, trim/case/URL, live changes, context edit, empty/clear/Escape, slash isolation, no drag, 360px');
   await page.evaluate(async root=>chrome.bookmarks.removeTree(root),rootId);
