@@ -12,7 +12,7 @@ export default defineConfig({
     ...(browser === 'firefox' ? { browser_specific_settings: { gecko: {
       id: 'speed-dial-x@pawelermakov.github.io', strict_min_version: '140.0',
       data_collection_permissions: { required: ['searchTerms', 'personallyIdentifyingInfo', 'browsingActivity'] },
-    } } } : {}),
+    } } } : { key: manifest.key }),
     // Keep capture/network permissions; Chrome-only optional APIs are excluded from Firefox.
     // all_urls is required by captureVisibleTab for automatically created tabs.
     permissions: [...manifest.permissions, ...(browser === 'firefox' ? [] : ['favicon', 'identity', 'identity.email'])],

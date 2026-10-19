@@ -2,8 +2,10 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { createCaptureQueue } from '../services/capture';
 import type { CaptureRequest } from '../types/models';
+import { startSettingsSync } from '../services/syncBackground';
 
 export default defineBackground(() => {
+  startSettingsSync();
   const capture = createCaptureQueue();
   browser.runtime.onConnect.addListener(port => {
     if (port.name !== 'speed-dial-capture' || port.sender?.id !== browser.runtime.id ||

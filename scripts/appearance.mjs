@@ -13,7 +13,7 @@ try{
  await page.evaluate(async()=>{const {settings}=await chrome.storage.local.get('settings');await chrome.storage.local.set({settings:{...settings,value:{...settings?.value,addButton:true}}});});await page.reload();await expect(page.locator('.bookmark')).toHaveCount(2);
  await expect(page.locator('.add-card svg')).toHaveCSS('width','56px');
  const textTile=page.locator('.bookmark[href="https://text.example/"]');const tileColor=await textTile.evaluate(e=>getComputedStyle(e).backgroundColor);
- const open=async()=>{const button=page.getByRole('button',{name:'Настройки',exact:true});await button.focus();await button.press('Enter');await expect(page.getByRole('spinbutton',{name:'Скругление (px)',exact:true})).toBeVisible();};
+ const open=async()=>{const button=page.getByRole('button',{name:'Настройки',exact:true});await expect(button).toBeEnabled();await button.focus();await button.press('Enter');await expect(page.getByRole('spinbutton',{name:'Скругление (px)',exact:true})).toBeVisible();};
  const close=async()=>{await page.getByRole('button',{name:'Закрыть настройки',exact:true}).click();await expect(page.locator('.settings')).toHaveCount(0);};
  const stored=key=>page.evaluate(async key=>(await chrome.storage.local.get('settings')).settings?.value[key],key);
  const set=async(name,value)=>{const input=page.getByLabel(name,{exact:true});await input.evaluate((e,value)=>{e.value=String(value);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));},value);};

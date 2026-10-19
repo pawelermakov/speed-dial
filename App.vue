@@ -51,8 +51,14 @@ watch(() => snapshot.value.rootId, () => { creatingCategory.value = false; editi
 const disabled = computed(() => loading.value || busy.value || capturing.value);
 const settingsOpen = ref(false);
 const settingsPanel = ref<InstanceType<typeof SettingsPanel>>();
-async function closeSettings(){await settingsPanel.value?.flush();await flushSettings();settingsOpen.value=false;}
-function openSettings() { settingsOpen.value = true; }
+let settingsGeneration=0;
+async function closeSettings(){
+  if(!settingsOpen.value)return;
+  const generation=settingsGeneration;
+  await settingsPanel.value?.flush();await flushSettings();
+  if(generation===settingsGeneration)settingsOpen.value=false;
+}
+function openSettings() { settingsGeneration++;settingsOpen.value = true; }
 const bookmarkDialog = ref(false);
 const editing = shallowRef<Bookmark>();
 const dialogError = ref('');

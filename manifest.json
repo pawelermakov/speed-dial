@@ -23,5 +23,6 @@
   ],
   "host_permissions": [
     "<all_urls>"
-  ]
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyP5zuhnmLkTBvcTKEHkWbfeQljkSnKMmD/Rwkd1AndBl1+Lx/X0vaJoKvF3OT6dx+7qr70aMqxKqbXRkK5vbBULlIWtH62XalxDspJNu26Yp43zff68hPkYYy+Lp6l9YdsZmIlf9dUgdgfDboB+KGktS2r7+9JQ1pumMyaeFq0OTNmV3Q44hc/DC03xnLiYuD93ieOXmB73zgGadSNdR1pIFd0bRKgQr3Yr/3NbSEJ/DvcpDVG/V5G8hP/RIJaYY51IwI0Q++t5cl28yR3m18glL1YQJJoooejL6ojgNSubvpLIqO9ghY7VxAB1JWgbP+ovLQGv6ARr9kx9SqF++RwIDAQAB"
 }

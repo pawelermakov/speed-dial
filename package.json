@@ -25,7 +25,8 @@
     "test:appearance": "node scripts/appearance.mjs",
     "postinstall": "wxt prepare",
     "test:visual": "node scripts/visual-parity.mjs && node scripts/text-tiles.mjs",
-    "test:tiles": "node scripts/text-tiles.mjs"
+    "test:tiles": "node scripts/text-tiles.mjs",
+    "test:sync": "node scripts/settings-sync.mjs"
   },
   "dependencies": {
     "vue": "^3.5.29",

@@ -96,8 +96,6 @@ html:hover,.page :hover {
 .settings :is(.ui-control,.ui-button,label[for=background]) {font-size:16px;line-height:1.45;}
 .settings label[for=background] {padding-block:8px;}
 .settings-header {background:transparent;}
-.mail-help:has(button:focus-visible) [role=tooltip] {visibility:visible;opacity:1;}
-.settings [role=tooltip] {transition:opacity 250ms ease-in-out,visibility 250ms ease-in-out;}
 .settings :is(fieldset,section) {min-width:0;}
 .settings-form,.settings section[aria-label="Синхронизация"] {font-size:16px;}
 .settings legend,.settings h3,.modal h2 {font-weight:600;}
@@ -121,7 +119,7 @@ html:hover,.page :hover {
 }
 .context button:focus-visible {box-shadow:none;background-color:var(--ui-accent-soft);}
 .peer:focus-visible ~ .checkmark,.peer:focus-visible + label {outline:none;box-shadow:0 0 0 2px rgb(var(--ui-accent-rgb) / .25);}
-.settings [role=alert],.modal [role=alert],.ui-error {background:rgb(255 255 255 / .95);padding:8px;border-radius:var(--ui-radius);}
+.settings [role=alert]:not(.sync-notice),.modal [role=alert],.ui-error {background:rgb(255 255 255 / .95);padding:8px;border-radius:var(--ui-radius);}
 .ui-error {color:#8a2020;}
 .settings [data-icon] {background:#fff;border-radius:50%;}
 @supports not (backdrop-filter:blur(10px)) {

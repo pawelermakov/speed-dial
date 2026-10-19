@@ -115,7 +115,7 @@ export class Repository {
     if (generation === this.readGeneration && initialRoot === this.rootId) { this.rootId = rootId; this.activeId = activeId; }
     return { tabs, categories, rootId, activeId, settings: envelope ? validateSettings(envelope.value) : { ...defaults }, background: background?.blob ?? null, rootNotice };
   }
-  async saveSettings(settings: Settings, background?: Blob | null, rootId?: string) {
+  async saveSettings(settings: Settings, background?: Blob | null, rootId?: string, replace=false) {
     const next = validateSettings(settings);
     if (rootId !== undefined) await this.folder(rootId);
     const previous = await this.settings.getValue();
@@ -124,7 +124,7 @@ export class Repository {
     const previousBackground = background !== undefined ? await this.db.assets.get('background') : undefined;
     let wroteSettings = false, wroteBackground = false;
     try {
-      if (settingsChanged) { await this.settings.setValue({ value:next }); wroteSettings = true; }
+      if (settingsChanged||replace) { await this.settings.setValue({ value:next },replace); wroteSettings = true; }
       if (background !== undefined) {
         if (background) await this.db.assets.put({ key:'background', blob:background });
         else await this.db.assets.delete('background');
@@ -151,7 +151,7 @@ export class Repository {
     await this.saveSettings(next);
     return next;
   }
-  async reset() { await this.saveSettings({ ...defaults }, null); await this.images.clear(); }
+  async reset() { await this.saveSettings({ ...defaults }, null,undefined,true); await this.images.clear(); }
   async saveBackground(background: Blob | null) {
     if (background) await this.db.assets.put({ key:'background', blob:background });
     else await this.db.assets.delete('background');
@@ -201,7 +201,7 @@ export class Repository {
           for (const child of entry.children) { await this.category(folder.id); await this.bookmarks.create({ parentId: folder.id, ...child }); bookmarks++; }
         }
       }
-      await this.saveSettings(data.settings, data.background);
+      await this.saveSettings(data.settings, data.background,undefined,true);
     } catch (error) { throw new Error(`Импорт прерван: добавлено закладок ${bookmarks}, папок ${folders}. ${error instanceof Error ? error.message : error}`); }
   }
 }

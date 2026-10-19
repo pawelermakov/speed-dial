@@ -5,6 +5,7 @@ vi.mock('wxt/browser', () => { const event = { addListener: (fn: ()=>void) => st
 vi.mock('wxt/utils/storage', () => ({ storage: { defineItem: () => ({ watch: state.watch }) } }));
 vi.mock('../services/database', () => ({ db: {} }));
 vi.mock('../services/settings', () => ({ settingsItem: {} }));
+vi.mock('../services/syncClient', () => ({ syncRequest: vi.fn(async()=>{}) }));
 vi.mock('../services/favicons', () => ({ faviconBlob: vi.fn(async () => null) }));
 vi.mock('../services/repository', () => ({ Repository: class { load = state.load; initialize = state.initialize; }, withDataLock: (fn: ()=>Promise<unknown>) => fn() }));
 import { useDial, repository } from '../composables/useDial';

@@ -3,6 +3,7 @@ import { browser } from 'wxt/browser';
 import { storage } from 'wxt/utils/storage';
 import { db } from '../services/database';
 import { settingsItem } from '../services/settings';
+import { syncRequest } from '../services/syncClient';
 import { Repository, withDataLock } from '../services/repository';
 import { defaults, type SearchProviderId, type Settings, type Snapshot } from '../types/models';
 import { validateSettings } from '../services/validation';
@@ -28,7 +29,7 @@ export function useDial() {
     snapshot.value = { ...snapshot.value, settings };
   }
   function track<T>(promise:Promise<T>):Promise<T> { saves.add(promise);void promise.finally(()=>saves.delete(promise)).catch(()=>{});return promise; }
-  async function flushSettings() { while(saves.size) await Promise.allSettled([...saves]); }
+  async function flushSettings() { while(saves.size) await Promise.allSettled([...saves]); await syncRequest('flush'); }
   const channel = new BroadcastChannel('speed-dial-updates');
   let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, disposed = false;
   const attempted = new Set<string>();
@@ -87,7 +88,7 @@ export function useDial() {
   const changeSearchProvider = (searchProvider:SearchProviderId) => updateSettings({searchProvider});
   const changeRoot = (id:string):Promise<boolean> => {
     const version=++rootVersion;
-    return track((async()=>{try{await withDataLock(()=>repository.selectRoot(id));if(version===rootVersion){delete settingErrors.value.root;await refresh();channel.postMessage({type:'updated'});}return true;}
+    return track((async()=>{try{await withDataLock(()=>repository.selectRoot(id));if(version===rootVersion){void syncRequest('folder',id);delete settingErrors.value.root;await refresh();channel.postMessage({type:'updated'});}return true;}
       catch(error){if(version===rootVersion){settingErrors.value={...settingErrors.value,root:'Папка закладок: не удалось сохранить. '+errorText(error)};await refresh().catch(()=>{});}return false;}})());
   };
   const changeBackground = (blob:Blob|null):Promise<boolean> => {
@@ -127,6 +128,7 @@ export function useDial() {
   onMounted(async () => {
     try {
       if (!api) throw new Error('Bookmarks API недоступен. Проверьте разрешение «Закладки» и переустановите расширение.');
+      await syncRequest('initialize');
       const initial = await withDataLock(() => repository.initialize());
       if (initial?.rootNotice) notice.value = initial.rootNotice;
       await refresh();
