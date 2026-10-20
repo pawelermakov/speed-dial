@@ -13,6 +13,24 @@ export function normalizeUrl(input: unknown): string {
     throw new Error('Разрешены только HTTP/HTTPS адреса без логина и пароля.');
   return url.href;
 }
+export function normalizeBookmarkUrl(input: string): string {
+  const value = normalizeUrl(input);
+  const host = new URL(value).hostname.replace(/\.$/, '');
+  const rawHost = input.trim().replace(/^https?:\/\//i, '').split(/[/?#]/, 1)[0]!.replace(/:\d*$/, '');
+  if (/^(?:\d+\.){3}\d+$/.test(host)) {
+    // URL accepts shorthand like "1" or "1.2" as IPv4. Require the full
+    // dotted-decimal address the user actually entered instead.
+    if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(rawHost) || rawHost.split('.').some(part => Number(part) > 255))
+      throw new Error('Введите полный IP-адрес сайта.');
+    return value;
+  }
+  // Accept public domains, localhost and IP literals without fetching the site.
+  if (host !== 'localhost' && !host.startsWith('[') &&
+    (!host.includes('.') || !/^(?:[a-z]{2,63}|xn--[a-z\d-]{2,59})$/i.test(host.split('.').at(-1)!) || host.length > 253 || host.split('.').some(label =>
+      !/^[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?$/i.test(label))))
+    throw new Error('Введите полный адрес сайта, например example.com.');
+  return value;
+}
 function boolean(value: unknown, fallback: boolean): boolean {
   if (value === undefined || value === null) return fallback;
   if (value === true || value === 'true' || value === 'on' || value === '1' || value === 1) return true;

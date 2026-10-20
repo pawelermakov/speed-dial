@@ -3,9 +3,21 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { createCaptureQueue } from '../services/capture';
 import type { CaptureRequest } from '../types/models';
 import { startSettingsSync } from '../services/syncBackground';
+import { db } from '../services/database';
+import { invalidateAutoName } from '../services/autoNames';
 
 export default defineBackground(() => {
   startSettingsSync();
+  browser.bookmarks.onChanged.addListener((id, change) => {
+    void invalidateAutoName(db, id, change).catch(() => {});
+  });
+  browser.bookmarks.onRemoved.addListener((_id, info) => {
+    const clean = (node: typeof info.node) => {
+      void db.autoNames.delete(node.id).catch(() => {});
+      node.children?.forEach(clean);
+    };
+    clean(info.node);
+  });
   const capture = createCaptureQueue();
   browser.runtime.onConnect.addListener(port => {
     if (port.name !== 'speed-dial-capture' || port.sender?.id !== browser.runtime.id ||

@@ -1,9 +1,9 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-const state = vi.hoisted(() => ({ mounted: [] as Array<()=>Promise<void>>, unmounted: [] as Array<()=>void>, listeners: new Set<()=>void>(), load: vi.fn(), initialize: vi.fn(), close: vi.fn(), watch: vi.fn(() => () => {}), post: vi.fn() }));
+const state = vi.hoisted(() => ({ mounted: [] as Array<()=>Promise<void>>, unmounted: [] as Array<()=>void>, listeners: new Set<()=>void>(), background: vi.fn(), load: vi.fn(), initialize: vi.fn(), close: vi.fn(), watch: vi.fn(() => () => {}), post: vi.fn() }));
 vi.mock('vue', async () => { const actual = await vi.importActual<typeof import('vue')>('vue'); return { ...actual, onMounted: (callback: ()=>Promise<void>) => state.mounted.push(callback), onUnmounted: (callback: ()=>void) => state.unmounted.push(callback) }; });
 vi.mock('wxt/browser', () => { const event = { addListener: (fn: ()=>void) => state.listeners.add(fn), removeListener: (fn: ()=>void) => state.listeners.delete(fn) }; return { browser: { bookmarks: { onCreated:event,onChanged:event,onRemoved:event,onMoved:event,onChildrenReordered:event,onImportEnded:event } } }; });
 vi.mock('wxt/utils/storage', () => ({ storage: { defineItem: () => ({ watch: state.watch }) } }));
-vi.mock('../services/database', () => ({ db: {} }));
+vi.mock('../services/database', () => ({ db: {assets:{get:state.background}} }));
 vi.mock('../services/settings', () => ({ settingsItem: {} }));
 vi.mock('../services/syncClient', () => ({ syncRequest: vi.fn(async()=>{}) }));
 vi.mock('../services/favicons', () => ({ faviconBlob: vi.fn(async () => null) }));
@@ -11,9 +11,23 @@ vi.mock('../services/repository', () => ({ Repository: class { load = state.load
 import { useDial, repository } from '../composables/useDial';
 import { defaults } from '../types/models';
 const snapshot = (title: string) => ({ tabs: [{ id:'x', parentId:'root', title, url:'https://example.com/', index:0, favicon:null, thumbnail:null }], categories:[],rootId:'root',activeId:'root',settings:defaults,background:null });
-beforeEach(() => { vi.useFakeTimers(); state.mounted.length=0;state.unmounted.length=0;state.listeners.clear();state.load.mockReset().mockResolvedValue(snapshot('Initial'));state.initialize.mockReset().mockResolvedValue(undefined);vi.stubGlobal('BroadcastChannel',class { postMessage=state.post; close=state.close; onmessage=null; });vi.stubGlobal('navigator',{}); });
+beforeEach(() => { vi.useFakeTimers(); state.mounted.length=0;state.unmounted.length=0;state.listeners.clear();state.background.mockReset().mockResolvedValue(undefined);state.load.mockReset().mockResolvedValue(snapshot('Initial'));state.initialize.mockReset().mockResolvedValue(undefined);vi.stubGlobal('BroadcastChannel',class { postMessage=state.post; close=state.close; onmessage=null; });vi.stubGlobal('navigator',{}); });
 afterEach(() => { state.unmounted.forEach(callback=>callback());vi.useRealTimers();vi.unstubAllGlobals(); });
 describe('browser event refresh lifecycle', () => {
+ it('loads wallpaper while bookmark initialization is still pending',async()=>{
+   const blob=new Blob(['wallpaper']);state.background.mockResolvedValue({blob});
+   let finish!:()=>void;state.initialize.mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;}));
+   const dial=useDial(),startup=state.mounted[0]!();
+   await vi.advanceTimersByTimeAsync(0);
+   expect(dial.loading.value).toBe(true);expect(dial.snapshot.value.background).toBe(blob);expect(state.load).not.toHaveBeenCalled();
+   finish();await startup;
+ });
+ it('ignores an obsolete wallpaper startup read after a complete refresh',async()=>{
+   let finish!:(value:{blob:Blob})=>void;state.background.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+   const current=new Blob(['current']);state.load.mockResolvedValue({...snapshot('Initial'),background:current});
+   const dial=useDial();await state.mounted[0]!();finish({blob:new Blob(['old'])});await Promise.resolve();
+   expect(dial.snapshot.value.background).toBe(current);
+ });
  it('previews appearance without writing, then commits through the same field update API',async()=>{
    const dial=useDial();await state.mounted[0]!();
    repository.patchSettings=vi.fn().mockResolvedValue({...defaults,uiRadius:24});

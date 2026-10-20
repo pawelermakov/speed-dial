@@ -126,6 +126,12 @@ export function useDial() {
   events.forEach(event => event?.addListener(bookmarkEvent));
   browser.tabs?.onUpdated?.addListener(tabUpdated);
   onMounted(async () => {
+    // Wallpaper should not wait for sync and the bookmark tree.
+    const initialBackgroundVersion=backgroundVersion;
+    void db.assets.get('background').then(asset=>{
+      if(!disposed && backgroundDirty && backgroundVersion===initialBackgroundVersion)
+        snapshot.value={...snapshot.value,background:asset?.blob??null};
+    }).catch(()=>{}); // The regular refresh reports storage errors.
     try {
       if (!api) throw new Error('Bookmarks API недоступен. Проверьте разрешение «Закладки» и переустановите расширение.');
       await syncRequest('initialize');

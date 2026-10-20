@@ -67,7 +67,7 @@ try {
   const state = () => page.evaluate(id=>chrome.bookmarks.getChildren(id),rootId);
   await page.getByRole('button',{name:'Новая закладка',exact:true}).click();
   await page.locator('dialog input').nth(0).fill(siteUrl); await page.locator('dialog input').nth(1).fill('Custom title');
-  await page.getByRole('button',{name:'Добавить',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(1);
+  await page.getByLabel('Создать эскиз сайта',{exact:true}).uncheck(); await page.getByRole('button',{name:'Добавить',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(1);
   const id = (await state())[0].id; expect((await state())[0].title).toBe('Custom title');
   await page.locator('.bookmark').click({button:'right'}); await page.getByRole('menuitem',{name:'Обновить эскиз'}).click();
   await expect(page.getByRole('status')).toContainText('Изображения обновлены', {timeout:30000});

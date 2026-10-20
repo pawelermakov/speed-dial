@@ -26,7 +26,9 @@
     "postinstall": "wxt prepare",
     "test:visual": "node scripts/visual-parity.mjs && node scripts/text-tiles.mjs",
     "test:tiles": "node scripts/text-tiles.mjs",
-    "test:sync": "node scripts/settings-sync.mjs"
+    "test:sync": "node scripts/settings-sync.mjs",
+    "test:dialogs": "node scripts/bookmark-dialogs.mjs",
+    "test:wallpaper": "node scripts/wallpaper-startup.mjs"
   },
   "dependencies": {
     "vue": "^3.5.29",

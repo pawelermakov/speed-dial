@@ -42,11 +42,15 @@ html:hover,.page :hover {
   --ui-shadow-tile:0 1px 3px rgb(0 0 0 / .14);
   --ui-shadow-raised:0 4px 12px rgb(0 0 0 / .18);
   --ui-shadow-popover:0 8px 24px rgb(0 0 0 / .18);
+  --ui-overlay:rgb(0 0 0 / .24);
   color:var(--ui-text);
 }
-.page-background {transition:filter 250ms ease-in-out;}
+.page-background {opacity:0;transition:filter 250ms ease-in-out,opacity 250ms ease-in-out;}
+.page-background.is-ready {opacity:1;}
 .page-background.is-blurred {filter:var(--ui-blur);}
-.dial.pushed {filter:var(--ui-blur);}
+.dial.is-blurred {filter:var(--ui-blur);}
+.ui-overlay {background-color:var(--ui-overlay);transition:background-color 250ms ease-in-out,opacity 250ms ease-in-out;}
+.ui-overlay.overlay-clear {background-color:transparent;}
 .ui-glass,.ui-caption {
   background:var(--ui-surface);
   color:var(--ui-text);

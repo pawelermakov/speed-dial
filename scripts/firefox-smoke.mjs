@@ -22,7 +22,7 @@ export async function firefoxSmoke(siteUrl, results) {
   await click('Новая закладка');
   await driver.until('return !!document.querySelector("dialog input");');
   await driver.exec('const inputs=document.querySelectorAll("dialog input"); inputs[0].value=arguments[0];inputs[1].value="Firefox custom";for(const input of inputs)input.dispatchEvent(new Event("input",{bubbles:true}));',siteUrl);
-  await click('Добавить'); await driver.until('return document.querySelectorAll(".bookmark").length===1 && !document.querySelector("dialog");');
+  await driver.exec('document.querySelector(".capture-option input").click();'); await click('Добавить'); await driver.until('return document.querySelectorAll(".bookmark").length===1 && !document.querySelector("dialog");');
   const id = await driver.exec('return (await browser.bookmarks.getChildren(arguments[0]))[0].id;',rootId);
   assert.equal(await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].title;',id),'Firefox custom');
   await driver.exec('document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));'); await click('Обновить эскиз');
@@ -46,7 +46,8 @@ export async function firefoxSmoke(siteUrl, results) {
   await driver.exec('await browser.bookmarks.update(arguments[0],{title:"External Firefox"});',id);
   await driver.until('return document.querySelector(".bookmark")?.textContent.includes("External Firefox");');
   await driver.exec('document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));'); await click('Изменить');
-  await driver.exec('const input=document.querySelectorAll("dialog input")[1];input.value="Edited Firefox";input.dispatchEvent(new Event("input",{bubbles:true}));'); await click('Сохранить');
+  await driver.until('return !!document.querySelector("#bookmark-title");');
+  await driver.exec('const input=document.querySelector("#bookmark-title");input.value="Edited Firefox";input.dispatchEvent(new Event("input",{bubbles:true}));'); await click('Сохранить');
   await driver.until('return !document.querySelector("dialog") && document.querySelector(".bookmark")?.textContent.includes("Edited Firefox");');
   await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',category);
   await driver.until('return document.querySelectorAll(".bookmark").length===0;');

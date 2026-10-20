@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import InfoTooltip from './InfoTooltip.vue';
+import PanelHeader from './PanelHeader.vue';
 import { ui } from '../utils/ui';
 import { reactive, ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { browser } from 'wxt/browser';
@@ -75,9 +76,9 @@ const markClass="checkmark block size-6 shrink-0 relative after:content-[''] aft
 const checkboxFields=[{key:'addButton',label:'Показать кнопку «+»'},{key:'bookmarkSearch',label:'Показывать поиск по закладкам'}] as const;
 </script>
 <template>
-  <div class="settings-overlay fixed inset-0 z-20" @click.self="close">
+  <div class="settings-overlay ui-overlay fixed inset-0 z-20" @click.self="close">
     <aside class="settings fixed top-0 right-0 h-full w-[min(300px,100vw)] px-4 ui-glass overflow-clip flex flex-col animate-slide motion-reduce:animate-none" aria-label="Настройки">
-      <header class="settings-header relative z-20 shrink-0 border-b border-black/20 -mx-4 px-4 pt-4 pb-4 pr-12"><h2 class="text-base font-bold">Настройки</h2><button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 size-7 inline-flex items-center justify-center rounded-[var(--ui-radius)] ui-hover" aria-label="Закрыть настройки" @click="close"><svg class="block size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z"/></svg></button></header>
+      <PanelHeader title="Настройки" close-label="Закрыть настройки" class="settings-header -mx-4 z-20" @close="close" />
       <div class="settings-content flex-1 min-h-0 overflow-y-auto -mx-4 px-4 py-4">
       <SyncStatus />
       <form class="settings-form flex flex-col flex-1 min-w-0 text-sm" @submit.prevent>

@@ -47,7 +47,7 @@ try{
  }
  await page.setViewportSize({width:1280,height:600});
  await expect(page.locator('.page-background')).toHaveCSS('filter','blur(10px)');
- assert.equal(await page.locator('.page-background').evaluate(e=>getComputedStyle(e).transitionDuration),'0.25s');
+ assert.equal(await page.locator('.page-background').evaluate(e=>getComputedStyle(e).transitionDuration),'0.25s, 0.25s');
  const headerBefore=await page.locator('.settings-header').boundingBox();
  await page.locator('.settings-content').evaluate(e=>e.scrollTop=e.scrollHeight);
  assert.equal((await page.locator('.settings-header').boundingBox()).y,headerBefore.y);
