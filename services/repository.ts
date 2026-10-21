@@ -101,9 +101,9 @@ export class Repository {
     let tabs: Bookmark[] = [], categories: Snapshot['categories'] = [];
     if (rootId) {
       const children = await this.bookmarks.getChildren(rootId);
-      const folders = children.filter(node => !node.url);
-      categories = folders.map(node => ({ id: node.id, title: node.title === 'Главная' ? 'Главная (папка)' : node.title, index: node.index ?? 0 }));
-      if (folders.length && children.some(node => node.url)) categories.unshift({ id: rootId, title: 'Главная', index: -1, virtual: true });
+      const folders = children.filter(node => !node.url && !node.unmodifiable);
+      const rootTitle = choices.find(choice => choice.id === rootId)!.title;
+      categories = [{ id: rootId, title: rootTitle, index: -1, virtual: true }, ...folders.map(node => ({ id: node.id, title: node.title === rootTitle ? rootTitle + ' (папка)' : node.title, index: node.index ?? 0 }))];
       if (!activeId || (categories.length ? !categories.some(node => node.id === activeId) : activeId !== rootId)) activeId = categories[0]?.id ?? rootId;
       const nodes = activeId === rootId ? children : await this.bookmarks.getChildren(activeId);
       tabs = await Promise.all(nodes.filter(node => node.url).map(async node => {
@@ -209,17 +209,50 @@ export class Repository {
     await this.images.put(id, url, resource, blob);
   }
   async remove(id: string) { await this.bookmark(id); await this.bookmarks.remove(id); await this.images.remove(id); await this.db.autoNames.delete(id); }
-  async reorder(ids: string[]) {
-    const parent = await this.parent();
-    const children = await this.bookmarks.getChildren(parent.id);
-    const nodes = children.filter(node => node.url);
-    if (new Set(ids).size !== ids.length || ids.length !== nodes.length || nodes.some(node => !ids.includes(node.id))) throw new Error('Список изменился; повторите перетаскивание.');
-    const slots = nodes.map(node => node.index ?? children.indexOf(node));
-    for (let i = 0; i < ids.length; i++) { await this.bookmark(ids[i]!); await this.parent(parent.id); await this.bookmarks.move(ids[i]!, { parentId: parent.id, index: slots[i]! }); }
+  private async sortChildren(parentId: string, ids: string[], folders: boolean, expected?: string[]) {
+    const sourceRoot = this.rootId;
+    const original = await this.bookmarks.getChildren(parentId);
+    const nodes = original.filter(node => folders ? !node.url && !node.unmodifiable : !!node.url);
+    const order = nodes.map(node => node.id);
+    if (new Set(ids).size !== ids.length || ids.length !== order.length || order.some(id => !ids.includes(id)) ||
+      (expected && expected.join() !== order.join())) throw new Error('Список изменился; повторите перетаскивание.');
+    let cursor = 0;
+    const desired = original.map(node => order.includes(node.id) ? ids[cursor++]! : node.id);
+    let current = original.map(node => node.id);
+    for (let i = 0; i < desired.length; i++) {
+      while (current[i] !== desired[i]) {
+        const actual = await this.bookmarks.getChildren(parentId);
+        if (this.rootId !== sourceRoot || actual.map(node => node.id).join() !== current.join() || actual.some(node => node.url !== original.find(row => row.id === node.id)?.url || node.title !== original.find(row => row.id === node.id)?.title))
+          throw new Error('Список изменился; повторите перетаскивание.');
+        await this.parent(parentId);
+        const id = order.includes(desired[i]!) ? desired[i]! : current[i]!;
+        const target = desired[i] === id ? i : desired.indexOf(id);
+        // Chromium counts the destination before removing the source; Firefox
+        // and the test port count its final position in the resulting children.
+        const index = target + Number(import.meta.env.BROWSER === 'chrome' && current.indexOf(id) < target);
+        await this.bookmarks.move(id, { parentId, index });
+        current.splice(current.indexOf(id), 1); current.splice(target, 0, id);
+      }
+    }
+    if ((await this.bookmarks.getChildren(parentId)).map(node => node.id).join() !== desired.join())
+      throw new Error('Порядок изменился; показаны актуальные закладки.');
   }
-  async createCategory(title: string) { const root = await this.rootNode(); if (!title.trim()) throw new Error('Введите название.'); await this.bookmarks.create({ parentId: root.id, title: title.trim() }); }
+  async reorder(ids: string[], expected?: string[], parentId = this.activeId) {
+    if (parentId !== this.activeId) throw new Error('Категория изменилась; повторите перетаскивание.');
+    const parent = await this.parent(parentId ?? undefined);
+    await this.sortChildren(parent.id, ids, false, expected);
+  }
+  async reorderCategories(ids: string[], expected?: string[]) {
+    const root = await this.rootNode();
+    await this.sortChildren(root.id, ids, true, expected);
+  }
+  async createCategory(title: string) {
+    const root = await this.rootNode(); if (!title.trim()) throw new Error('Введите название.');
+    const node = await this.bookmarks.create({ parentId: root.id, title: title.trim() });
+    this.activeId = node.id;
+  }
   async category(id: string): Promise<BookmarkNode> { const node = await this.parent(id); if (id === this.rootId) throw new Error('Основная папка защищена.'); return node; }
-  async renameCategory(id: string, title: string) { await this.category(id); if (!title.trim()) throw new Error('Введите название.'); await this.bookmarks.update(id, { title: title.trim() }); }
+  async renameCategory(id: string, title: string) { await this.category(id); if (!title.trim()) throw new Error('Введите название.'); if ((await this.category(id)).title !== title.trim()) await this.bookmarks.update(id, { title: title.trim() }); }
   async removeCategory(id: string) { await this.category(id); await this.bookmarks.removeTree(id); }
   async moveCategory(id: string, beforeId: string) { await this.category(id); const target = await this.category(beforeId); await this.bookmarks.move(id, { parentId: this.rootId!, index: target.index ?? 0 }); }
   async exportData(): Promise<ImportData> {

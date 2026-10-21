@@ -38,11 +38,12 @@ export async function firefoxSmoke(siteUrl, results) {
   await driver.until('return document.querySelector(".bookmark-area").textContent.includes("Закладки не найдены");');
   await driver.exec('const input=document.querySelector(".bookmark-search input");input.value="";input.dispatchEvent(new Event("input",{bubbles:true}));');
   await driver.until('return document.querySelectorAll(".bookmark").length===1;');
-  await click('Закрыть поиск по закладкам');
-  await driver.until('return !document.querySelector(".bookmark-search input");');
+  await driver.exec('document.activeElement.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));');
+  await driver.until('return !document.querySelector(".bookmark-search-field.is-open");');
   results.push('firefox: local search focus, case/trim, unchanged tiles, no drag, external rename and clear/close');
   const category = await driver.exec('const category=await browser.bookmarks.create({parentId:arguments[0],title:"Work"});await browser.bookmarks.move(arguments[1],{parentId:category.id});return category.id;',rootId,id);
-  await driver.until('return Array.from(document.querySelectorAll("nav button")).some(button=>button.textContent==="Work") && document.querySelectorAll(".bookmark").length===1;');
+  await driver.until('return Array.from(document.querySelectorAll("nav button")).some(button=>button.textContent.trim()==="Work");');
+  await click('Work');await driver.until('return document.querySelectorAll(".bookmark").length===1;');
   await driver.exec('await browser.bookmarks.update(arguments[0],{title:"External Firefox"});',id);
   await driver.until('return document.querySelector(".bookmark")?.textContent.includes("External Firefox");');
   await driver.exec('document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));'); await click('Изменить');

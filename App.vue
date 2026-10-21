@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, watch, nextTick, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
-import CategoryNameInput from './components/CategoryNameInput.vue';
+import CategoryTabs from './components/CategoryTabs.vue';
+import CategoryDialog from './components/CategoryDialog.vue';
 import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
 import BookmarkSearch from './components/BookmarkSearch.vue';
@@ -45,10 +46,10 @@ function closeSearch(restoreFocus = true) { searchOpen.value = false; query.valu
 watch(() => snapshot.value.settings.bookmarkSearch, enabled => { if (!enabled) closeSearch(false); });
 const capturing = ref(false);
 const savingBookmark = ref(false);
-const categoryDrag = ref<string>();
+const categoryDialogError=ref('');
 const creatingCategory = ref(false);
 const editingCategory = shallowRef<{ id: string; title: string }>();
-const categoryAddButton = ref<HTMLButtonElement>();
+
 watch(() => snapshot.value.rootId, () => { creatingCategory.value = false; editingCategory.value = undefined; });
 const disabled = computed(() => loading.value || busy.value || capturing.value || savingBookmark.value);
 const settingsOpen = ref(false);
@@ -81,7 +82,7 @@ const importError = ref('');
 const mailRevision = ref(0);
 watch(()=>snapshot.value.settings.email,()=>mailRevision.value++);
 const transfer = ref<'import' | 'export'>();
-const overlayOpen = computed(() => settingsOpen.value || bookmarkDialog.value || !!transfer.value);
+const overlayOpen = computed(() => settingsOpen.value || bookmarkDialog.value || !!transfer.value || creatingCategory.value || !!editingCategory.value);
 const exportText = ref('');
 const context = shallowRef<{ x: number; y: number; bookmark?: Bookmark; category?: Category }>();
 const backgroundUrl = ref('');
@@ -105,12 +106,12 @@ onUnmounted(() => backgroundResource.dispose());
 const fail = (error: unknown) => error instanceof Error ? error.message : String(error);
 function add() { void openBookmark(); }
 function showContext(event: MouseEvent, bookmark?: Bookmark) {
-  if ((event.target as HTMLElement).closest('input,textarea,button,dialog') || disabled.value || settingsOpen.value || bookmarkDialog.value || transfer.value) return;
+  if ((event.target as HTMLElement).closest('input,textarea,button,dialog') || disabled.value || overlayOpen.value) return;
   event.preventDefault();
   context.value = { x: event.clientX, y: event.clientY, bookmark };
 }
 function showCategoryContext(event: MouseEvent | KeyboardEvent, category: Category) {
-  if (category.virtual || disabled.value || settingsOpen.value || bookmarkDialog.value || transfer.value) return;
+  if (category.virtual || disabled.value || overlayOpen.value) return;
   const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
   context.value = { x: event instanceof MouseEvent ? event.clientX : bounds.left, y: event instanceof MouseEvent ? event.clientY : bounds.bottom, category };
 }
@@ -145,7 +146,7 @@ async function action(name: string) {
   const category = context.value?.category;
   context.value = undefined;
   try {
-    if (category) {
+    if (category && name !== 'category') {
       if (name === 'edit' || name === 'delete') await categoryAction(name === 'edit' ? 'rename' : 'delete', category.id);
       return;
     }
@@ -187,7 +188,7 @@ async function importData(text: string) {
     else importError.value = notice.value;
   } catch (error) { importError.value = fail(error); }
 }
-function reorder(ids: string[]) { if (!searching.value) void run(() => repository.reorder(ids)); }
+function reorder(ids: string[], expected: string[], dragRevision: number) { const parent = snapshot.value.activeId; if (!searching.value) void run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorder(ids, expected, parent); }); }
 async function reset() {
   if (confirm('Сбросить настройки, фон и локальный кэш изображений? Закладки браузера сохранятся.')) {
     if (await run(() => repository.reset(),true)) { settingsOpen.value = false; notice.value = 'Настройки и локальный кэш сброшены. Закладки сохранены.'; }
@@ -214,19 +215,21 @@ async function beginCategory() {
   if (disabled.value || !snapshot.value.rootId) return;
   context.value = undefined;
   editingCategory.value = undefined;
+  categoryDialogError.value = '';
   creatingCategory.value = true;
 }
 async function cancelCategory() {
   if (disabled.value) return;
   creatingCategory.value = false;
   editingCategory.value = undefined;
-  await nextTick();
-  categoryAddButton.value?.focus();
+
 }
 async function saveCategory(title: string) {
   if (disabled.value || (!creatingCategory.value && !editingCategory.value)) return;
   const selected = editingCategory.value;
+  categoryDialogError.value='';
   if (await run(() => selected ? repository.renameCategory(selected.id, title) : repository.createCategory(title))) await cancelCategory();
+  else {categoryDialogError.value=notice.value;notice.value='';}
 }
 async function categoryAction(name: 'create' | 'rename' | 'delete', id = snapshot.value.activeId) {
   if (name === 'create') { await beginCategory(); return; }
@@ -235,22 +238,19 @@ async function categoryAction(name: 'create' | 'rename' | 'delete', id = snapsho
     if (disabled.value) return;
     const category = await repository.category(id);
     creatingCategory.value = false;
+    categoryDialogError.value='';
     editingCategory.value = { id, title: category.title };
   }
   if (name === 'delete' && confirm('Удалить реальную папку браузера и ВСЕ её потомки, включая скрытые вложенные папки? Удаление может синхронизироваться на другие устройства.')) await run(() => repository.removeCategory(id));
 }
-async function dropCategory(id: string) {
-  const source = categoryDrag.value;
-  categoryDrag.value = undefined;
-  if (source && source !== id) await run(() => repository.moveCategory(source, id));
-}
+async function reorderCategories(ids: string[], expected: string[], dragRevision: number) { await run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorderCategories(ids, expected); }); }
 function beforeDialogLeave(element: Element) { (element as HTMLElement).inert = true; }
 function escape(event: KeyboardEvent) {
-  if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !disabled.value && snapshot.value.settings.bookmarkSearch && snapshot.value.rootId && !settingsOpen.value && !bookmarkDialog.value && !transfer.value && !context.value && !(event.target as HTMLElement).closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),dialog,[role="dialog"]')) {
+  if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !disabled.value && snapshot.value.settings.bookmarkSearch && snapshot.value.rootId && !overlayOpen.value && !context.value && !(event.target as HTMLElement).closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),dialog,[role="dialog"]')) {
     event.preventDefault(); openSearch(); return;
   }
   if (event.key !== 'Escape' || disabled.value) return;
-  if (searchOpen.value && !settingsOpen.value && !bookmarkDialog.value && !transfer.value && !context.value) { event.preventDefault(); closeSearch(); return; }
+  if (searchOpen.value && !overlayOpen.value && !context.value) { event.preventDefault(); closeSearch(); return; }
   context.value = undefined;void closeSettings();
 }
 window.addEventListener('keydown', escape);
@@ -271,14 +271,8 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         <p v-if="loading" role="status" class="text-white text-center">Загрузка…</p>
         <div v-else-if="!snapshot.rootId" class="text-white text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
         <template v-else>
-        <div v-if="snapshot.settings.bookmarkSearch || snapshot.categories.length || creatingCategory" class="bookmark-toolbar relative flex items-center min-h-9 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
-        <nav v-if="snapshot.categories.length || creatingCategory" aria-label="Категории" class="flex flex-wrap gap-3 min-w-0 w-full" :class="{ invisible: searchOpen, 'pr-12': snapshot.settings.bookmarkSearch }" :inert="searchOpen" :aria-hidden="searchOpen || undefined">
-          <template v-for="category in snapshot.categories" :key="category.id">
-          <CategoryNameInput v-if="editingCategory?.id === category.id" :title="editingCategory.title" :disabled="disabled" @save="saveCategory" @cancel="cancelCategory" />
-          <button v-else :disabled="disabled" :aria-pressed="category.id === snapshot.activeId" class="ui-category p-2" :draggable="!category.virtual && !disabled" :aria-haspopup="!category.virtual ? 'menu' : undefined" @contextmenu.stop.prevent="showCategoryContext($event, category)" @keydown.shift.f10.stop.prevent="showCategoryContext($event, category)" @click="selectCategory(category.id)" @dragstart="categoryDrag = category.id" @dragend="categoryDrag = undefined" @dragover.prevent @drop.prevent="!category.virtual && dropCategory(category.id)"><span class="ui-action-label">{{ category.title }}</span></button></template>
-          <CategoryNameInput v-if="creatingCategory" :disabled="disabled" @save="saveCategory" @cancel="cancelCategory" />
-          <button v-else ref="categoryAddButton" class="inline-flex items-center justify-center size-[calc(1lh+1rem)] shrink-0 ui-control" aria-label="Новая категория" title="Новая категория" :disabled="disabled" @click="beginCategory">+</button>
-        </nav>
+        <div v-if="snapshot.settings.bookmarkSearch || snapshot.categories.length || creatingCategory" class="bookmark-toolbar relative flex items-center min-h-11 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
+        <CategoryTabs :revision="revision" :categories="snapshot.categories" :active-id="snapshot.activeId" :disabled="disabled" :hidden="searchOpen" :creating="creatingCategory" :editing="editingCategory" :class="{'pr-[52px]':snapshot.settings.bookmarkSearch}" @select="selectCategory" @context="showCategoryContext" @background="event => { if (!disabled && !overlayOpen) context = {x:event.clientX,y:event.clientY}; }" @reorder="reorderCategories" @refresh="refresh" />
         <BookmarkSearch v-if="snapshot.settings.bookmarkSearch" ref="searchControl" :open="searchOpen" v-model:query="query" :disabled="disabled" @open="openSearch" @close="closeSearch" />
         </div>
         <p v-if="searching && searchError" role="alert" class="text-white text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
@@ -287,8 +281,8 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
           <p>Закладки не найдены</p>
           <p class="text-sm opacity-75">Попробуйте другое название или адрес сайта.</p>
         </div>
-        <BookmarkGrid :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
-          @add="add" @context="showContext" @reorder="reorder" />
+        <BookmarkGrid :revision="revision" :category-names="Object.fromEntries(snapshot.categories.map(row=>[row.id,row.title]))" :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
+          @add="add" @context="showContext" @reorder="reorder" @refresh="refresh" />
         </template>
       </div>
     </main>
@@ -299,6 +293,9 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     <Transition enter-from-class="overlay-clear" leave-active-class="[&_.settings]:animate-none [&_.settings]:transition-transform [&_.settings]:duration-250 motion-reduce:[&_.settings]:transition-none" leave-to-class="overlay-clear [&_.settings]:translate-x-full" :duration="250" @before-leave="beforeDialogLeave">
     <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="Object.values(settingErrors).join(' ')" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :preview-settings="previewSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
       @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" @error="notice=$event" />
+    </Transition>
+    <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
+      <CategoryDialog v-if="creatingCategory || editingCategory" :title="editingCategory?.title" :busy="disabled" :error="categoryDialogError" @close="cancelCategory" @save="saveCategory" />
     </Transition>
     <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
     <BookmarkDialog v-if="bookmarkDialog" :bookmark="editing" :categories="dialogCategories" :active-id="snapshot.activeId" :category-error="categoryError" :busy="disabled" :error="dialogError" @close="bookmarkDialog = false" @save="saveBookmark" />

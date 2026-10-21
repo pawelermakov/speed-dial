@@ -177,14 +177,14 @@ describe('browser bookmarks source', () => {
   it('distinguishes account/local branches without relying on fixed IDs', async () => { const local=await api.create({parentId:'root',title:'Local'});Object.assign(api.nodes.get(local.id)!,{folderType:'other',syncing:false});await api.create({parentId:'other',title:'Speed Dial'});await api.create({parentId:local.id,title:'Speed Dial'});const choices=await repo.choices();expect(choices.find(node=>node.id==='other')?.path).toContain('аккаунт');expect(choices.find(node=>node.id===local.id)?.path).toContain('локально');expect((await repo.initialize()).rootId).toBe('other'); });
   it('protects technical, standard and managed folders', async () => { await expect(repo.selectRoot('root')).rejects.toThrow(); await expect(repo.selectRoot('other')).resolves.toBeUndefined(); const managed = await api.create({ parentId: 'other', title: 'Managed' }); api.nodes.get(managed.id)!.unmodifiable = 'managed'; const nested = await api.create({ parentId: managed.id, title: 'Nested' }); await expect(repo.selectRoot(nested.id)).rejects.toThrow(); });
   it('rejects unavailable API instead of presenting an empty source', async () => { vi.spyOn(api, 'getTree').mockRejectedValue(new Error('Permission denied')); await expect(repo.initialize()).rejects.toThrow('Permission'); });
-  it('shows direct bookmarks without categories and with empty cache', async () => { await setup(); const id = await add(); await db.tileAssets.clear(); const state = await repo.load(); expect(state.categories).toEqual([]); expect(state.tabs[0]).toMatchObject({ id, thumbnail: null, favicon: null }); });
+  it('shows direct bookmarks without categories and with empty cache', async () => { await setup(); const id = await add(); await db.tileAssets.clear(); const state = await repo.load(); expect(state.categories).toEqual([{id:repo.rootId,title:'Speed Dial',index:-1,virtual:true}]); expect(state.tabs[0]).toMatchObject({ id, thumbnail: null, favicon: null }); });
   it('handles mixed, only-folder, empty and deep structures', async () => {
     await setup(); expect((await repo.load()).tabs).toEqual([]);
     const direct = await add(); await repo.createCategory('Главная'); const category = (await api.getChildren(repo.rootId!)).find(node => !node.url)!;
     const deep = await api.create({ parentId: category.id, title: 'Deep' }); await api.create({ parentId: deep.id, title: 'Hidden', url: 'https://hidden.example' });
-    const state = await repo.load(); expect(state.categories.map(node => node.title)).toEqual(['Главная', 'Главная (папка)']); expect(state.tabs.map(node => node.id)).toEqual([direct]);
+    const state = await repo.load(); expect(state.categories.map(node => node.title)).toEqual(['Speed Dial', 'Главная']); expect(state.activeId).toBe(category.id);repo.selectCategory(repo.rootId!);expect((await repo.load()).tabs.map(node=>node.id)).toEqual([direct]);
     repo.activeId = category.id; expect((await repo.load()).tabs).toEqual([]);
-    await api.remove(direct); expect((await repo.load()).categories.length).toBe(1); expect((await api.getChildren(deep.id)).length).toBe(1);
+    await api.remove(direct); expect((await repo.load()).categories.length).toBe(2); expect((await api.getChildren(deep.id)).length).toBe(1);
   });
   it('CRUD, moves, cache and reset preserve browser source and custom titles', async () => {
     await setup(); const id = await add(); const image = new Blob(['image'], { type: 'image/png' }); await repo.cache(id, 'https://example.com/', 'thumbnail', image);
@@ -211,9 +211,51 @@ describe('browser bookmarks source', () => {
     await expect(repo.reorder([ids[0]!, ids[0]!])).rejects.toThrow();
     vi.spyOn(api, 'move').mockRejectedValueOnce(new Error('move failed')); await expect(repo.reorder(ids.slice().reverse())).rejects.toThrow(); expect((await repo.load()).tabs.length).toBe(3);
   });
+  it('keeps a named virtual root for empty trees, disambiguates only equal names and follows external renames', async () => {
+    await setup();
+    expect((await repo.load()).categories).toEqual([{id:repo.rootId,title:'Speed Dial',index:-1,virtual:true}]);
+    await repo.createCategory('Speed Dial'); const selected=repo.activeId;
+    await repo.createCategory('Главная');
+    expect((await repo.load()).categories.map(row=>row.title)).toEqual(['Speed Dial','Speed Dial (папка)','Главная']);
+    await api.update(repo.rootId!,{title:'Работа'});
+    expect((await repo.load()).categories.map(row=>row.title)).toEqual(['Работа','Speed Dial','Главная']);
+    repo.selectCategory(selected!); await api.removeTree(selected!);
+    expect((await repo.load()).activeId).toBe(repo.rootId);
+  });
+  it('preserves folder slots during bookmark sorting and bookmark slots during category sorting', async () => {
+    await setup(); const a=await add();
+    await repo.createCategory('Folder'); const folder=repo.activeId!;
+    repo.selectCategory(repo.rootId!); const b=await add('https://b.example'),c=await add('https://c.example');
+    await repo.reorder([c,b,a],[a,b,c]);
+    expect((await api.getChildren(repo.rootId!)).map(row=>row.id)).toEqual([c,folder,b,a]);
+    await repo.createCategory('Second'); const second=repo.activeId!;
+    const calls=vi.spyOn(api,'move'); await repo.reorderCategories([second,folder],[folder,second]);
+    expect((await api.getChildren(repo.rootId!)).map(row=>row.id)).toEqual([c,second,b,a,folder]);
+    expect(calls.mock.calls.every(([id])=>id===folder||id===second)).toBe(true);
+    calls.mockClear();await repo.reorderCategories([second,folder],[second,folder]);expect(calls).not.toHaveBeenCalled();
+    await expect(repo.reorderCategories([folder,second],[folder,second])).rejects.toThrow('Список изменился');
+    expect(calls).not.toHaveBeenCalled();
+  });
+  it('stops a partially completed reorder on API failure and rejects stale category context', async () => {
+    await setup();const ids=[await add(),await add('https://b.example'),await add('https://c.example')];
+    const move=api.move.bind(api);let count=0;
+    vi.spyOn(api,'move').mockImplementation(async(id,destination)=>{if(++count===2)throw Error('partial');return move(id,destination);});
+    await expect(repo.reorder(ids.slice().reverse(),ids)).rejects.toThrow('partial');
+    expect((await repo.load()).tabs.map(row=>row.id)).toEqual([ids[2],ids[0],ids[1]]);
+    const parent=repo.activeId;await repo.createCategory('Changed');
+    await expect(repo.reorder(ids,ids,parent)).rejects.toThrow('Категория изменилась');
+  });
+  it('accounts for Chromium destination indices before removing a sibling', async () => {
+    await setup();const a=await add();await repo.createCategory('Folder');const folder=repo.activeId!;repo.selectCategory(repo.rootId!);
+    const b=await add('https://b.example'),c=await add('https://c.example');const move=api.move.bind(api);
+    vi.spyOn(api,'move').mockImplementation(async(id,destination)=>{const before=(await api.get(id))[0]!;return move(id,{...destination,index:destination.index! - Number(before.parentId===destination.parentId && before.index!<destination.index!)});});
+    vi.stubEnv('BROWSER','chrome');
+    try {await repo.reorder([c,b,a],[a,b,c]);expect((await api.getChildren(repo.rootId!)).map(row=>row.id)).toEqual([c,folder,b,a]);}
+    finally {vi.unstubAllEnvs();}
+  });
   it('category lifecycle and external removal choose a valid fallback', async () => {
     await setup(); await add(); await repo.createCategory('A'); await repo.createCategory('B'); const [a,b] = (await api.getChildren(repo.rootId!)).filter(node => !node.url);
-    await repo.renameCategory(a!.id, 'New'); await repo.moveCategory(b!.id, a!.id); expect((await repo.load()).categories.map(node => node.title)).toEqual(['Главная', 'B', 'New']);
+    await repo.renameCategory(a!.id, 'New'); await repo.moveCategory(b!.id, a!.id); expect((await repo.load()).categories.map(node => node.title)).toEqual(['Speed Dial', 'B', 'New']);
     repo.activeId = a!.id; await api.move(a!.id, { parentId: 'other' }); expect((await repo.load()).activeId).toBe(repo.rootId);
     await repo.removeCategory(b!.id); await expect(repo.removeCategory(repo.rootId!)).rejects.toThrow();
     await api.removeTree(repo.rootId!); expect((await repo.load()).rootId).toBe('other'); expect((await api.getChildren('other')).length).toBe(1);

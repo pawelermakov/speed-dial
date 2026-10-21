@@ -176,9 +176,8 @@ try {
     await page.getByRole('button',{name:'Поиск по закладкам',exact:true}).click();
     const input=page.getByRole('searchbox',{name:'Найти закладку',exact:true});
     await expect(input).toBeFocused();
-    const inputBox=await input.boundingBox(), closeBox=await page.getByRole('button',{name:'Закрыть поиск по закладкам'}).boundingBox();
-    expect(inputBox.width).toBeCloseTo(width < 768 ? beforeToolbar.width : Math.min(width * 0.3, beforeToolbar.width),0);
-    expect(closeBox.x+closeBox.width).toBeLessThanOrEqual(inputBox.x+inputBox.width+1);
+    await expect.poll(async()=>(await page.locator('.bookmark-search-field').boundingBox()).width).toBeCloseTo(width < 768 ? beforeToolbar.width : Math.min(width * 0.3, beforeToolbar.width),0);
+    expect(await page.getByRole('button',{name:'Закрыть поиск по закладкам'}).count()).toBe(0);
     expect((await page.locator('.bookmarks').boundingBox()).y).toBeCloseTo(beforeGrid.y,0);
     await input.fill('Закладка');
     await expect(page.locator('.bookmark')).toHaveCount(8);
@@ -220,7 +219,7 @@ try {
   await page.getByRole('button',{name:'Поиск по закладкам',exact:true}).click();
   await expect(page.getByRole('navigation',{name:'Категории'})).toHaveCount(0);
   expect((await page.locator('.bookmarks').boundingBox()).y).toBeCloseTo(wrappedBefore.y,0);
-  await page.getByRole('button',{name:'Закрыть поиск по закладкам'}).click();
+  await page.keyboard.press('Escape');
   expect((await page.locator('.bookmarks').boundingBox()).y).toBeCloseTo(wrappedBefore.y,0);
   console.log('PASS local bookmark search: focused compact input, unchanged tiles and no overflow at 360/1280/1920');
   await settings();

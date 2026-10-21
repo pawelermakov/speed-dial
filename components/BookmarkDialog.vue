@@ -44,13 +44,12 @@ function submit() {
       </div>
       <p v-if="error" role="alert">{{ error }}</p>
       <p v-if="busy" role="status">Сохранение…</p>
-      <button type="submit" class="button disabled:opacity-50" :class="ui.button" :disabled="busy || !validUrl"><span class="ui-action-label">{{ bookmark ? 'Сохранить' : 'Добавить' }}</span></button>
+      <button type="submit" class="button" :class="ui.button" :disabled="busy || !validUrl"><span class="ui-action-label">{{ bookmark ? 'Сохранить' : 'Добавить' }}</span></button>
     </form>
   </ModalDialog>
 </template>
 <style scoped>
 [aria-invalid="true"] { border-color: #8a2020; }
 .capture-option:hover .checkmark { box-shadow: 0 0 0 3px rgb(var(--ui-accent-rgb) / .18); }
-.button:disabled { opacity: .5; }
 .bookmark-form :is(.ui-control, .ui-button) { height: 40px; box-sizing: border-box; line-height: 20px; }
 </style>
