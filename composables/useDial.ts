@@ -1,3 +1,4 @@
+import { isMovieProvider } from '../types/models';
 import { ref, shallowRef, onMounted, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
 import { storage } from 'wxt/utils/storage';
@@ -20,7 +21,7 @@ export function useDial() {
   const saves = new Set<Promise<unknown>>();
   let settingsVersion = 0, settingsRead = 0, rootVersion = 0, backgroundVersion = 0;
   let backgroundDirty = true;
-  const fieldLabels:Record<keyof Settings,string> = {width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка «+»',bookmarkSearch:'Поиск по закладкам',searchProvider:'Источник поиска',email:'E-mail Mail.ru'};
+  const fieldLabels:Record<keyof Settings,string> = {width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка добавления закладки',bookmarkSearch:'Поиск по закладкам',movieSearch:'Поиск фильмов и сериалов',searchProvider:'Источник поиска',email:'E-mail Mail.ru'};
   function publishSettings() {
     const settings = { ...confirmed };
     for (const [key,entry] of pendingFields) Object.assign(settings,{[key]:entry.value});
@@ -61,6 +62,8 @@ export function useDial() {
     finally { busy.value = false; }
   };
   const updateSettings = (patch: Partial<Settings>): Promise<boolean> => {
+    if (patch.movieSearch === false && isMovieProvider(snapshot.value.settings.searchProvider)) patch = {...patch,searchProvider:'yandex'};
+    if (patch.bookmarkSearch === false && snapshot.value.settings.searchProvider === 'bookmarks') patch = {...patch,searchProvider:'yandex'};
     if (busy.value || loading.value) return Promise.resolve(false);
     const version = ++settingsVersion, keys=Object.keys(patch) as Array<keyof Settings>;
     try { validateSettings({...snapshot.value.settings,...patch}); }

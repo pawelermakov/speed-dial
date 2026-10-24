@@ -5,10 +5,10 @@ import FolderTabs from './components/FolderTabs.vue';
 import FolderDialog from './components/FolderDialog.vue';
 import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
-import BookmarkSearch from './components/BookmarkSearch.vue';
 import { useBookmarkSearch } from './composables/useBookmarkSearch';
 import BookmarkDialog from './components/BookmarkDialog.vue';
 import SearchBar from './components/SearchBar.vue';
+import EmptyState from './components/EmptyState.vue';
 import MailIndicator from './components/MailIndicator.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import ContextMenu from './components/ContextMenu.vue';
@@ -37,21 +37,24 @@ function trackPointerFocus(){keyboardFocus.value=false;}
 window.addEventListener('keydown',trackKeyboardFocus,true);
 window.addEventListener('pointerdown',trackPointerFocus,true);
 onUnmounted(()=>{window.removeEventListener('keydown',trackKeyboardFocus,true);window.removeEventListener('pointerdown',trackPointerFocus,true);});
-const searchOpen = ref(false);
-const searchControl = ref<InstanceType<typeof BookmarkSearch>>();
-const searching = computed(() => searchOpen.value && !!query.value.trim());
+const searchText = ref('');
+const searchControl = ref<InstanceType<typeof SearchBar>>();
+const bookmarkMode = computed(()=>snapshot.value.settings.bookmarkSearch && snapshot.value.settings.searchProvider==='bookmarks');
+watch([searchText,bookmarkMode],()=>{query.value=bookmarkMode.value?searchText.value:'';},{flush:'sync'});
+watch([()=>snapshot.value.settings.bookmarkSearch,bookmarkMode],([enabled],previous)=>{if(!enabled&&previous?.[1])searchText.value='';},{flush:'sync'});
+const searching = computed(() => bookmarkMode.value && !!query.value.trim());
 const showEmptySearch = ref(false);
 let emptySearchTimer: ReturnType<typeof setTimeout> | undefined;
-watch([query, searchOpen, searchPending, searchError, results], () => {
+watch([query, bookmarkMode, searchPending, searchError, results], () => {
   clearTimeout(emptySearchTimer);
   showEmptySearch.value = false;
   if (searching.value && !searchPending.value && !searchError.value && !results.value.length)
     emptySearchTimer = setTimeout(() => { showEmptySearch.value = true; }, 400);
 }, { flush: 'sync' });
 onUnmounted(() => clearTimeout(emptySearchTimer));
-function openSearch() { if (!snapshot.value.settings.bookmarkSearch) return; searchOpen.value = true; void searchControl.value?.focus(); }
-function closeSearch(restoreFocus = true) { searchOpen.value = false; query.value = ''; if (restoreFocus) void searchControl.value?.restoreFocus(); }
-watch(() => snapshot.value.settings.bookmarkSearch, enabled => { if (!enabled) closeSearch(false); });
+function openSearch() { void searchControl.value?.openBookmarks(); }
+function closeSearch() { searchText.value=''; }
+function focusSearchResult() { document.querySelector<HTMLElement>('.bookmark')?.focus(); }
 const capturing = ref(false);
 const savingBookmark = ref(false);
 const folderDialogError=ref('');
@@ -237,7 +240,7 @@ async function updateImages(id: string, url: string) {
   await refresh(); announce();
   if (results[0]?.status === 'rejected') throw results[0].reason;
 }
-async function selectFolder(id: string) { if (searchOpen.value) closeSearch(); repository.selectFolder(id); try { await refresh(); } catch (error) { notice.value = fail(error); } }
+async function selectFolder(id: string) { if (bookmarkMode.value) closeSearch(); repository.selectFolder(id); try { await refresh(); } catch (error) { notice.value = fail(error); } }
 async function beginFolder() {
   if (disabled.value || !snapshot.value.rootId) return;
   context.value = undefined;
@@ -285,7 +288,7 @@ function restorePageFocus(target?: FocusTarget) {
   const element = same ?? (target?.element.isConnected ? target.element : candidates[Math.min(target?.index ?? 0,candidates.length-1)]);
   const usable = (el?: HTMLElement | null) => !!el && el.isConnected && !el.closest('[inert],[aria-hidden="true"]') && !el.matches(':disabled') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
   const fallbacks = target?.selector
-    ? ['.add-card:not(:disabled)','[data-bookmark-search-open]:not(:disabled)','.folder-root:not(:disabled)','.settings-trigger:not(:disabled)']
+    ? ['.add-card:not(:disabled)','.search input:not(:disabled)','.folder-root:not(:disabled)','.settings-trigger:not(:disabled)']
     : ['.settings-trigger:not(:disabled)'];
   const fallback = fallbacks.map(selector => document.querySelector<HTMLElement>(selector)).find(el => usable(el));
   if (usable(element)) element!.focus({preventScroll:true});
@@ -329,7 +332,7 @@ function escape(event: KeyboardEvent) {
     event.preventDefault(); openSearch(); return;
   }
   if (event.key !== 'Escape' || disabled.value || event.defaultPrevented || (event.target instanceof Element && event.target.closest('dialog'))) return;
-  if (searchOpen.value && !overlayOpen.value && !context.value) { event.preventDefault(); closeSearch(); return; }
+  if (searching.value && !overlayOpen.value && !context.value) { event.preventDefault(); closeSearch(); return; }
   if(context.value)closeContext();else void closeSettings();
 }
 window.addEventListener('keydown', escape);
@@ -340,7 +343,7 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     <div aria-hidden="true" class="page-background fixed inset-0 pointer-events-none bg-center bg-cover bg-no-repeat" :class="{ 'is-ready': !!backgroundUrl }" :style="{ backgroundImage: backgroundUrl ? 'url(' + backgroundUrl + ')' : undefined, backgroundColor: backgroundUrl ? '#808590' : undefined }"/>
     <main class="dial relative flex flex-col p-6 min-h-screen motion-reduce:transition-none [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen, 'is-loaded': !loading }">
       <header class="relative shrink-0" :class="{'startup-reveal':!loading}">
-        <SearchBar :provider="snapshot.settings.searchProvider" :disabled="disabled" :save-provider="changeSearchProvider" />
+        <SearchBar ref="searchControl" v-model="searchText" :bookmark-search="snapshot.settings.bookmarkSearch" :movie-search="snapshot.settings.movieSearch" @submit-bookmarks="focusSearchResult" :provider="snapshot.settings.searchProvider" :disabled="disabled" :save-provider="changeSearchProvider" />
         <div class="tools flex items-center gap-2">
           <MailIndicator :key="mailRevision" :email="snapshot.settings.email" />
           <button class="settings-trigger ui-folder inline-flex size-12 items-center justify-center" aria-label="Настройки" title="Настройки" aria-haspopup="dialog" :aria-expanded="settingsOpen" :aria-controls="settingsOpen?'settings-modal':undefined" :disabled="disabled" @click="openSettings"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><g transform="translate(0 1)"><path d="m9 3-1 3-3 1-2 4 2 2v3l4 3 3-1 3 1 4-3v-3l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></g></svg></button>
@@ -349,16 +352,11 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
       <div class="bookmark-area flex flex-col flex-1" :class="{ 'justify-center': snapshot.settings.verticalCenter }">
         <div v-if="!loading && !snapshot.rootId" class="surface-empty startup-reveal text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
         <template v-else-if="!loading">
-        <div v-if="snapshot.settings.bookmarkSearch || snapshot.folders.length || creatingFolder" class="bookmark-toolbar startup-reveal relative flex items-center min-h-12 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
-        <FolderTabs :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :revision="revision" :folders="snapshot.folders" :active-id="snapshot.activeId" :disabled="disabled" :hidden="searchOpen" :creating="creatingFolder" :editing="editingFolder" :class="{'pr-[56px]':snapshot.settings.bookmarkSearch}" @select="selectFolder" @context="showFolderContext" @background="event => { if (!disabled && !overlayOpen) { rememberContextTarget(); context = {x:event.clientX,y:event.clientY}; } }" @reorder="reorderFolders" @refresh="refresh" />
-        <BookmarkSearch v-if="snapshot.settings.bookmarkSearch" ref="searchControl" :open="searchOpen" v-model:query="query" :disabled="disabled" @open="openSearch" @close="closeSearch" />
+        <div v-if="snapshot.folders.length || creatingFolder" class="bookmark-toolbar startup-reveal relative flex items-center min-h-12 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
+        <FolderTabs :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :revision="revision" :folders="snapshot.folders" :active-id="snapshot.activeId" :disabled="disabled" :creating="creatingFolder" :editing="editingFolder" @select="selectFolder" @context="showFolderContext" @background="event => { if (!disabled && !overlayOpen) { rememberContextTarget(); context = {x:event.clientX,y:event.clientY}; } }" @reorder="reorderFolders" @refresh="refresh" />
         </div>
         <p v-if="searching && searchError" role="alert" class="surface-empty text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
-        <div v-else-if="showEmptySearch" role="status" class="mx-auto min-h-36 flex flex-col items-center justify-center gap-2 ui-glass p-6 text-center text-[#454952]" :style="{ width: snapshot.settings.width + '%' }">
-          <svg class="mb-1 opacity-50" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
-          <p>Закладки не найдены</p>
-          <p class="text-sm text-[var(--text-secondary)]">Попробуйте другое название или адрес сайта.</p>
-        </div>
+        <EmptyState v-else-if="showEmptySearch" class="bookmark-search-empty my-6" title="Закладки не найдены" description="Попробуйте другое название или адрес сайта." action-label="Очистить поиск" symbol="search" announce :disabled="disabled" @action="closeSearch();searchControl?.focus()" :style="{ width: 'min(440px,' + snapshot.settings.width + '%)' }" />
         <BookmarkGrid :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :folder-id="snapshot.activeId" :revision="revision" :folder-names="Object.fromEntries(snapshot.folders.map(row=>[row.id,row.title]))" :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
           @add="add" @context="showContext" @reorder="reorder" @refresh="refresh" />
         </template>

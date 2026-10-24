@@ -3,6 +3,7 @@ import { watch, nextTick, onMounted, onUnmounted, ref, computed } from 'vue';
 import { BookmarkImages } from '../utils/bookmarkImages';
 import type { Bookmark, Settings } from '../types/models';
 import TileHostname from './TileHostname.vue';
+import EmptyState from './EmptyState.vue';
 import { contextKey, gridFocusIndex, plainNavigation } from '../utils/keyboard';
 import { insertedOrder, nearestInsertion } from '../utils/reorder';
 import { tileHostname, tileColor, fitTileColumns } from '../utils/tile';
@@ -140,7 +141,10 @@ function key(event: KeyboardEvent, tab: Bookmark) {
         <span class="bookmark-title-label min-w-0 flex-1 truncate">{{ tab.title }}</span>
       </span>
     </a>
-    <button v-if="!searching && (!tabs.length || settings.addButton)" :inert="dragId !== null" :style="{visibility:dragId !== null?'hidden':undefined}" class="add-card relative block min-w-0" aria-label="Новая закладка" :disabled="disabled || dragId !== null" @click="emit('add')"><svg class="absolute left-1/2 top-1/2 w-[40%] max-w-14 h-auto max-h-[60%] -translate-x-1/2 -translate-y-1/2" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6v28M6 20h28"/></svg></button>
+    <div v-if="!searching && !tabs.length" class="bookmark-empty col-span-full">
+      <EmptyState title="В этой папке пока нет закладок" description="Добавьте любимый сайт, чтобы открывать его из новой вкладки." action-label="Новая закладка" symbol="bookmark" :disabled="disabled" @action="emit('add')" />
+    </div>
+    <button v-if="!searching && tabs.length && settings.addButton" :inert="dragId !== null" :style="{visibility:dragId !== null?'hidden':undefined}" class="add-card relative block min-w-0" aria-label="Новая закладка" :disabled="disabled || dragId !== null" @click="emit('add')"><svg class="absolute left-1/2 top-1/2 w-[40%] max-w-14 h-auto max-h-[60%] -translate-x-1/2 -translate-y-1/2" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6v28M6 20h28"/></svg></button>
   </section>
 </template>
 <style scoped>

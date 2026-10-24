@@ -53,9 +53,9 @@ describe('browser bookmarks source', () => {
   });
   it('saves the search provider without overwriting current preferences or changing the bookmark source',async()=>{
     await setup();const source=repo.rootId;const bookmark=await add();
-    await repo.saveSettings({...defaults,width:75,bookmarkSearch:false});
+    await repo.saveSettings({...defaults,width:75,bookmarkSearch:false,movieSearch:true});
     await repo.saveSearchProvider('imdb');
-    expect((await repo.load()).settings).toEqual({...defaults,width:75,bookmarkSearch:false,searchProvider:'imdb'});
+    expect((await repo.load()).settings).toEqual({...defaults,width:75,bookmarkSearch:false,movieSearch:true,searchProvider:'imdb'});
     expect(repo.rootId).toBe(source);expect((await repo.load()).tabs[0]?.id).toBe(bookmark);
   });
   it('enables bookmark search by default and persists an explicit opt-out', async () => {

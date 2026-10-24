@@ -38,7 +38,6 @@ html {font-family:var(--ui-font);background:#e9edf2;scrollbar-width:thin;scrollb
 .page {color:var(--ui-text);font-size:16px;line-height:1.45;min-height:100dvh}
 .page button,.page input,.page select,.page textarea {font-family:var(--ui-font);font-size:16px;line-height:1.45}
 .settings-form {font-size:16px}
-.ui-control[type=number] {padding-right:24px}
 .settings label[for=background] {display:flex;align-items:center;justify-content:center;height:40px}
 .page input::placeholder,.page textarea::placeholder {color:var(--text-secondary);opacity:1}
 @keyframes startup-reveal {from {opacity:0} to {opacity:1}}
@@ -50,7 +49,7 @@ html {font-family:var(--ui-font);background:#e9edf2;scrollbar-width:thin;scrollb
 .search {z-index:1;padding:1px;isolation:isolate;grid-column:2;height:48px;max-width:700px;border-radius:var(--radius-toolbar)}
 .tools {justify-self:end}
 .search-surface {border-radius:inherit;z-index:-1}
-.surface-control,.ui-folder,.bookmark-search-field {background:var(--surface-control);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.surface-control,.ui-folder {background:var(--surface-control);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .ui-glass {--text-secondary:var(--ui-text);--danger:#4a0808;--success:#052312;background:linear-gradient(135deg,rgb(255 255 255 / .30),rgb(255 255 255 / .01) 32%,transparent 64%,rgb(255 255 255 / .12)),var(--surface-floating);color:var(--ui-text);border:1px solid rgb(255 255 255 / .60);border-radius:var(--radius-popover);box-shadow:var(--ui-shadow-popover),inset 0 1px 1px rgb(255 255 255 / .85),inset 0 -1px 0 rgb(255 255 255 / .18);-webkit-backdrop-filter:blur(12px) saturate(1.6);backdrop-filter:blur(12px) saturate(1.6)}
 .surface-control {border:1px solid var(--border-material);box-shadow:var(--ui-shadow-tile)}
 .ui-overlay {background:var(--ui-overlay)}
@@ -119,8 +118,6 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .context-divider {height:1px;margin:4px 8px;border:0;background:var(--ui-border)}
 .info-tooltip {border-radius:var(--radius-md);font-size:14px;line-height:1.45;max-height:calc(100dvh - 32px);overflow:auto}
 .search-provider {height:40px;width:120px;margin-left:3px}
-.bookmark-search-field.ui-control {border-color:var(--border-material);border-radius:var(--radius-toolbar);height:48px;padding:0;background:var(--surface-control);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-.bookmark-search-field.ui-control:not(.is-open):has(.bookmark-search-trigger:enabled):hover {background:var(--surface-folder-hover)}
 .settings-trigger.ui-folder {padding:0;flex:none}
 .settings-trigger svg {flex:none}
 .settings-trigger.ui-folder {transition:background-color var(--motion-standard) var(--ease-state),box-shadow var(--motion-standard) var(--ease-state)}
@@ -140,7 +137,7 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .floating-enter-from .context,.floating-leave-to .context {opacity:0;transform:translateY(-4px)}
 .suggestions li[aria-selected=true] {background:var(--surface-highlight)}
 .settings-row,.capture-option {min-height:40px}
-.settings input[type=number] {min-width:72px;text-align:right}
+.settings input[type=number] {min-width:72px;text-align:center}
 .ui-select {position:relative;min-width:0}
 .ui-select>select {appearance:none;padding-right:40px}
 .ui-select--embedded>select.ui-control {padding-right:12px;border-radius:var(--radius-action)}
@@ -215,22 +212,24 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
  .page :is(button,input,select,textarea):disabled {color:GrayText;background:Canvas}
 }
 
-.settings .settings-number {width:88px;min-width:88px;flex:none}
+.settings .settings-number {width:88px;min-width:88px;flex:none;padding-inline:12px}
+.settings-number::-webkit-inner-spin-button {position:absolute;right:10px;top:50%;height:20px;margin:0;transform:translateY(-50%)}
+/* Firefox reserves 18px for its native stepper inside the text area. */
+@supports (-moz-appearance:none) {.settings .settings-number {padding-inline:26px 8px}}
 
 input.peer:enabled + label.ui-control:hover:not(:active),input.file-input:enabled + label.ui-control:hover:not(:active) {background:var(--surface-input-emphasis)}
 
-.folder-tabs .ui-folder:not([aria-pressed=true]):enabled:active,.settings-trigger.ui-folder:enabled:active,.mail:active,.bookmark-search-field.ui-control:not(.is-open):has(.bookmark-search-trigger:enabled:active) {background:var(--surface-folder-pressed)}
+.folder-tabs .ui-folder:not([aria-pressed=true]):enabled:active,.settings-trigger.ui-folder:enabled:active,.mail:active {background:var(--surface-folder-pressed)}
 .folder-tabs .ui-folder[aria-pressed=true]:enabled:active {background:var(--ui-accent-pressed)}
-.bookmark-search-close:enabled:active {background:rgb(23 33 47 / .12)}
 .mail-error {visibility:hidden;opacity:0;pointer-events:none;font-size:14px;border-radius:var(--radius-md);z-index:6;transition:opacity var(--motion-fast) var(--ease-state),visibility var(--motion-fast) var(--ease-state)}
 .mail-control:hover .mail-error,.mail-control:has(.mail:focus-visible) .mail-error {visibility:visible;opacity:1}
 
 @media(forced-colors:active){
- .folder-tabs .ui-folder:enabled:active,.settings-trigger.ui-folder:enabled:active,.mail:active,.bookmark-search-field.ui-control:not(.is-open):has(.bookmark-search-trigger:enabled:active),.bookmark-search-close:enabled:active {background:Highlight;color:HighlightText}
+ .folder-tabs .ui-folder:enabled:active,.settings-trigger.ui-folder:enabled:active,.mail:active {background:Highlight;color:HighlightText}
 }
 
 /* Controls inside an existing surface use its material rather than another glass layer. */
-.close,.bookmark-search-close,.info-help>button {border-radius:var(--radius-full)}
+.close,.info-help>button {border-radius:var(--radius-full)}
 .settings-form>fieldset {border:0;padding-top:0;margin-top:16px}
 .settings-form>fieldset>legend {position:relative;width:100%}
 .settings-form>fieldset>legend::before {content:"";position:absolute;top:-16px;left:0;right:0;height:1px;background:var(--ui-border)}
@@ -240,14 +239,12 @@ input.peer:enabled + label.ui-control:hover:not(:active),input.file-input:enable
 /* Touch targets grow without changing desktop control geometry. */
 @media(pointer:coarse) {
  .close,.info-help>button {width:44px;height:44px}
- .bookmark-search-close {width:44px;height:44px;right:1px}
- .bookmark-search-input {padding-right:48px}
  .search-clear {width:44px;height:44px}
  .search-submit {height:44px;margin-right:1px}
  .search-provider {height:44px;margin-left:1px}
  .search-provider>select.ui-control {height:44px}
  .context button,.suggestions li,.switch-control,.ui-button,.ui-file-button {min-height:44px}
- .ui-control:not(textarea):not(.bookmark-search-field) {min-height:44px;height:44px}
+ .ui-control:not(textarea) {min-height:44px;height:44px}
  .settings button[aria-label="Удалить фон"] {width:44px;height:44px}
 }
 

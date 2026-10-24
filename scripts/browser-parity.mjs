@@ -59,28 +59,19 @@ async function check(name, driver) {
  await until('return document.querySelectorAll(".folder-tab").length===24;');
  for(const width of [360,1280]) {
   await resize(width,800);
-  assert.equal(await exec(`const f=document.querySelector('.folder-root').getBoundingClientRect(),s=document.querySelector('.bookmark-search-field').getBoundingClientRect();return Math.abs(f.y-s.y)<1&&Math.abs(f.height-s.height)<1&&document.documentElement.scrollWidth<=innerWidth;`),true);
- }
- // Record frames in the page itself so protocol latency cannot hide overlap.
- for(const opening of [true,false]) {
-  const frames=await exec(`const shell=document.querySelector('.bookmark-search-field'),folders=document.querySelector('.folder-tabs');const rows=[];
-   if(arguments[0])document.querySelector('[data-bookmark-search-open]').click();else document.querySelector('.bookmark-search input').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
-   const start=performance.now();while(performance.now()-start<500){await new Promise(requestAnimationFrame);rows.push({width:shell.getBoundingClientRect().width,opacity:Number(getComputedStyle(folders).opacity)});}return rows;`,opening);
-  assert(frames.some(f=>f.width>49&&f.width<570),'search must animate');
-  assert(frames.some(f=>f.opacity>0&&f.opacity<1),'folders must fade');
-  assert(frames.filter(f=>f.width>48.1).every(f=>f.opacity<.001),'search and folders must animate sequentially');
+  assert.equal(await exec('return document.documentElement.scrollWidth<=innerWidth && document.querySelector(".folder-tabs").getAttribute("aria-hidden")!=="true";'),true);
  }
  await exec('document.querySelector(".folder-root").focus();');await key('/');
- await until('return document.activeElement?.getAttribute("aria-label")==="Найти закладку";');
- await field('.bookmark-search input','  IMPORTED  ');
+ await until('return document.activeElement?.getAttribute("aria-label")==="Поиск по закладкам";');
+ await field('.search input','  IMPORTED  ');
  await until('return document.querySelectorAll(".bookmark").length===1;');
  assert.equal(await exec('return document.querySelector(".bookmark").draggable;'),false);
- await key('Escape');await until('return !document.querySelector(".bookmark-search-field.is-open");');
+ await key('Escape');await until('return document.querySelector(".search input").value === "";');
  await click('Настройки');await until('return !!document.querySelector(".settings");');
  await key('Tab');assert.equal(await exec('return !!document.activeElement.closest("dialog");'),true);
  assert.equal(await exec('return getComputedStyle(document.querySelector(".settings")).backdropFilter;'),'blur(12px) saturate(1.6)');
  await close();
- console.log('PASS '+name+': mixed-slot sorting, scrolling alignment, sequential 150ms search/folder motion, / and Escape, Tab, glass material');
+ console.log('PASS '+name+': mixed-slot sorting, scrolling alignment, unified bookmark search, / and Escape, Tab, glass material');
 
  await exec(`window.parityFetch=window.fetch;window.mailCalls=[];window.fetch=(url,options)=>{
   if(String(url).startsWith('https://portal.mail.ru/NaviData?')){mailCalls.push({url:String(url),credentials:options.credentials});return Promise.resolve(new Response(JSON.stringify({data:{mail_cnt:123}}),{headers:{'Content-Type':'application/json'}}));}return parityFetch(url,options);

@@ -213,7 +213,7 @@ try {
   await page.getByRole('button',{name:'Search Work',exact:true}).click();
   await expect(page.locator('.bookmark')).toHaveCount(1);
   await page.locator('.page').click({position:{x:3,y:3}});await page.keyboard.press('/');
-  const localSearch=page.getByRole('searchbox',{name:'Найти закладку',exact:true});
+  const localSearch=page.getByRole('searchbox',{name:'Поиск по закладкам',exact:true});
   await expect(localSearch).toBeFocused();await expect(localSearch).toHaveValue('');
   await localSearch.fill('  nEeDlE  ');await expect(page.locator('.bookmark')).toHaveCount(3);
   await expect(page.locator('.bookmark-title')).toHaveCount(0);
@@ -229,7 +229,6 @@ try {
   const titleInput=page.locator('dialog input').nth(1);await titleInput.fill('Slash');await titleInput.press('/');await expect(titleInput).toHaveValue('Slash/');
   await page.getByRole('button',{name:'Закрыть',exact:true}).click();
   await expect(page.locator('dialog')).toHaveCount(0);
-  if (!await localSearch.count()) await page.getByRole('button',{name:'Поиск по закладкам',exact:true}).click();
   await localSearch.fill('no-match');await expect(page.getByRole('status')).toContainText('Закладки не найдены');
   await page.evaluate(()=>{window.originalSearchRead=chrome.bookmarks.getSubTree;chrome.bookmarks.getSubTree=async()=>{throw new Error('Search read failed');};});
   await localSearch.fill('needle');await expect(page.getByRole('alert')).toContainText('Search read failed');
@@ -237,8 +236,9 @@ try {
   await page.evaluate(()=>{chrome.bookmarks.getSubTree=window.originalSearchRead;});
   await page.getByRole('button',{name:'Повторить',exact:true}).click();await expect(page.locator('.bookmark')).toHaveCount(1);
   await localSearch.fill('');await expect(page.locator('.bookmark')).toHaveCount(1);await expect(page.locator('.bookmark')).toHaveAttribute('title','Renamed externally — https://work.example/changed');
-  await localSearch.press('Escape');await expect(localSearch).toHaveCount(0);
+  await localSearch.press('Escape');await expect(localSearch).toHaveValue('');
   await expect(page.getByRole('button',{name:'Search Work',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.locator('.search select').selectOption('yandex');
   const webSearch=page.getByRole('combobox',{name:'Поиск в Яндексе',exact:true});await webSearch.fill('');await webSearch.press('/');await expect(webSearch).toHaveValue('/');await webSearch.fill('');
   await page.evaluate(async f=>{await chrome.bookmarks.removeTree(f.a);await chrome.bookmarks.removeTree(f.b);await chrome.bookmarks.remove(f.direct);},searchFixture);
   pass('chrome: local search spans direct folders only, trim/case/URL, live changes, context edit, empty/clear/Escape, slash isolation, no drag, 360px');

@@ -75,7 +75,7 @@ function file(event:Event){const element=event.target as HTMLInputElement,select
   backgroundTask=(async()=>{try{const blob=await readImage(selected);if(current===fileGeneration)await track(props.changeBackground(blob));}
     catch(cause){if(current===fileGeneration){error.value='Фон: '+(cause instanceof Error?cause.message:String(cause));emit('error',error.value);}}
     finally{if(current===fileGeneration){reading.value=false;element.value='';}}})();}
-const switchFields=[{key:'addButton',label:'Показать кнопку «+»'},{key:'bookmarkSearch',label:'Показывать поиск по закладкам'}] as const;
+const switchFields=[{key:'addButton',label:'Кнопка добавления закладки'},{key:'bookmarkSearch',label:'Поиск по закладкам'},{key:'movieSearch',label:'Поиск фильмов и сериалов'}] as const;
 </script>
 <template>
   <dialog id="settings-modal" ref="settingsDialog" class="settings-overlay ui-overlay fixed inset-0 z-20 w-full h-full max-w-none max-h-none m-0 border-0 p-0 text-[var(--ui-text)] backdrop:bg-transparent" aria-label="Настройки" aria-modal="true" @keydown.tab="cycleDialogFocus($event, settingsDialog)" @cancel.prevent.stop="close" @click.self="close">

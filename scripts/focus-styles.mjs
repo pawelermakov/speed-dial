@@ -20,10 +20,10 @@ try {
  await gear.focus();await expect(gear).toHaveCSS('outline-width','2px');await expect(gear).toHaveCSS('outline-color','rgb(82, 100, 122)');await expect(search).toHaveCSS('outline-style','none');
  await page.mouse.click(4,4);await expect(gear).toHaveCSS('outline-style','none');
  await page.keyboard.press('Tab');await expect(page.locator('.page')).toHaveAttribute('data-keyboard-focus','true');
- const local=page.getByRole('button',{name:'Поиск по закладкам',exact:true});await local.click();
- await expect(page.locator('.bookmark-search-field')).toHaveCSS('outline-style','none');await expect(page.getByRole('searchbox')).toHaveCSS('outline-style','none');
- await page.keyboard.press('Tab');const close=page.getByRole('button',{name:'Закрыть поиск по закладкам',exact:true});await expect(close).toBeFocused();await expect(page.locator('.bookmark-search-field')).toHaveCSS('outline-style','none');await expect(close).toHaveCSS('outline-width','2px');
- await close.click();await expect(local).toBeFocused();await expect(page.locator('.bookmark-search-field')).toHaveCSS('outline-style','none');
+ await page.locator('.search select').selectOption('bookmarks');await input.click();
+ await expect(input).toHaveAttribute('role','searchbox');await expect(input).toHaveCSS('outline-style','none');
+ await page.keyboard.press('Tab');const clear=page.getByRole('button',{name:'Очистить поисковый запрос',exact:true});await expect(clear).toBeFocused();await expect(clear).toHaveCSS('outline-width','2px');
+ await clear.click();await expect(input).toBeFocused();await expect(input).toHaveValue('');
  await page.keyboard.press('Tab');await page.locator('.folder-root').focus();await expect(page.locator('.folder-root')).toHaveCSS('outline-offset','-3px');await expect(page.locator('.folder-root')).toHaveCSS('box-shadow','none');
  await gear.click();await expect(page.locator('.settings')).toBeVisible();
  await page.keyboard.press('Tab');const toggle=page.getByRole('switch').first();await toggle.focus();await expect(toggle.locator('xpath=following-sibling::span')).toHaveCSS('outline-width','2px');

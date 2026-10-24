@@ -27,3 +27,16 @@ it('does not send empty input, exposes errors and ignores late completions after
   query.value='late';await vi.advanceTimersByTimeAsync(250);state.unmount.splice(0).forEach(fn=>fn());
   finish([{id:'late',label:'Late'}]);await vi.advanceTimersByTimeAsync(0);expect(dial.items.value).toEqual([]);
 });
+
+it('switching to bookmarks cancels remote work and never sends local queries',async()=>{
+ const query=ref(''),provider=ref<SearchProviderId>('google'),dial=useProviderSuggestions(query,provider);
+ let finish!:(rows:SearchSuggestion[])=>void;
+ state.fetch.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ query.value='remote';await vi.advanceTimersByTimeAsync(250);
+ const signal=state.fetch.mock.calls[0]![2] as AbortSignal;
+ provider.value='bookmarks';query.value='private bookmark';
+ expect(signal.aborted).toBe(true);await vi.advanceTimersByTimeAsync(1000);
+ expect(state.fetch).toHaveBeenCalledTimes(1);
+ finish([{id:'old',label:'Old'}]);await vi.advanceTimersByTimeAsync(0);
+ expect(dial.items.value).toEqual([]);expect(dial.loaded.value).toBe(false);
+});

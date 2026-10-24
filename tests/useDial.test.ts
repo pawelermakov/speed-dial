@@ -90,6 +90,21 @@ describe('browser event refresh lifecycle', () => {
    expect(dial.snapshot.value.settings.searchProvider).toBe('google');
    expect(state.load).not.toHaveBeenCalled();
  });
+ it('disabling bookmark search saves its web fallback with the same patch',async()=>{
+   const dial=useDial();await state.mounted[0]!();
+   dial.snapshot.value={...dial.snapshot.value,settings:{...defaults,searchProvider:'bookmarks'}};
+   const save=vi.fn(async(patch:Partial<typeof defaults>)=>({...defaults,...patch}));repository.patchSettings=save;
+   await dial.updateSettings({bookmarkSearch:false});
+   expect(save).toHaveBeenCalledWith({bookmarkSearch:false,searchProvider:'yandex'});
+   expect(dial.snapshot.value.settings).toMatchObject({bookmarkSearch:false,searchProvider:'yandex'});
+ });
+ it.each(['kinopoisk','imdb','myshows'] as const)('disabling movie search saves a fallback for %s',async searchProvider=>{
+   const dial=useDial();await state.mounted[0]!();
+   dial.snapshot.value={...dial.snapshot.value,settings:{...defaults,movieSearch:true,searchProvider}};
+   const save=vi.fn(async(patch:Partial<typeof defaults>)=>({...defaults,...patch}));repository.patchSettings=save;
+   await dial.updateSettings({movieSearch:false});
+   expect(save).toHaveBeenCalledWith({movieSearch:false,searchProvider:'yandex'});
+ });
  it('coalesces fast bookmark events and unsubscribes on teardown', async () => { const dial=useDial();await state.mounted[0]!();state.load.mockClear().mockResolvedValue(snapshot('External'));for(let i=0;i<15;i++)state.listeners.forEach(callback=>callback());await vi.advanceTimersByTimeAsync(65);expect(state.load).toHaveBeenCalledTimes(1);expect(dial.snapshot.value.tabs[0]?.title).toBe('External');state.unmounted.forEach(callback=>callback());expect(state.listeners.size).toBe(0); });
  it('slow older reads cannot overwrite a newer view', async () => { const dial=useDial();await state.mounted[0]!();let resolveOld!: (value:ReturnType<typeof snapshot>)=>void;state.load.mockImplementationOnce(()=>new Promise(resolve=>{resolveOld=resolve;})).mockResolvedValueOnce(snapshot('New'));const old=dial.refresh();await dial.refresh();resolveOld(snapshot('Old'));await old;expect(dial.snapshot.value.tabs[0]?.title).toBe('New'); });
  it('mutation failure rereads actual browser state', async () => { const dial=useDial();await state.mounted[0]!();state.load.mockResolvedValue(snapshot('Actual'));expect(await dial.run(async()=>{throw new Error('move failed');})).toBe(false);expect(dial.snapshot.value.tabs[0]?.title).toBe('Actual');expect(dial.notice.value).toBe('move failed'); });

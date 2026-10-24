@@ -9,7 +9,7 @@ export function useProviderSuggestions(query: Ref<string>, provider: Ref<SearchP
     clearTimeout(timer);request?.abort();const current=++generation;
     items.value=[];error.value='';loaded.value=false;
     const text=query.value.trim(), source=provider.value;
-    if (!text) return;
+    if (!text || source === 'bookmarks') return;
     timer=setTimeout(async()=>{
       const controller=new AbortController();request=controller;
       try {const next=await providerSuggestions(source,text,controller.signal);if(current===generation)items.value=next;}

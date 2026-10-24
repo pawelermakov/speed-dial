@@ -9,7 +9,7 @@ export const folderKey = 'selectedFolder.v1';
 export function validSetting<K extends keyof Settings>(key: K, value: unknown): value is Settings[K] {
   if (!settingKeys.includes(key) || typeof value !== typeof defaults[key]) return false;
   try {
-    const normalized = validateSettings({ ...defaults, [key]: value })[key];
+    const normalized = validateSettings({ ...defaults, movieSearch:true, [key]: value })[key];
     return normalized === value;
   } catch { return false; }
 }

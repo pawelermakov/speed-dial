@@ -23,9 +23,9 @@ try{
  await page.getByLabel('Ширина (%)',{exact:true}).fill('');await expect(page.getByLabel('Ширина (%)',{exact:true})).toHaveAttribute('aria-invalid','true');assert.equal(await stored(page,'width'),80);
  await page.getByLabel('Ширина (%)',{exact:true}).fill('85');await close(page);assert.equal(await stored(page,'width'),85);
  const peer=await context.newPage();await peer.goto(url);await open(peer);await open(page);
- await Promise.all([page.getByLabel('Ширина (%)',{exact:true}).fill('70'),peer.getByLabel('Расстояние (px)',{exact:true}).fill('12'),peer.locator('.search select').selectOption('imdb')]);
+ await Promise.all([page.getByLabel('Ширина (%)',{exact:true}).fill('70'),peer.getByLabel('Расстояние (px)',{exact:true}).fill('12'),peer.locator('.search select').selectOption('google')]);
  await page.getByLabel('Ширина (%)',{exact:true}).blur();await peer.getByLabel('Расстояние (px)',{exact:true}).blur();
- await expect.poll(()=>stored(page,'width')).toBe(70);await expect.poll(()=>stored(page,'space')).toBe(12);await expect.poll(()=>stored(page,'searchProvider')).toBe('imdb');
+ await expect.poll(()=>stored(page,'width')).toBe(70);await expect.poll(()=>stored(page,'space')).toBe(12);await expect.poll(()=>stored(page,'searchProvider')).toBe('google');
  await expect(page.getByLabel('Расстояние (px)',{exact:true})).toHaveValue('12');
  await close(peer);await peer.close();
  await page.evaluate(()=>{const original=chrome.storage.local.set;window.restoreSet=()=>chrome.storage.local.set=original;chrome.storage.local.set=(value,...args)=>value.settings?Promise.reject(new Error('settings write failed')):original.call(chrome.storage.local,value,...args);});

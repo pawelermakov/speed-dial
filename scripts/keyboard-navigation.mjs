@@ -69,11 +69,11 @@ async function check(name, {exec,until,key,resize}) {
  assert.equal(await exec('return [...document.querySelectorAll("[role=menuitem]")].some(e=>/Удалить|Изменить|Переместить/.test(e.textContent));'),false);
  await key('ArrowDown');await key('Enter');await until('return !!document.querySelector("#folder-name");');
  await key('Escape');await until('return !document.querySelector("dialog");');
- await key('/');await until('return document.activeElement?.getAttribute("aria-label")==="Найти закладку";');
+ await key('/');await until('return document.activeElement?.getAttribute("aria-label")==="Поиск по закладкам";');
  await exec('const e=document.activeElement;e.value="Key 2";e.dispatchEvent(new Event("input",{bubbles:true}));');await until('return document.querySelectorAll(".bookmark").length===1;');
  await exec('document.querySelector(".bookmark").focus();');await key('Shift+F10');await until('return !!document.querySelector("[role=menu]");');
  assert.equal(await exec('return [...document.querySelectorAll("[role=menuitem]")].filter(e=>e.textContent.startsWith("Переместить")).every(e=>e.disabled);'),true);
- await key('Escape');await key('Escape');await until('return !document.querySelector(".bookmark-search-field.is-open");');
+ await key('Escape');await key('Escape');await until('return document.querySelector(".search input").value === "";');
  await exec('document.querySelector(".bookmark").focus();for(const node of await api.bookmarks.getChildren(parityRoot))if(node.url)await api.bookmarks.remove(node.id);');
  await until('return document.querySelectorAll(".bookmark").length===0 && document.activeElement.matches(".add-card");');
  assert.deepEqual(await exec('return errors;'),[]);

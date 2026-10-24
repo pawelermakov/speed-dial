@@ -24,18 +24,17 @@ try {
  for(const width of [320,360,768,1024,1280,1920]) {
   await page.setViewportSize({width,height:width<=360?640:800});
   await expect(gear.locator('svg')).toHaveCSS('width','20px');await expect(gear).toHaveCSS('height','48px');
-  const folderBounds=await page.locator('.folder-root').boundingBox(),localBounds=await page.locator('.bookmark-search-field').boundingBox();assert.equal(localBounds.y,folderBounds.y,'local search must align with folders');
   await expect(page.locator('.search')).toHaveCSS('height','48px');await expect(page.locator('.folder-root')).toHaveCSS('height','48px');
   const sr=await page.locator('.search').boundingBox(),tr=await page.locator('.tools').boundingBox();assert(sr.y+sr.height<=tr.y||tr.y+tr.height<=sr.y||sr.x+sr.width<=tr.x,'header controls overlap');
   for(const background of ['#fff','#000','repeating-conic-gradient(#000 0% 25%,#fff 0% 50%) 0/40px 40px']) {
    await page.locator('.page').evaluate((e,b)=>e.style.setProperty('--audit-wallpaper',b),background);
-   for(const selector of ['.settings-trigger','.folder-tab','.add-card','.bookmark-search-field']) {
+   for(const selector of ['.settings-trigger','.folder-tab','.add-card']) {
     await page.locator(selector).first().hover();await expect.poll(()=>alpha(selector)).toBeCloseTo(.65,2);
-    if(['.settings-trigger','.folder-tab','.bookmark-search-field'].includes(selector))await expect.poll(()=>alpha(selector)).toBeCloseTo(.65,2);
+    if(['.settings-trigger','.folder-tab'].includes(selector))await expect.poll(()=>alpha(selector)).toBeCloseTo(.65,2);
    }
    await shot(width+'-'+(background==='#fff'?'light':background==='#000'?'dark':'pattern')+'-hover');
   }
-  await page.getByRole('button',{name:'Поиск по закладкам',exact:true}).click();await expect(page.getByRole('searchbox')).toBeFocused();await expect(page.locator('.bookmark-search-field')).toHaveCSS('height','48px');await expect.poll(()=>alpha('.bookmark-search-field')).toBeGreaterThanOrEqual(.85);await shot(width+'-local-search');await page.getByRole('button',{name:'Закрыть поиск по закладкам',exact:true}).click();
+  await page.locator('.search select').selectOption('bookmarks');await page.locator('.search input').focus();await expect(page.getByRole('searchbox')).toBeFocused();await expect(page.locator('.folder-tabs')).toBeVisible();await shot(width+'-local-search');await page.locator('.search select').selectOption('yandex');
   await page.locator('.search input').fill('test');await expect(page.locator('.suggestions [role=option]')).toHaveCount(2);await expect(page.locator('.suggestions')).toHaveCSS('backdrop-filter','blur(12px) saturate(1.6)');await shot(width+'-suggestions');await clear();
   await gear.click();await expect(page.locator('.settings')).toBeVisible();await expect(page.locator('.sync-account [role=status]')).toHaveCSS('font-size','16px');
   for(const input of await page.locator('.settings input[type=number]').all()) {await expect(input).toHaveCSS('width','88px');await expect(input).toHaveCSS('height','40px');await expect(input).toHaveCSS('backdrop-filter','none');}

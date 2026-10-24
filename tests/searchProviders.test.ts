@@ -22,12 +22,12 @@ describe('provider contracts',()=>{
     await expect(providerSuggestions('kinopoisk','Матрица',new AbortController().signal)).rejects.toThrow('HTTP 403');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
-  it('has exactly five flat providers and safe export defaults',async()=>{
-    expect(searchProviders.map(row=>row.label)).toEqual(['Яндекс','Google','Кинопоиск','IMDb','MyShows']);
+  it('has web providers and a local bookmark mode and safe export defaults',async()=>{
+    expect(searchProviders.map(row=>row.label)).toEqual(['Яндекс','Google','Закладки','Кинопоиск','IMDb','MyShows']);
     expect(validateSettings({}).searchProvider).toBe('yandex');expect(validateSettings({searchProvider:'bing'}).searchProvider).toBe('yandex');
-    for(const {id}of searchProviders){const data={entries:[],settings:{...defaults,searchProvider:id},background:null};expect(parseImport(await serializeExport(data)).settings.searchProvider).toBe(id);}
+    for(const {id}of searchProviders){const data={entries:[],settings:{...defaults,movieSearch:true,searchProvider:id},background:null};expect(parseImport(await serializeExport(data)).settings.searchProvider).toBe(id);}
   });
-  it.each(searchProviders)('encodes queries for $id on its own official search page',({id})=>{
+  it.each(searchProviders.filter((row): row is {id:Exclude<SearchProviderId,'bookmarks'>;label:string}=>row.id!=='bookmarks'))('encodes queries for $id on its own official search page',({id})=>{
     const query='привет мир & C++ / ? #';const url=new URL(searchUrl(id,query));
     expect(url.protocol).toBe('https:');expect([...url.searchParams.values()]).toContain(query);
     expect(url.hostname).toBe({yandex:'www.yandex.ru',google:'www.google.com',kinopoisk:'www.kinopoisk.ru',imdb:'www.imdb.com',myshows:'myshows.me'}[id]);
@@ -71,4 +71,23 @@ describe('provider contracts',()=>{
     expect(request.init?.headers).toEqual({'content-type':'application/json','service-id':'25'});expect(JSON.parse(request.init!.body as string).variables).toEqual({keyword:'Матрица',limit:6,withUserData:false});
     expect(JSON.parse(suggestionRequest('myshows','q').init!.body as string).method).toBe('shows.Search');
   });
+});
+
+it('bookmarks cannot produce a web request and disabling the mode has a safe fallback',async()=>{
+ const network=vi.fn();vi.stubGlobal('fetch',network);
+ expect(await providerSuggestions('bookmarks','private',new AbortController().signal)).toEqual([]);
+ expect(network).not.toHaveBeenCalled();
+ expect(()=>searchUrl('bookmarks','private')).toThrow();
+ expect(()=>suggestionRequest('bookmarks','private')).toThrow();
+ expect(validateSettings({searchProvider:'bookmarks',bookmarkSearch:false})).toMatchObject({searchProvider:'yandex',bookmarkSearch:false});
+});
+
+it('movie sources are opt-in and preserve an existing selection on upgrade',()=>{
+ expect(validateSettings({}).movieSearch).toBe(false);
+ for(const searchProvider of ['kinopoisk','imdb','myshows']) {
+  expect(validateSettings({searchProvider})).toMatchObject({searchProvider,movieSearch:true});
+  expect(validateSettings({searchProvider,movieSearch:false})).toMatchObject({searchProvider:'yandex',movieSearch:false});
+  const settings={...defaults,movieSearch:true,searchProvider};
+  expect(parseImport(JSON.stringify({version:2,entries:[],settings,background:null})).settings).toMatchObject({movieSearch:true,searchProvider});
+ }
 });

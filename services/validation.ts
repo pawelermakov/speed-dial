@@ -1,4 +1,4 @@
-import { defaults, searchProviderIds, type Settings, type SearchProviderId } from '../types/models';
+import { defaults, searchProviderIds, isMovieProvider, type Settings, type SearchProviderId } from '../types/models';
 export function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(label + ': ожидается объект.');
   return value as Record<string, unknown>;
@@ -49,8 +49,8 @@ export function validateSettings(input: unknown): Settings {
     throw new Error('Некорректный E-mail.');
   return {
     width: number('width', 50, 100), countColumns: number('countColumns', 2, 12), space: number('space', 0, 48),
-    verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch: boolean(data.bookmarkSearch, true), email: email.trim(),
-    searchProvider: searchProviderIds.includes(data.searchProvider as SearchProviderId) ? data.searchProvider as SearchProviderId : 'yandex',
+    verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch: boolean(data.bookmarkSearch, true), movieSearch: boolean(data.movieSearch, isMovieProvider(data.searchProvider)), email: email.trim(),
+    searchProvider: ((data.bookmarkSearch === false && data.searchProvider === 'bookmarks') || (data.movieSearch === false && isMovieProvider(data.searchProvider))) ? 'yandex' : searchProviderIds.includes(data.searchProvider as SearchProviderId) ? data.searchProvider as SearchProviderId : 'yandex',
   };
 }
 export function safeFavicon(value: unknown): string {

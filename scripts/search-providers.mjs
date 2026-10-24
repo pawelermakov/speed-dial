@@ -7,7 +7,7 @@ const live=process.argv.includes('--live');
 const headed=process.argv.includes('--headed');
 const out=resolve('.browser-test/search-providers');await mkdir(out,{recursive:true});
 const providers=['yandex','google','kinopoisk','imdb','myshows'];
-const names=['Яндекс','Google','Кинопоиск','IMDb','MyShows'];
+const names=['Яндекс','Google','Закладки','Кинопоиск','IMDb','MyShows'];
 const queries={yandex:'Матрица',google:'привет мир & C++',kinopoisk:'Матрица',imdb:'Matrix',myshows:'Breaking Bad'};
 const hosts={'suggest.yandex.ru':'yandex','suggestqueries.google.com':'google','graphql.kinopoisk.ru':'kinopoisk','v3.sg.media-imdb.com':'imdb','api.myshows.me':'myshows'};
 const fixtures=Object.fromEntries(await Promise.all(providers.map(async id=>[id,JSON.parse(await readFile(`tests/fixtures/search-providers/${id}.json`,'utf8'))])));
@@ -30,6 +30,8 @@ try{
  });
  await page.goto(url);const select=page.getByRole('combobox',{name:'Где искать',exact:true}),input=page.locator('.search input');
  await expect(select).toBeEnabled();await expect(select).toHaveValue('yandex');
+ expect(await select.locator('option').allTextContents()).toEqual(['Яндекс','Google','Закладки']);
+ await page.locator('.settings-trigger').click();await page.getByText('Поиск фильмов и сериалов',{exact:true}).click();await page.keyboard.press('Escape');await expect(page.locator('dialog')).toHaveCount(0);
  expect(await select.locator('option').allTextContents()).toEqual(names);expect(await select.locator('optgroup').count()).toBe(0);
  for(const id of providers){
    await input.fill('');await expect(select).toBeEnabled();await select.selectOption(id);await expect(select).toBeEnabled();
@@ -76,6 +78,10 @@ if(!process.argv.includes('--chrome-only')) {
 const driver=await launchFirefox();try{
  await driver.command('WebDriver:Navigate',{url:firefoxUrl});await driver.until('return !!document.querySelector(".search select")&&!document.querySelector(".search select").disabled;');
  if(!live)await driver.exec('window.providerCalls=[];const fixtures=arguments[0],hosts=arguments[1],original=window.fetch;window.fetch=async function(url,init){const id=hosts[new URL(String(url)).hostname];if(!id)return original(url,init);window.providerCalls.push(id);return new Response(JSON.stringify(fixtures[id]),{headers:{"content-type":"application/json"}});};',fixtures,hosts);
+ await driver.exec('document.querySelector(".settings-trigger").click();');await driver.until('return !!document.querySelector(".settings");');
+ await driver.exec('[...document.querySelectorAll(".switch-control")].find(e=>e.textContent.trim()==="Поиск фильмов и сериалов").querySelector("input").click();');
+ await driver.until('return document.querySelectorAll(".search select option").length===6;');
+ await driver.exec('document.querySelector("dialog").dispatchEvent(new Event("cancel",{cancelable:true}));');await driver.until('return !document.querySelector("dialog");');
  assert.deepEqual(await driver.exec('return Array.from(document.querySelectorAll(".search select option"),x=>x.textContent);'),names);
  for(const id of providers){
    await driver.exec('const input=document.querySelector(".search input");input.value="";input.dispatchEvent(new Event("input",{bubbles:true}));const select=document.querySelector(".search select");select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}));',id);

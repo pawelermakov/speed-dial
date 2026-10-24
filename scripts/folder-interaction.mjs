@@ -65,13 +65,11 @@ try{
  for(const width of [360,1280,1920]){
   await page.setViewportSize({width,height:900});await expect(page.getByRole('button',{name:'Папка 23',exact:true})).toBeAttached();
   assert.equal(await page.locator('.folder-scroll').evaluate(e=>e.scrollWidth>e.clientWidth),true);
-  for(const selector of ['.folder-scroll','button[data-bookmark-search-open]']){const r=await page.locator(selector).boundingBox();assert(r&&r.x>=0&&r.x+r.width<=width);}
+  for(const selector of ['.folder-scroll','.search']){const r=await page.locator(selector).boundingBox();assert(r&&r.x>=0&&r.x+r.width<=width);}
   assert.equal(await page.locator('html').evaluate(e=>e.scrollWidth<=innerWidth),true);
   for(const scrollbar of ['none','auto']){
    const style=await page.addStyleTag({content:'.folder-scroll {scrollbar-width:'+scrollbar+'!important}.folder-scroll::-webkit-scrollbar {height:16px}'});
-   const folder=await page.locator('.folder-root').boundingBox(),search=await page.locator('.bookmark-search-field').boundingBox();
-   assert.equal(search.y,folder.y,'search must align with folders with scrollbar '+scrollbar);
-   assert.equal(search.height,folder.height);await style.evaluate(e=>e.remove());
+   const folder=await page.locator('.folder-root').boundingBox();assert.equal(folder.height,48);await style.evaluate(e=>e.remove());
   }
   await plus.click();
   const modal=page.getByRole('dialog');
@@ -79,28 +77,12 @@ try{
   await field.fill('Очень длинное название новой папки');
   const box=await modal.locator('.modal').boundingBox();assert(box.x>=0&&box.x+box.width<=width);
   await expect(modal.getByRole('button',{name:'Создать',exact:true})).toBeVisible();
-  await modal.getByRole('button',{name:'Закрыть',exact:true}).click();
+  await modal.getByRole('button',{name:'Закрыть',exact:true}).click();await expect(modal).toHaveCount(0);
   await page.locator('.bookmark-toolbar').screenshot({path:resolve(out,'folders-'+width+'.png')});
  }
  const scroll=await page.locator('.folder-scroll').evaluate(e=>e.scrollLeft=80);const top=(await page.locator('.bookmarks').boundingBox()).y;
- await page.getByLabel('Поиск по закладкам',{exact:true}).click();await expect(page.locator('.bookmark-search-field')).toHaveCSS('transition-duration','0.15s, 0.15s');await expect.poll(async()=>(await page.locator('.bookmark-search-field').boundingBox()).width).toBeCloseTo(576,0);await page.getByRole('searchbox').fill('example');await expect(page.locator('.bookmark')).toHaveCount(3);assert.equal(await page.locator('.bookmark').first().getAttribute('draggable'),'false');
- await page.keyboard.press('Escape');await expect(page.locator('.bookmark-search-field')).toHaveCSS('width','48px');await expect(page.locator('.folder-tabs')).toBeVisible();assert.equal((await page.locator('.bookmarks').boundingBox()).y,top);assert.equal(await page.locator('.folder-scroll').evaluate(e=>e.scrollLeft),scroll);
- for(const opening of [true,false]){
-  const frames=await page.evaluate(async opening=>{
-   const shell=document.querySelector('.bookmark-search-field'),input=shell.querySelector('input'),folders=document.querySelector('.folder-tabs');
-   const rows=[];const read=()=>rows.push({right:shell.getBoundingClientRect().right,width:shell.getBoundingClientRect().width,input:Number(getComputedStyle(input).opacity),folders:Number(getComputedStyle(folders).opacity)});
-   read();
-   if(opening)document.querySelector('[data-bookmark-search-open]').click();else window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
-   const start=performance.now();while(performance.now()-start<480){await new Promise(requestAnimationFrame);read();}return rows;
-  },opening);
-  assert(frames.some(row=>row.width>49&&row.width<575),'search width must animate');
-  if(opening)assert(frames.filter(row=>row.width>48.05).every(row=>row.folders<.0001),'folders must disappear before search expands');
-  else assert(frames.filter(row=>row.folders>.0001).every(row=>row.width<48.05),'search must collapse before folders appear');
-  assert(frames.some(row=>row.folders>0&&row.folders<1),'folders must fade');
-  assert(frames.every(row=>Math.abs(row.right-frames[0].right)<1),'right edge must stay fixed');
-  assert.equal(Math.round(frames.at(-1).width),opening?576:48);
-  assert.equal(frames.at(-1).folders,opening?0:1);
- }
+ await page.locator('.search select').selectOption('bookmarks');await page.getByRole('searchbox').fill('example');await expect(page.locator('.bookmark')).toHaveCount(3);await expect(page.locator('.bookmark').first()).toHaveAttribute('draggable','false');
+ await page.getByRole('searchbox').press('Escape');await expect(page.getByRole('searchbox')).toHaveValue('');await expect(page.locator('.folder-tabs')).toBeVisible();assert.equal((await page.locator('.bookmarks').boundingBox()).y,top);assert.equal(await page.locator('.folder-scroll').evaluate(e=>e.scrollLeft),scroll);
  await page.getByRole('button',{name:'Настройки',exact:true}).evaluate(e=>e.click());
  await page.getByRole('button',{name:'Закрыть настройки',exact:true}).click();
  await plus.click();

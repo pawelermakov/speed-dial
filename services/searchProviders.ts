@@ -2,8 +2,8 @@ import type { SearchProviderId, SearchSuggestion } from '../types/models';
 import { kinopoiskQuery } from './kinopoiskQuery';
 
 export const searchProviders: ReadonlyArray<{ id: SearchProviderId; label: string }> = [
-  { id:'yandex', label:'Яндекс' }, { id:'google', label:'Google' }, { id:'kinopoisk', label:'Кинопоиск' },
-  { id:'imdb', label:'IMDb' }, { id:'myshows', label:'MyShows' },
+  { id:'yandex', label:'Яндекс' }, { id:'google', label:'Google' }, { id:'bookmarks', label:'Закладки' },
+  { id:'kinopoisk', label:'Кинопоиск' }, { id:'imdb', label:'IMDb' }, { id:'myshows', label:'MyShows' },
 ];
 export const maxSearchQuery = 256;
 const maxResponseBytes = 256 * 1024;
@@ -20,6 +20,7 @@ function invalid(): never { throw new Error('Неизвестный формат
 export function searchUrl(provider: SearchProviderId, query: string): string {
   const q = query.trim();
   switch (provider) {
+    case 'bookmarks': throw new Error('Поиск по закладкам выполняется локально.');
     case 'yandex': return 'https://www.yandex.ru/yandsearch?' + new URLSearchParams({text:q});
     case 'google': return 'https://www.google.com/search?' + new URLSearchParams({q});
     case 'kinopoisk': return 'https://www.kinopoisk.ru/new-search/?' + new URLSearchParams({text:q});
@@ -66,6 +67,7 @@ export function parseKinopoiskSuggestions(value: unknown): SearchSuggestion[] {
 }
 
 export function suggestionRequest(provider: SearchProviderId, query: string): {url:string; init?:RequestInit} {
+  if(provider==='bookmarks')throw new Error('Поиск по закладкам выполняется локально.');
   const q=query.trim();
   switch (provider) {
     case 'yandex': return {url:'https://suggest.yandex.ru/suggest-sl?'+new URLSearchParams({part:q})};
@@ -77,7 +79,7 @@ export function suggestionRequest(provider: SearchProviderId, query: string): {u
 }
 export async function providerSuggestions(provider: SearchProviderId, query: string, signal: AbortSignal): Promise<SearchSuggestion[]> {
   const q=query.trim();
-  if (!q) return [];
+  if (!q || provider === 'bookmarks') return [];
   if (q.length > maxSearchQuery) throw new Error('Слишком длинный запрос для подсказок.');
   if (provider === 'kinopoisk') {
     const { prepareKinopoiskNetwork } = await import('./kinopoiskNetwork');

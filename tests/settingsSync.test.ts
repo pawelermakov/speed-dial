@@ -52,6 +52,18 @@ describe('per-field Chrome settings synchronization',()=>{
     expect(settings(f.local).searchProvider).toBe('google');
     await f.c.remote({[syncPrefix+'width']:{newValue:75}});await f.c.flush();expect(f.sync.set).toHaveBeenCalledTimes(1);
   });
+  it('accepts the bookmark mode and its enable flag through the existing sync fields',async()=>{
+    const f=fixture();await f.c.initialize();
+    await f.c.remote({[syncPrefix+'searchProvider']:{newValue:'bookmarks'},[syncPrefix+'bookmarkSearch']:{newValue:true}});await f.c.flush();
+    expect(settings(f.local)).toMatchObject({searchProvider:'bookmarks',bookmarkSearch:true});
+    expect(f.sync.set).not.toHaveBeenCalled();
+  });
+  it('syncs movie sources and their enable setting without echoing',async()=>{
+    const f=fixture();await f.c.initialize();
+    await f.c.remote({[syncPrefix+'searchProvider']:{newValue:'imdb'},[syncPrefix+'movieSearch']:{newValue:true}});await f.c.flush();
+    expect(settings(f.local)).toMatchObject({searchProvider:'imdb',movieSearch:true});
+    expect(f.sync.set).not.toHaveBeenCalled();
+  });
   it('same-field incoming delivery supersedes an older queued edit',async()=>{
     const f=fixture();await f.c.initialize();await f.c.changed({width:75});
     await f.c.remote({[syncPrefix+'width']:{newValue:90}});await f.c.flush();
