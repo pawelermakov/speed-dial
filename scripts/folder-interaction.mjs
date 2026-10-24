@@ -8,7 +8,7 @@ const ext=resolve('.output/chrome-mv3');
 if(!process.argv.includes('--firefox-only')) {
 const context=await chromium.launchPersistentContext(resolve(out,crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
 try{
- const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));let accept=false;page.on('dialog',dialog=>accept?dialog.accept():dialog.dismiss());
+ const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',()=>{throw Error('Unexpected system dialog');});
  await page.goto(worker.url().replace('background.js','newtab.html'));
  await expect(page.locator('.folder-root')).toBeVisible();await expect(page.getByLabel('Новая папка',{exact:true})).toHaveCount(0);
  const data=await page.evaluate(async()=>{
@@ -51,10 +51,10 @@ try{
  await created.click({button:'right'});await page.getByRole('menuitem',{name:'Изменить папку',exact:true}).click();const rename=page.getByRole('textbox',{name:'Название папки',exact:true});await rename.fill('Renamed');await rename.press('Enter');const renamed=page.getByRole('button',{name:'Renamed',exact:true});await expect(renamed).toBeVisible();
  await renamed.dragTo(page.getByRole('button',{name:'Работа (папка)',exact:true}),{targetPosition:{x:2,y:10}});
  await expect.poll(async()=>(await children()).filter(row=>!row.url).map(row=>row.title)).toEqual(['Renamed','Работа','Главная']);
- await renamed.click({button:'right'});await page.getByRole('menuitem',{name:'Удалить папку',exact:true}).click();await expect(renamed).toBeVisible();
+ await renamed.click({button:'right'});await page.getByRole('menuitem',{name:'Удалить папку',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Отмена',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0);await expect(renamed).toBeVisible();
  const renamedId=(await children()).find(row=>row.title==='Renamed').id;
  const descendant=await page.evaluate(async parent=>{const folder=await chrome.bookmarks.create({parentId:parent,title:'Deep'});return (await chrome.bookmarks.create({parentId:folder.id,title:'Nested',url:'https://nested.example/'})).id;},renamedId);
- await expect(renamed).toBeEnabled();accept=true;await renamed.click({button:'right'});await page.getByRole('menuitem',{name:'Удалить папку',exact:true}).click();await expect(renamed).toHaveCount(0);accept=false;
+ await expect(renamed).toBeEnabled();await renamed.click({button:'right'});await page.getByRole('menuitem',{name:'Удалить папку',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Удалить',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0);await expect(renamed).toHaveCount(0);
  assert.equal(await page.evaluate(async id=>{try{await chrome.bookmarks.get(id);return true;}catch{return false;}},descendant),false);
  await page.locator('.folder-root').click({button:'right'});await expect(page.getByRole('menuitem',{name:'Удалить папку',exact:true})).toHaveCount(0);await page.keyboard.press('Escape');
  await page.getByRole('button',{name:'Главная',exact:true}).click({button:'right'});await page.getByRole('menuitem',{name:'Изменить папку',exact:true}).click();const blurName=page.getByRole('textbox',{name:'Название папки',exact:true});await blurName.fill('Blur saved');await blurName.press('Enter');await expect(page.getByRole('button',{name:'Blur saved',exact:true})).toBeVisible();

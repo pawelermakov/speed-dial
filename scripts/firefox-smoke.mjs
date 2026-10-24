@@ -55,7 +55,7 @@ export async function firefoxSmoke(siteUrl, results) {
   results.push('firefox: folder transfer, external change, UI edit and external folder removal');
   await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
   await driver.until('return document.querySelector(".settings")?.textContent.includes("Статус недоступен");');
-  await driver.exec('window.confirm=()=>true;'); await click('Сбросить настройки и кэш');
+  await click('Сбросить настройки и кэш');await driver.until('return !!document.querySelector(".confirmation-dialog");');await click('Сбросить');
   await driver.until('return document.querySelector(".notice")?.textContent.includes("Настройки и локальный кэш сброшены");');
   assert.ok((await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].id;',rootId))===rootId);
   await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',rootId);

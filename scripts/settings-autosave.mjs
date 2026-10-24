@@ -10,7 +10,7 @@ if(!process.argv.includes('--firefox-only')) {
 const context=await chromium.launchPersistentContext(resolve('.browser-test/settings-autosave-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
 try{
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const url=worker.url().replace('background.js','newtab.html');
- const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',dialog=>dialog.accept());
+ const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',dialog=>{errors.push('Unexpected system dialog: '+dialog.type());void dialog.dismiss();});
  await page.addInitScript(()=>{window.mutations=[];for(const key of ['create','update','move','remove','removeTree']){const original=chrome.bookmarks[key];chrome.bookmarks[key]=(...args)=>{window.mutations.push(key);return original.apply(chrome.bookmarks,args);};}});
  await page.goto(url);await expect(page.getByRole('button',{name:'Настройки',exact:true})).toBeEnabled();
  const fixture=await page.evaluate(async()=>{const {rootFolderId}=await chrome.storage.local.get('rootFolderId');const other=await chrome.bookmarks.create({parentId:rootFolderId,title:'Another source'});const a=await chrome.bookmarks.create({parentId:rootFolderId,title:'Folder A'}),b=await chrome.bookmarks.create({parentId:rootFolderId,title:'Folder B'});await chrome.bookmarks.create({parentId:a.id,title:'A tile',url:'https://a.example/'});await chrome.bookmarks.create({parentId:b.id,title:'B tile',url:'https://b.example/'});return{root:rootFolderId,other:other.id,a:a.id,b:b.id};});
@@ -52,9 +52,9 @@ try{
  await page.getByRole('button',{name:'Удалить фон',exact:true}).click();await expect.poll(()=>page.locator('.page-background').evaluate(e=>e.style.backgroundImage)).toBe('');await close(page);await page.reload();await open(page);await expect(page.getByLabel('Ширина (%)',{exact:true})).toHaveValue('90');assert.deepEqual(errors,[]);
  const preferences=await page.evaluate(async()=> (await chrome.storage.local.get('settings')).settings.value);
  await page.getByLabel('Ширина (%)',{exact:true}).fill('88');await page.getByRole('button',{name:'Импорт',exact:true}).click();
- await page.locator('dialog textarea').fill(JSON.stringify({version:2,entries:[],settings:{...preferences,width:67,space:9}}));await page.getByRole('button',{name:'Импортировать',exact:true}).click();
+ await page.locator('dialog textarea').fill(JSON.stringify({version:2,entries:[],settings:{...preferences,width:67,space:9}}));await page.getByRole('button',{name:'Импортировать',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Импортировать',exact:true}).click();
  await expect(page.locator('dialog')).toHaveCount(0);await expect.poll(()=>stored(page,'width')).toBe(67);
- await open(page);await page.getByLabel('Ширина (%)',{exact:true}).fill('89');await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click();
+ await open(page);await page.getByLabel('Ширина (%)',{exact:true}).fill('89');await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Сбросить',exact:true}).click();
  await expect(page.locator('.settings')).toHaveCount(0);await expect.poll(()=>stored(page,'width')).toBe(100);assert.equal(await stored(page,'space'),24);assert.equal(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId),fixture.root);
  assert.deepEqual(await page.evaluate(()=>window.mutations),[]);
  console.log('PASS Chrome settings: autosave, invalid input, close flush, two tabs, provider patch, failure rollback/persistent alert, stable background across folders/sources, zero bookmark writes, Sync states, responsive panels, reload, pending edits cannot overwrite import/reset');

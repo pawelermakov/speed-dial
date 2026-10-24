@@ -12,12 +12,6 @@ const emit = defineEmits<{ close: []; save: [value: { url: string; title: string
 const url = ref(props.bookmark?.url ?? '');
 const title = ref(props.bookmark?.title ?? '');
 const titleEdited = ref(false);
-const urlTouched = ref(false);
-const urlError = computed(() => {
-  if (!urlTouched.value) return '';
-  try { normalizeBookmarkUrl(url.value); return ''; }
-  catch (cause) { return cause instanceof Error ? cause.message : 'Введите корректный адрес сайта.'; }
-});
 const capture = ref(true);
 const parentId = ref(props.bookmark?.parentId ?? (props.folders.some(row => row.id === props.activeId) ? props.activeId! : props.folders[0]?.id));
 const validUrl = computed(() => {
@@ -33,8 +27,7 @@ function submit() {
   <ModalDialog id="bookmark-modal" :title="bookmark ? 'Изменить закладку' : 'Добавить закладку'" bookmark :busy="busy" @close="emit('close')">
     <form class="bookmark-form flex flex-col gap-4 min-w-0 text-base" novalidate @submit.prevent="submit">
       <div><label for="bookmark-url" class="block mb-1">Адрес сайта</label>
-        <input id="bookmark-url" v-model="url" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" :class="ui.input" autofocus required :disabled="busy" :aria-invalid="!!urlError" :aria-describedby="urlError ? 'bookmark-url-error' : undefined" @blur="urlTouched = true" />
-        <p v-if="urlError" id="bookmark-url-error" role="alert" class="mt-1 text-sm">{{ urlError }}</p>
+        <input id="bookmark-url" v-model="url" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" :class="ui.input" autofocus required :disabled="busy" />
       </div>
       <div><label for="bookmark-title" class="block mb-1">Название</label>
         <input id="bookmark-title" v-model="title" :class="ui.input" :disabled="busy" @input="titleEdited = true" />

@@ -44,7 +44,7 @@ async function check(name, driver) {
  await until('return !!document.querySelector(".transfer-form [role=alert]");');
  assert.equal(await exec('return (await api.bookmarks.getChildren(parityRoot)).filter(e=>e.url&&e.type!=="separator").length;'),3,'invalid import must not mutate bookmarks');
  await field('textarea',JSON.stringify({...exported,entries:[{title:'Imported folder',children:[{title:'Imported link',url:'https://imported.example/'}]}]}));
- await exec('window.confirm=()=>true;document.querySelector(".transfer-form").requestSubmit();');
+ await exec('document.querySelector(".transfer-form").requestSubmit();');await until('return !!document.querySelector(".confirmation-dialog");');await exec('document.querySelector(".confirmation-dialog button:not(.secondary):not(.close)").click();');
  await until('return !document.querySelector("dialog") && [...document.querySelectorAll(".folder-tab")].some(e=>e.textContent.trim()==="Imported folder");');
  console.log('PASS '+name+': native source, separator exclusion, modal isolation, export/download Blob, invalid/valid import');
 

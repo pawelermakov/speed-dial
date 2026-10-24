@@ -27,7 +27,7 @@ async function check(name, {exec,until,key,resize}) {
  await until('return !document.querySelector("dialog")&&document.activeElement?.dataset.bookmarkId===crudId;');
  assert.equal(await exec('return (await api.bookmarks.get(crudId))[0].title;'),'Keyboard CRUD!');
  await key('Shift+F10');await until('return document.activeElement?.getAttribute("role")==="menuitem";');await key('End');
- await exec('window.confirm=()=>true;');await key('Enter');await until('return document.querySelectorAll(".bookmark").length===15&&!document.querySelector("[role=menu]");');
+ await key('Enter');await until('return !!document.querySelector(".confirmation-dialog");');await exec('document.querySelector(".confirmation-dialog button.danger").focus();');await key('Enter');await until('return document.querySelectorAll(".bookmark").length===15&&!document.querySelector("[role=menu]");');
 
  const focused=()=>exec('return document.activeElement?.dataset.bookmarkId;');
  for(const width of [360,1280,1920]) {

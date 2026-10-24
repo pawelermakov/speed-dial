@@ -10,6 +10,7 @@ import { useBookmarkSearch } from './composables/useBookmarkSearch';
 import BookmarkDialog from './components/BookmarkDialog.vue';
 import SearchBar from './components/SearchBar.vue';
 import EmptyState from './components/EmptyState.vue';
+import ConfirmDialog from './components/ConfirmDialog.vue';
 import MailIndicator from './components/MailIndicator.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import ContextMenu from './components/ContextMenu.vue';
@@ -97,7 +98,21 @@ const importError = ref('');
 const mailRevision = ref(0);
 watch(()=>snapshot.value.settings.email,()=>mailRevision.value++);
 const transfer = ref<'import' | 'export'>();
-const overlayOpen = computed(() => settingsOpen.value || bookmarkDialog.value || !!transfer.value || creatingFolder.value || !!editingFolder.value);
+const confirmation = shallowRef<{title:string;message:string;perform:()=>Promise<boolean>;actionLabel:string;destructive:boolean}>();
+const confirmationBusy=ref(false),confirmationError=ref('');
+function askConfirmation(title:string,message:string,perform:()=>Promise<boolean>,actionLabel='Удалить',destructive=true) {
+  if(confirmation.value||disabled.value)return;
+  confirmationError.value='';confirmation.value={title,message,perform,actionLabel,destructive};
+}
+function closeConfirmation(){if(!confirmationBusy.value)confirmation.value=undefined;}
+async function confirmAction(){
+  const current=confirmation.value;if(!current||confirmationBusy.value)return;
+  confirmationBusy.value=true;confirmationError.value='';
+  try {if(await current.perform())confirmation.value=undefined;else confirmationError.value=notice.value||'Не удалось выполнить действие. Попробуйте ещё раз.';}
+  catch(error){confirmationError.value=error instanceof Error?error.message:String(error);}
+  finally{confirmationBusy.value=false;}
+}
+const overlayOpen = computed(() => !!confirmation.value || settingsOpen.value || bookmarkDialog.value || !!transfer.value || creatingFolder.value || !!editingFolder.value);
 const exportText = ref('');
 const context = shallowRef<{ x: number; y: number; bookmark?: Bookmark; folder?: Folder }>();
 const backgroundUrl = ref('');
@@ -189,8 +204,7 @@ async function action(name: string) {
     if (!selected) return;
     if (name === 'open') await browser.tabs.create({ url: selected.url });
     if (name === 'edit') await openBookmark(selected);
-    if (name === 'delete' && confirm('Удалить настоящую закладку браузера? Удаление может синхронизироваться на другие устройства.'))
-      await run(() => repository.remove(selected.id));
+    if (name === 'delete') askConfirmation('Удалить закладку?', 'Закладка «'+selected.title+'» будет удалена из браузера. Удаление может синхронизироваться на другие устройства.',()=>run(() => repository.remove(selected.id)));
     if (name === 'thumbnail') {
       notice.value = 'Сайт временно откроется для обновления эскиза…';
       capturing.value = true;
@@ -215,18 +229,21 @@ async function importData(text: string) {
   try {
     importError.value = '';
     const next = parseImport(text);
-    const path = (await repository.choices()).find(row => row.id === snapshot.value.rootId)?.path;
+    const rootId=snapshot.value.rootId;
+    const path = (await repository.choices()).find(row => row.id === rootId)?.path;
     if (!path) throw new Error('Выберите папку закладок в настройках.');
-    if (!confirm('Импорт добавит закладки и папки в папку «' + path + '»; возможны дубликаты. Настройки и фон будут применены. Продолжить?')) return;
-    if (await run(() => repository.importData(next),true)) { transfer.value = undefined; mailRevision.value++; notice.value = 'Данные импортированы.'; }
-    else importError.value = notice.value;
+    askConfirmation('Импортировать данные?', 'Импорт добавит закладки и папки в папку «'+path+'»; возможны дубликаты. Настройки и фон будут применены.',async()=>{
+      if(!await run(() => {if(snapshot.value.rootId!==rootId)throw new Error('Папка назначения изменилась. Повторите импорт.');return repository.importData(next);},true))return false;
+      transfer.value=undefined;mailRevision.value++;notice.value='Данные импортированы.';return true;
+    },'Импортировать',false);
   } catch (error) { importError.value = fail(error); }
 }
 function reorder(ids: string[], expected: string[], dragRevision: number) { const parent = snapshot.value.activeId; if (!searching.value) void run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorder(ids, expected, parent); }); }
 async function reset() {
-  if (confirm('Сбросить настройки, фон и локальный кэш изображений? Закладки браузера сохранятся.')) {
-    if (await run(() => repository.reset(),true)) { settingsOpen.value = false; notice.value = 'Настройки и локальный кэш сброшены. Закладки сохранены.'; }
-  }
+  askConfirmation('Сбросить настройки и кэш?', 'Настройки вернутся к значениям по умолчанию. Фон и локальный кэш изображений будут удалены. Закладки браузера и выбранная папка сохранятся. Синхронизируемые настройки могут сброситься и на других устройствах.',async()=>{
+    if(!await run(() => repository.reset(),true))return false;
+    settingsOpen.value=false;notice.value='Настройки и локальный кэш сброшены. Закладки сохранены.';return true;
+  },'Сбросить');
 }
 async function updateImages(id: string, url: string) {
   const ticket = await repository.autoNameTicket(id);
@@ -275,7 +292,10 @@ async function folderAction(name: 'create' | 'rename' | 'delete', id = snapshot.
     folderDialogError.value='';
     editingFolder.value = { id, title: folder.title };
   }
-  if (name === 'delete' && confirm('Удалить реальную папку браузера и ВСЕ её потомки, включая скрытые вложенные папки? Удаление может синхронизироваться на другие устройства.')) await run(() => repository.removeFolder(id));
+  if (name === 'delete') {
+    const folder=await repository.folder(id);
+    askConfirmation('Удалить папку?', 'Папка «'+folder.title+'» и всё её содержимое, включая скрытые вложенные папки, будут удалены из браузера. Удаление может синхронизироваться на другие устройства.',()=>run(() => repository.removeFolder(id)));
+  }
 }
 async function reorderFolders(ids: string[], expected: string[], dragRevision: number) { await run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorderFolders(ids, expected); }); }
 type FocusTarget = { element: HTMLElement; selector?: string; id?: string; index: number };
@@ -324,6 +344,11 @@ function restoreDialogFocus(element:Element){
   const previous=dialogReturnTargets.get(element);dialogReturnTargets.delete(element);
   if(overlayOpen.value||context.value)return;
   restorePageFocus(previous);
+}
+function restoreConfirmationFocus(element:Element){
+  const previous=dialogReturnTargets.get(element);dialogReturnTargets.delete(element);
+  if(previous?.element.isConnected&&previous.element.closest('dialog[open]:not([inert])')&&!previous.element.matches(':disabled'))previous.element.focus({preventScroll:true});
+  else restorePageFocus(previous);
 }
 function beforeDialogLeave(element: Element) { (element as HTMLElement).inert = true; }
 function escape(event: KeyboardEvent) {
@@ -384,6 +409,9 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     </Transition>
     <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus">
     <ImportExportDialog v-if="transfer" :mode="transfer" :value="exportText" :busy="disabled" :operation-error="importError" @close="transfer = undefined" @import="importData" />
+    </Transition>
+    <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreConfirmationFocus">
+      <ConfirmDialog v-if="confirmation" :title="confirmation.title" :message="confirmation.message" :action-label="confirmation.actionLabel" :destructive="confirmation.destructive" :busy="confirmationBusy" :error="confirmationError" @close="closeConfirmation" @confirm="confirmAction" />
     </Transition>
     <Transition name="floating" :duration="motionEnabled ? 150 : 0" @before-enter="element => { (element as HTMLElement).inert = false; element.removeAttribute('aria-hidden'); }" @before-leave="element => { beforeDialogLeave(element); element.setAttribute('aria-hidden','true'); }">
       <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" :folder="context.folder" :can-move-left="canMove(-1)" :can-move-right="canMove(1)" @close="closeContext" @action="action" />

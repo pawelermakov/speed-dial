@@ -20,8 +20,7 @@ try {
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   const url = worker.url().replace('background.js','newtab.html');
   let page = await context.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message));
-  let acceptDialogs=true, promptValue='UI folder';
-  page.on('dialog', dialog => acceptDialogs ? dialog.accept(dialog.type()==='prompt' ? promptValue : undefined) : dialog.dismiss());
+  page.on('dialog', dialog => {errors.push('Unexpected system dialog: '+dialog.type());void dialog.dismiss();});
   await page.addInitScript(() => {
     window.bookmarkMutations = [];
     for (const name of ['create','update','move','remove','removeTree']) {
@@ -168,7 +167,7 @@ try {
   await expect(page.getByRole('button',{name:'UI folder',exact:true})).toBeVisible();
   const uiFolder=(await state()).find(node=>node.title==='UI folder');
   await page.locator('.folder-root').click({button:'right'});await expect(page.getByRole('menuitem',{name:'Удалить папку',exact:true})).toHaveCount(0);await page.keyboard.press('Escape');
-  await page.getByRole('button',{name:'UI folder',exact:true}).click({button:'right'}); promptValue='UI renamed';
+  await page.getByRole('button',{name:'UI folder',exact:true}).click({button:'right'});
   await page.getByRole('menuitem',{name:'Изменить папку',exact:true}).click();
   const rename=page.getByRole('textbox',{name:'Название папки',exact:true});
   await expect(rename).toBeFocused(); await expect(rename).toHaveValue('UI folder');
@@ -182,9 +181,9 @@ try {
   expect((await state()).find(node=>node.id===uiFolder.id).title).toBe('UI renamed');
   await page.getByRole('button',{name:'UI renamed',exact:true}).dragTo(page.getByRole('button',{name:'A',exact:true}),{targetPosition:{x:2,y:10}});
   await expect.poll(async ()=>(await state()).filter(node=>!node.url).map(node=>node.id)).toEqual([uiFolder.id,structure.a,structure.b]);
-  acceptDialogs=false; await page.getByRole('button',{name:'UI renamed',exact:true}).click({button:'right'}); await page.getByRole('menuitem',{name:'Удалить папку',exact:true}).click(); expect((await state()).some(node=>node.id===uiFolder.id)).toBe(true);
-  acceptDialogs=true; await page.getByRole('button',{name:'UI renamed',exact:true}).focus(); await page.getByRole('button',{name:'UI renamed',exact:true}).press('Shift+F10'); await page.getByRole('menuitem',{name:'Удалить папку',exact:true}).click(); await expect(page.getByRole('button',{name:'UI renamed',exact:true})).toHaveCount(0);
-  acceptDialogs=false; await page.locator('.bookmark').first().click({button:'right'}); await page.getByRole('menuitem',{name:'Удалить закладку',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(2); acceptDialogs=true;
+  await page.getByRole('button',{name:'UI renamed',exact:true}).click({button:'right'}); await page.getByRole('menuitem',{name:'Удалить папку',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Отмена',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0); expect((await state()).some(node=>node.id===uiFolder.id)).toBe(true);
+  await page.getByRole('button',{name:'UI renamed',exact:true}).focus(); await page.getByRole('button',{name:'UI renamed',exact:true}).press('Shift+F10'); await page.getByRole('menuitem',{name:'Удалить папку',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Удалить',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0); await expect(page.getByRole('button',{name:'UI renamed',exact:true})).toHaveCount(0);
+  await page.locator('.bookmark').first().click({button:'right'}); await page.getByRole('menuitem',{name:'Удалить закладку',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Отмена',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0); await expect(page.locator('.bookmark')).toHaveCount(2);
   await openSettings();
   await expect(page.getByRole('button',{name:'Очистить выбранную папку',exact:true})).toHaveCount(0);
   expect((await state()).filter(node=>node.url).length).toBe(2);
@@ -196,8 +195,8 @@ try {
   expect(exported.version).toBe(2); expect(exported.entries.some(entry=>entry.title==='A' && entry.children.length===1)).toBe(true); expect(JSON.stringify(exported)).not.toContain('Hidden');
   await page.getByRole('button',{name:'Закрыть',exact:true}).click();
   await openSettings(); await page.getByRole('button',{name:'Импорт',exact:true}).click();
-  await page.locator('dialog textarea').fill(JSON.stringify({version:2,entries:[{title:'Imported',url:siteUrl}],settings:exported.settings})); await page.getByRole('button',{name:'Импортировать',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(3);
-  await openSettings(); await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click(); await expect(page.locator('.bookmark')).toHaveCount(3);
+  await page.locator('dialog textarea').fill(JSON.stringify({version:2,entries:[{title:'Imported',url:siteUrl}],settings:exported.settings})); await page.getByRole('button',{name:'Импортировать',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Импортировать',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0); await expect(page.locator('.bookmark')).toHaveCount(3);
+  await openSettings(); await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Сбросить',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0); await expect(page.locator('.bookmark')).toHaveCount(3);
   pass('chrome: Sync off, versioned export/append import, reset keeps browser bookmarks');
   await expect(page.locator('.notice')).toContainText('Настройки и локальный кэш сброшены');
   await page.getByRole('button',{name:'Закрыть уведомление'}).click();
