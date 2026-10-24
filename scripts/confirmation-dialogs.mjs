@@ -37,20 +37,8 @@ async function check(name,{exec,until,key,resize,shot,hover}) {
  await exec('releaseDelete();');await close();await until('return !document.querySelector(".bookmark");');await exec('api.bookmarks.remove=originalRemove;');
  await menuDelete('.folder-tab','Удалить папку');assert.equal(await exec('return document.querySelector(".confirmation-dialog").textContent.includes("скрытые вложенные папки");'),true);await confirm();await close();
  assert.equal(await exec('try{await api.bookmarks.get(descendant);return true;}catch{return false;}'),false);
- await exec('await api.bookmarks.create({parentId:parityRoot,title:"Keep bookmark",url:"https://keep.example/"});await api.storage.local.set({settings:{value:{width:70}}});document.querySelector(".settings-trigger").click();');await until('return !!document.querySelector(".settings");');
- const reset=async()=>{await exec('const e=[...document.querySelectorAll(".settings button")].find(e=>e.textContent.trim()==="Сбросить настройки и кэш");e.focus();e.click();');await until('return !!document.querySelector(".confirmation-dialog");');};
- await reset();await key('Escape');await close();assert.equal(await exec('return !!document.querySelector(".settings")&&document.activeElement.textContent.trim()==="Сбросить настройки и кэш";'),true);
- assert.equal(await exec('return (await api.storage.local.get("settings")).settings.value.width;'),70);
- await reset();assert.equal(await exec('return document.querySelector(".confirmation-dialog button.danger").textContent.trim();'),'Сбросить');await confirm();await close();await until('return !document.querySelector(".settings")');assert.equal(await exec('return (await api.bookmarks.getChildren(parityRoot)).filter(e=>e.url).length;'),1);
- await exec('document.querySelector(".settings-trigger").click();');await until('return !!document.querySelector(".settings");');await exec('[...document.querySelectorAll(".settings button")].find(e=>e.textContent.trim()==="Импорт").click();');await until('return !!document.querySelector(".transfer-form");');
- const importText=JSON.stringify({version:2,entries:[{title:'Imported',url:'https://import.example/'}],settings:{width:65},background:null});
- await exec('const e=document.querySelector("textarea");e.value=arguments[0];e.dispatchEvent(new Event("input",{bubbles:true}));',importText);
- const importConfirm=async()=>{await exec('const e=document.querySelector(".transfer-form button");e.focus();document.querySelector(".transfer-form").requestSubmit();');await until('return !!document.querySelector(".confirmation-dialog")&&document.activeElement.textContent.trim()==="Отмена";');};
- await importConfirm();await key('Escape');await close();assert.equal(await exec('return document.querySelector("textarea").value;'),importText);assert.equal(await exec('return document.activeElement.textContent.trim();'),'Импортировать');
- await importConfirm();await exec('window.changedRoot=(await api.bookmarks.create({parentId:parityRoot,title:"Changed destination"})).id;await api.storage.local.set({rootFolderId:changedRoot});');await until('return document.querySelector(".folder-root")?.textContent.trim()==="Changed destination";');
- await exec('document.querySelector(".confirmation-dialog button:not(.secondary):not(.close)").click();');await until('return document.querySelector(".confirmation-dialog [role=alert]")?.textContent.includes("Папка назначения изменилась");');assert.equal(await exec('return (await api.bookmarks.getChildren(changedRoot)).length;'),0);await key('Escape');await close();await key('Escape');await until('return !document.querySelector("dialog");');
  assert.deepEqual(await exec('return errors;'),[]);
- console.log('PASS '+name+': native-style confirmations, Cancel default/Enter/Escape/close/backdrop, focus/Tab, 360/1280/1920, inline failure, busy/double-click, descendant deletion, nested settings/reset preserves bookmarks, import cancellation and destination change guard');
+ console.log('PASS '+name+': native-style confirmations, Cancel default/Enter/Escape/close/backdrop, focus/Tab, 360/1280/1920, inline failure, busy/double-click, descendant deletion; data operations are covered by data-management');
 }
 
 if(!process.argv.includes('--firefox-only')) {

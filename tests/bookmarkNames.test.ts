@@ -17,7 +17,7 @@ it('creates directly in the selected folder and rejects foreign/stale parents', 
  await expect(repo.add({url:'example.com',title:'',parentId:'missing'})).rejects.toThrow();
  expect(await repo.autoNameTicket(id)).toBeDefined();
 });
-it('applies a trustworthy captured title once and preserves explicit domain names and unknown old names', async () => {
+it('applies a trustworthy captured title once and preserves explicit domain names and unmarked bookmark titles', async () => {
  for (const title of ['', 'example.com']) {
   const id = await repo.add({url:'example.com',title});
   const ticket = await repo.autoNameTicket(id);
@@ -26,9 +26,9 @@ it('applies a trustworthy captured title once and preserves explicit domain name
   await repo.applyCapturedTitle(id,'https://example.com/','Later title',ticket);
   expect((await repo.node(id)).title).toBe(title || 'Example Page');
  }
- const old = await api.create({parentId:'other',url:'https://example.com/',title:'example.com'});
- await repo.applyCapturedTitle(old.id,old.url!,'Example Page',await repo.autoNameTicket(old.id));
- expect((await repo.node(old.id)).title).toBe('example.com');
+ const unmarked = await api.create({parentId:'other',url:'https://example.com/',title:'example.com'});
+ await repo.applyCapturedTitle(unmarked.id,unmarked.url!,'Example Page',await repo.autoNameTicket(unmarked.id));
+ expect((await repo.node(unmarked.id)).title).toBe('example.com');
 });
 it('does not apply stale results after manual editing, URL change or deletion', async () => {
  const id = await repo.add({url:'example.com',title:''}); const ticket = await repo.autoNameTicket(id);

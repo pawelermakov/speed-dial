@@ -20,17 +20,17 @@ describe('theme startup and persistence',()=>{
  it.each(['light','dark'] as const)('restores explicit %s before the application loads',mode=>{
   const root=start(mode,mode!=='dark');expect(root.dataset).toEqual({theme:mode,themeMode:mode});expect(root.style.colorScheme).toBe(mode);expect(root.style.background).toContain(mode==='dark'?'#16191f':'#e9edf2');
  });
- it('uses the system for new/legacy/invalid settings and unavailable startup storage',()=>{
+ it('uses the system when no valid startup preference is available',()=>{
   for(const saved of [null,'system','unknown',{}])expect(start(saved,true).dataset.theme).toBe('dark');
   expect(start('light',true,undefined,true).dataset.theme).toBe('dark');
-  expect(validateSettings({width:75}).theme).toBe('system');expect(validateSettings({theme:'unknown'}).theme).toBe('system');expect(defaults.theme).toBe('system');
+  expect(()=>validateSettings({theme:'unknown'})).toThrow('тема');expect(defaults.theme).toBe('system');
  });
  it('keeps valid wallpaper previews intact in dark mode and rejects malformed previews',()=>{
   const preview='data:image/jpeg;base64,YWJj';expect(start('dark',false,preview).style.setProperty).toHaveBeenCalledWith('--startup-background','linear-gradient(var(--wallpaper-shade, rgb(0 0 0 / .25)),var(--wallpaper-shade, rgb(0 0 0 / .25))),url("'+preview+'")');
   expect(start('dark',false,'https://example.com/image').style.setProperty).not.toHaveBeenCalled();
  });
- it.each(['system','light','dark'] as const)('roundtrips %s through JSON v2 and the existing Sync schema',async theme=>{
-  const text=await serializeExport({entries:[],settings:{...defaults,theme},background:null});expect(JSON.parse(text).version).toBe(2);expect(parseImport(text).settings.theme).toBe(theme);
+ it.each(['system','light','dark'] as const)('roundtrips %s through JSON v3 and the existing Sync schema',async theme=>{
+  const text=await serializeExport({entries:[],settings:{...defaults,theme},background:null});expect(JSON.parse(text).version).toBe(3);expect(parseImport(text).settings!.theme).toBe(theme);
   expect(syncPatch({'settings.v1.theme':theme})).toEqual({theme});expect(syncPatch({'settings.v1.theme':'unknown'})).toEqual({});
  });
  it('preserves the startup theme while loading, follows OS changes only in system mode, and releases listeners',()=>{

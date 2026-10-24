@@ -24,7 +24,7 @@ const settingsDialog=ref<HTMLDialogElement>();
 onMounted(()=>{settingsDialog.value?.showModal();});
 const props=defineProps<{settings:Settings;busy:boolean;rootId:string|null;operationError:string;hasBackground:boolean;
   updateSettings:(patch:Partial<Settings>)=>Promise<boolean>;changeRoot:(id:string)=>Promise<boolean>;changeBackground:(blob:Blob|null)=>Promise<boolean>}>();
-const emit=defineEmits<{close:[];import:[];export:[];reset:[];error:[message:string]}>();
+const emit=defineEmits<{close:[];manage:[];error:[message:string]}>();
 const numberFields=[{key:'width',label:'Ширина (%)',min:50,max:100},{key:'countColumns',label:'Количество столбцов',min:2,max:12},{key:'space',label:'Расстояние (px)',min:0,max:48}] as const;
 type BufferedKey='width'|'countColumns'|'space'|'email';
 const values=reactive({width:String(props.settings.width),countColumns:String(props.settings.countColumns),space:String(props.settings.space),email:props.settings.email});
@@ -55,7 +55,7 @@ async function flushField(key:BufferedKey,force=false){
 }
 async function flush(){await Promise.all([...pending.keys()].map(key=>flushField(key)));if(backgroundTask)await backgroundTask;while(writes.size)await Promise.allSettled([...writes]);await syncRequest('flush');}
 async function close(){await flush();emit('close');}
-async function action(name:'import'|'export'|'reset'){await flush();if(name==='import')emit('import');else if(name==='export')emit('export');else emit('reset');}
+async function action(){await flush();if(Object.keys(inputErrors).length){error.value='Исправьте значения настроек перед управлением данными.';return;}emit('manage');}
 defineExpose({flush});
 const folders=ref<FolderChoice[]>([]),folderLoading=ref(true),folderError=ref(''),selectedFolder=ref(props.rootId??'');
 const selectedChoice=computed(()=>folders.value.find(row=>row.id===selectedFolder.value));
@@ -119,8 +119,8 @@ const switchFields=[{key:'addButton',label:'Кнопка добавления з
           <div class="settings-email"><input aria-label="E-mail Mail.ru" :value="values.email" class="input" :class="ui.input" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" :disabled="busy" :aria-invalid="!!inputErrors.email" :aria-describedby="inputErrors.email?'settings-email-error':undefined" @focus="focused='email'" @input="input('email',$event)" @change="flushField('email',true)" @blur="focused=undefined;flushField('email',true)"/></div><p v-if="inputErrors.email" id="settings-email-error" role="alert" class="mt-1 text-red-800">{{inputErrors.email}}</p>
         </fieldset>
         <p v-if="error||operationError" role="alert" class="mb-3 text-red-800 break-words">{{error||operationError}}</p>
-        <fieldset class="settings-bottom mt-auto min-w-0"><legend class="font-bold mb-2">Данные</legend><div class="flex flex-col gap-2 mb-4"><button type="button" class="button secondary" :class="ui.button" :disabled="busy||reading||!rootId" @click="action('import')"><span class="ui-action-label">Импорт</span></button><button type="button" class="button secondary" :class="ui.button" :disabled="busy||reading||!rootId" @click="action('export')"><span class="ui-action-label">Экспорт</span></button></div>
-          <button type="button" class="button danger" :class="ui.button" :disabled="busy||reading" @click="action('reset')"><span class="ui-action-label">Сбросить настройки и кэш</span></button>
+        <fieldset class="settings-bottom mt-auto min-w-0"><legend class="font-bold mb-2">Данные</legend>
+          <button type="button" class="button secondary w-full" :class="ui.button" :disabled="busy||reading" @click="action"><span class="ui-action-label">Управление данными</span></button>
         </fieldset>
       </form>
       </div>

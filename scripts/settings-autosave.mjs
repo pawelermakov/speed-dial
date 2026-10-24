@@ -51,11 +51,12 @@ try{
  for(const width of [360,1280,1920]){await page.setViewportSize({width,height:900});assert.equal(await page.locator('.settings').evaluate(e=>e.scrollWidth<=e.clientWidth),true);await page.locator('.settings').screenshot({path:resolve(out,'settings-'+width+'.png')});}
  await page.getByRole('button',{name:'Удалить фон',exact:true}).click();await expect.poll(()=>page.locator('.page-background').evaluate(e=>e.style.backgroundImage)).toBe('');await close(page);await page.reload();await open(page);await expect(page.getByLabel('Ширина (%)',{exact:true})).toHaveValue('90');assert.deepEqual(errors,[]);
  const preferences=await page.evaluate(async()=> (await chrome.storage.local.get('settings')).settings.value);
- await page.getByLabel('Ширина (%)',{exact:true}).fill('88');await page.getByRole('button',{name:'Импорт',exact:true}).click();
- await page.locator('dialog textarea').fill(JSON.stringify({version:2,entries:[],settings:{...preferences,width:67,space:9}}));await page.getByRole('button',{name:'Импортировать',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Импортировать',exact:true}).click();
- await expect(page.locator('dialog')).toHaveCount(0);await expect.poll(()=>stored(page,'width')).toBe(67);
- await open(page);await page.getByLabel('Ширина (%)',{exact:true}).fill('89');await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Сбросить',exact:true}).click();
- await expect(page.locator('.settings')).toHaveCount(0);await expect.poll(()=>stored(page,'width')).toBe(100);assert.equal(await stored(page,'space'),24);assert.equal(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId),fixture.root);
+ await page.getByLabel('Ширина (%)',{exact:true}).fill('88');await page.getByRole('button',{name:'Управление данными',exact:true}).click();
+ await page.locator('.data-management input[type=file]').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:3,entries:[],settings:{...preferences,width:67,space:9},background:null}))});await page.getByRole('button',{name:'Импортировать',exact:true}).click();
+ await expect.poll(()=>stored(page,'width')).toBe(67);await page.keyboard.press('Escape');await expect(page.locator('.data-management')).toHaveCount(0);
+ await open(page);await page.getByLabel('Ширина (%)',{exact:true}).fill('89');await page.getByRole('button',{name:'Управление данными',exact:true}).click();await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click();await page.getByRole('button',{name:'Сбросить',exact:true}).click();
+ await expect.poll(()=>stored(page,'width')).toBe(100);assert.equal(await stored(page,'space'),24);assert.equal(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId),fixture.root);
+ await page.keyboard.press('Escape');await expect(page.locator('.data-management')).toHaveCount(0);await expect(page.locator('.settings')).toHaveCount(0);
  assert.deepEqual(await page.evaluate(()=>window.mutations),[]);
  console.log('PASS Chrome settings: autosave, invalid input, close flush, two tabs, provider patch, failure rollback/persistent alert, stable background across folders/sources, zero bookmark writes, Sync states, responsive panels, reload, pending edits cannot overwrite import/reset');
 }finally{await context.close();}

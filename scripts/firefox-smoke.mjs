@@ -55,8 +55,11 @@ export async function firefoxSmoke(siteUrl, results) {
   results.push('firefox: folder transfer, external change, UI edit and external folder removal');
   await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
   await driver.until('return document.querySelector(".settings")?.textContent.includes("Статус недоступен");');
-  await click('Сбросить настройки и кэш');await driver.until('return !!document.querySelector(".confirmation-dialog");');await click('Сбросить');
-  await driver.until('return document.querySelector(".notice")?.textContent.includes("Настройки и локальный кэш сброшены");');
+  await click('Управление данными');await driver.until('return !!document.querySelector(".data-management");');await driver.exec('[...document.querySelectorAll(".data-management button")].find(e=>e.getAttribute("aria-label")==="Сбросить настройки и кэш").click();');await click('Сбросить');
+  await driver.until('return document.querySelector(".data-management [role=status]")?.textContent.includes("Закладки и выбранная папка сохранены");');
+  await driver.command('WebDriver:PerformActions',{actions:[{type:'key',id:'close-data',actions:[{type:'keyDown',value:'\uE00C'},{type:'keyUp',value:'\uE00C'}]}]});
+  await driver.until('return !document.querySelector(".data-management");');
+  await driver.until('return !document.querySelector(".settings");');
   assert.ok((await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].id;',rootId))===rootId);
   await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',rootId);
   await driver.until('return document.querySelector(".notice")?.textContent.includes("Другие закладки");');

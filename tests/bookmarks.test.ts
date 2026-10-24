@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { folderChoices, defaultFolderId, type BookmarkNode } from '../services/bookmarks';
+import { folderChoices, folderOptionLabels, defaultFolderId, type BookmarkNode } from '../services/bookmarks';
 
 describe('bookmark source folders', () => {
   it('excludes Firefox separators from folder choices', () => {
@@ -53,4 +53,13 @@ describe('bookmark source folders', () => {
     expect(choices).toHaveLength(2000);
     expect(choices.at(-1)!.path).toContain('F1998 / F1999');
   });
+});
+
+
+it('keeps duplicate folder labels unique even when native names already contain numbered suffixes',()=>{
+ const paths=['Root / Work','Root / Work','Root / Work','Root / Work (2)','Root / Work (3)'];
+ const choices=paths.map((path,index)=>({id:String(index),title:path,path,standard:false,writableChildren:true}));
+ expect(folderOptionLabels(choices).map(row=>row.label)).toEqual(['Root / Work','Root / Work (4)','Root / Work (5)','Root / Work (2)','Root / Work (3)']);
+ expect(folderOptionLabels(choices).map(row=>row.id)).toEqual(choices.map(row=>row.id));expect(choices.map(row=>row.path)).toEqual(paths);
+ expect(folderOptionLabels([choices[0]!,{...choices[0]!,id:'other'}]).map(row=>row.label)).toEqual(['Root / Work','Root / Work (2)']);
 });

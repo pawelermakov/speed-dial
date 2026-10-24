@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialDatabase } from '../services/database';
 import { Repository } from '../services/repository';
+import { selectExport, serializeExport } from '../services/importExport';
 import { MockBookmarks } from './bookmarksMock';
 import type { RootPort } from '../services/bookmarks';
 import type { SettingsEnvelope, SettingsPort } from '../services/settings';
@@ -274,11 +275,111 @@ describe('browser bookmarks source', () => {
     await api.removeTree(repo.rootId!); expect((await repo.load()).rootId).toBe('other'); expect((await api.getChildren('other')).length).toBe(1);
   });
   it('switching roots does not copy/delete data', async () => { await setup(); const id = await add(); const other = await api.create({ parentId: 'other', title: 'Second' }); await repo.selectRoot(other.id); expect((await repo.load()).tabs).toEqual([]); expect((await api.get(id))[0]?.url).toBe('https://example.com/'); });
-  it('export/import includes empty folders and order; append is restricted and reports partial errors', async () => {
+  it('export/import reuses existing records and reports partial errors', async () => {
     await setup(); await add(); await repo.createFolder('Empty'); const data = await repo.exportData(); expect(data.entries).toEqual([{ title: 'Свой заголовок', url: 'https://example.com/' }, { title: 'Empty', children: [] }]);
-    const outside = await api.create({ parentId: 'other', title: 'Outside', url: 'https://outside.example' }); await repo.importData(data); expect((await api.getChildren(repo.rootId!)).length).toBe(4); expect((await api.get(outside.id))[0]?.title).toBe('Outside');
+    const outside = await api.create({ parentId: 'other', title: 'Outside', url: 'https://outside.example' }); await repo.importData(data,repo.rootId!); expect((await api.getChildren(repo.rootId!)).length).toBe(2); expect((await api.get(outside.id))[0]?.title).toBe('Outside');
+    data.entries=[{title:'New',url:'https://new.example/'},{title:'Fail',children:[]}];
     const original = api.create.bind(api); vi.spyOn(api, 'create').mockImplementationOnce(original).mockRejectedValueOnce(new Error('failed'));
-    await expect(repo.importData(data)).rejects.toThrow('добавлено закладок 1, папок 0');
+    expect(await repo.importData(data,repo.rootId!)).toMatchObject({bookmarks:1,folders:0,error:expect.stringContaining('Импорт прерван')});
   });
   it('does not expose mass clear and preserves hidden descendants when selecting sources', async () => { await setup(); const id=await add(); await repo.createFolder('A'); const a=(await api.getChildren(repo.rootId!)).find(node=>!node.url)!; const deep=await api.create({parentId:a.id,title:'Deep'}); const before=await api.getTree(); await repo.selectRoot('other'); expect('clear' in repo).toBe(false); expect(await api.getTree()).toEqual(before); expect((await api.get(id))[0]).toBeTruthy(); expect((await api.get(deep.id))[0]).toBeTruthy(); });
+});
+
+describe('full backup resources and explicit destination',()=>{
+ it('binds duplicate URL images to returned native IDs and restores provenance',async()=>{
+  await setup();const original=await repo.add({url:'https://example.com/',title:''});
+  await repo.createFolder('A');const a=repo.activeId!;const other=await api.create({parentId:a,title:'Duplicate',url:'https://example.com/'});
+  await db.tileAssets.put({bookmarkId:original,url:'https://example.com/',thumbnail:new Blob(['red'],{type:'image/png'})});
+  await db.tileAssets.put({bookmarkId:other.id,url:'https://example.com/',thumbnail:new Blob(['blue'],{type:'image/png'})});
+  const data=await repo.exportData(),destination=(await api.create({parentId:'other',title:'Destination'})).id;
+  const report=await repo.importData(data,destination);expect(report).toMatchObject({bookmarks:2,folders:1,images:2});expect(report.error).toBeUndefined();
+  const entries=await api.getChildren(destination),first=entries[0]!,folder=entries[1]!,second=(await api.getChildren(folder.id))[0]!;
+  expect(first.id).not.toBe(original);expect(await (await db.tileAssets.get([first.id,first.url!]))!.thumbnail!.text()).toBe('red');
+  expect(await (await db.tileAssets.get([second.id,second.url!]))!.thumbnail!.text()).toBe('blue');expect(await db.autoNames.get(first.id)).toMatchObject({url:first.url});
+  expect(repo.rootId).not.toBe(destination);
+ });
+ it('rejects stale settings or missing destination before creating any bookmarks',async()=>{
+  await setup();const data=await repo.exportData();data.entries=[{title:'A',url:'https://a.example/'}];const before=await api.getTree();
+  await expect(repo.importData(data,'gone')).rejects.toThrow();
+  await expect(repo.importData(data,repo.rootId!,{...defaults,width:70})).rejects.toThrow('другой вкладке');expect(await api.getTree()).toEqual(before);
+ });
+ it('keeps created bookmarks when image storage fails and continues importing',async()=>{
+  await setup();const data=await repo.exportData();data.entries=[{title:'A',url:'https://a.example/',thumbnail:new Blob(['a'],{type:'image/png'})},{title:'B',url:'https://b.example/'}];
+  vi.spyOn(db.tileAssets,'put').mockRejectedValue(Error('disk'));const report=await repo.importData(data,repo.rootId!);
+  expect(report).toMatchObject({bookmarks:2,images:0});expect(report.warnings).toHaveLength(1);expect(report.error).toBeUndefined();expect((await api.getChildren(repo.rootId!))).toHaveLength(2);
+ });
+});
+
+it('imports with complete unchanged default settings regardless of property order',async()=>{await setup();const data=await repo.exportData();data.entries=[{title:'A',url:'https://a.example/'}];expect(await repo.importData(data,repo.rootId!,{...defaults})).toMatchObject({bookmarks:1});});
+
+it('exports settings and wallpaper when there is no available bookmark root',async()=>{expect((await repo.exportData())).toMatchObject({entries:[],settings:defaults,background:null});});
+
+it('reset repairs invalid settings using the current defaults without changing bookmarks',async()=>{await setup();const id=await add();stored={value:{...defaults,unexpected:true}} as SettingsEnvelope;await repo.reset();expect(stored!.value).toEqual(defaults);expect((await api.get(id))[0]).toBeDefined();});
+
+
+describe('backup matching',()=>{
+ it('restores images in place and keeps unrelated entries, order and name provenance',async()=>{
+  await setup();const id=await add(),folder=(await api.create({parentId:repo.rootId!,title:'Folder'})).id;
+  const child=await api.create({parentId:folder,title:'Inside',url:'https://example.com/'});
+  const untouched=await api.create({parentId:repo.rootId!,title:'Unrelated',url:'https://other.example/'});
+  const data=await repo.exportData();data.entries=[{title:'Свой заголовок',url:'https://example.com/',thumbnail:new Blob(['root'],{type:'image/png'}),autoName:true},{title:'Folder',children:[{title:'Inside',url:'https://example.com/',thumbnail:new Blob(['child'],{type:'image/png'})}]}];
+  const before=await api.getTree(),create=vi.spyOn(api,'create'),update=vi.spyOn(api,'update');
+  for(let i=0;i<2;i++)expect(await repo.importData(data,repo.rootId!)).toEqual({bookmarks:0,folders:0,images:2,settings:true,background:true,warnings:[]});
+  expect(create).not.toHaveBeenCalled();expect(update).not.toHaveBeenCalled();expect(await api.getTree()).toEqual(before);
+  expect(await (await db.tileAssets.get([id,'https://example.com/']))!.thumbnail!.text()).toBe('root');
+  expect(await (await db.tileAssets.get([child.id,child.url!]))!.thumbnail!.text()).toBe('child');
+  expect(await db.autoNames.get(id)).toBeUndefined();expect((await api.get(untouched.id))[0]).toBeDefined();
+ });
+ it('matches repeated folders and bookmarks one to one without merging different titles, URLs or parents',async()=>{
+  await setup();const data=await repo.exportData(),row={title:'Same',url:'https://a.example/',thumbnail:new Blob(['a'],{type:'image/png'})};
+  await api.create({parentId:repo.rootId!,title:'Same',url:'https://different.example/'});
+  await api.create({parentId:repo.rootId!,title:'Different',url:row.url});
+  data.entries=[row,{...row,thumbnail:new Blob(['b'],{type:'image/png'})},{title:'Folder',children:[row]},{title:'Folder',children:[{...row,thumbnail:new Blob(['c'],{type:'image/png'})}]}];
+  expect(await repo.importData(data,repo.rootId!)).toMatchObject({bookmarks:4,folders:2,images:4});
+  const before=await api.getTree();expect(await repo.importData(data,repo.rootId!)).toEqual({bookmarks:0,folders:0,images:4,settings:true,background:true,warnings:[]});expect(await api.getTree()).toEqual(before);
+  const roots=(await api.getChildren(repo.rootId!)).filter(n=>n.title==='Same'&&n.url===row.url);
+  expect(await (await db.tileAssets.get([roots[0]!.id,row.url]))!.thumbnail!.text()).toBe('a');expect(await (await db.tileAssets.get([roots[1]!.id,row.url]))!.thumbnail!.text()).toBe('b');
+ });
+ it('retries partial imports without duplicating already created entries',async()=>{
+  await setup();const data=await repo.exportData();data.entries=[{title:'First',url:'https://first.example/'},{title:'Second',url:'https://second.example/'}];
+  const create=api.create.bind(api);vi.spyOn(api,'create').mockImplementationOnce(create).mockRejectedValueOnce(Error('interrupted'));
+  expect(await repo.importData(data,repo.rootId!)).toMatchObject({bookmarks:1,error:expect.any(String)});
+  expect(await repo.importData(data,repo.rootId!)).toEqual({bookmarks:1,folders:0,images:0,settings:true,background:true,warnings:[]});expect(await api.getChildren(repo.rootId!)).toHaveLength(2);
+ });
+});
+
+
+describe('selected backup sections',()=>{
+ const only=(key:string)=>({bookmarks:false,images:false,settings:false,background:false,[key]:true});
+ it('exports only selected payloads, retaining locators for images without restoring bookmarks',async()=>{
+  await setup();const id=await add();await db.tileAssets.put({bookmarkId:id,url:'https://example.com/',thumbnail:new Blob(['image'],{type:'image/png'})});await db.assets.put({key:'background',blob:new Blob(['wallpaper'],{type:'image/png'})});
+  const images=await repo.exportData(undefined,only('images'));expect(images).toMatchObject({bookmarks:false,entries:[{title:'Свой заголовок',url:'https://example.com/',thumbnail:expect.any(Blob)}]});expect(images.settings).toBeUndefined();expect(images.background).toBeUndefined();
+  const bookmarks=await repo.exportData(undefined,only('bookmarks'));expect(bookmarks).toEqual({entries:[{title:'Свой заголовок',url:'https://example.com/'}]});
+  expect(await repo.exportData(undefined,only('settings'))).toEqual({bookmarks:false,entries:[],settings:defaults});
+  expect(await repo.exportData(undefined,only('background'))).toMatchObject({bookmarks:false,entries:[],background:expect.any(Blob)});
+ });
+ it('imports only images into matching entries without bookmark, settings, wallpaper or provenance writes',async()=>{
+  await setup();const id=await add();const data=await repo.exportData();data.entries=[{title:'Свой заголовок',url:'https://example.com/',thumbnail:new Blob(['restored'],{type:'image/png'})},{title:'Missing',url:'https://missing.example/',thumbnail:new Blob(['skip'],{type:'image/png'})},{title:'Missing folder',children:[{title:'Child',url:'https://child.example/',favicon:new Blob(['skip'],{type:'image/png'})}]}];
+  const before=await api.getTree(),write=vi.spyOn(settingsPort,'setValue'),wallpaper=vi.spyOn(db.assets,'put');
+  expect(await repo.importData(data,repo.rootId!,{...defaults,width:50},only('images'))).toEqual({bookmarks:0,folders:0,images:1,skipped:2,warnings:[]});expect(await api.getTree()).toEqual(before);expect(write).not.toHaveBeenCalled();expect(wallpaper).not.toHaveBeenCalled();expect(await (await db.tileAssets.get([id,'https://example.com/']))!.thumbnail!.text()).toBe('restored');
+ });
+ it('imports bookmarks without images and respects the file prohibition on creation',async()=>{
+  await setup();const data={entries:[{title:'New',url:'https://new.example/',thumbnail:new Blob(['image'],{type:'image/png'})}],settings:defaults,background:null};
+  expect(await repo.importData(data,repo.rootId!,undefined,only('bookmarks'))).toEqual({bookmarks:1,folders:0,images:0,warnings:[]});expect(await db.tileAssets.count()).toBe(0);
+  expect(await repo.importData({...data,bookmarks:false,entries:[{title:'Missing',url:'https://missing.example/',thumbnail:data.entries[0]!.thumbnail}]},repo.rootId!)).toMatchObject({bookmarks:0,folders:0,images:0,skipped:1});expect(await api.getChildren(repo.rootId!)).toHaveLength(1);
+ });
+ it('imports settings and wallpaper independently without requiring a bookmark destination',async()=>{
+  await setup();await repo.patchSettings({width:75});const old=new Blob(['old'],{type:'image/png'}),next=new Blob(['new'],{type:'image/png'});await db.assets.put({key:'background',blob:old});const tree=await api.getTree();
+  const data={bookmarks:false as const,entries:[],settings:{...defaults,width:50},background:next};
+  expect(await repo.importData(data,'',undefined,only('settings'))).toEqual({bookmarks:0,folders:0,images:0,settings:true,warnings:[]});expect((await repo.load()).settings.width).toBe(50);expect(await (await db.assets.get('background'))!.blob.text()).toBe('old');
+  const write=vi.spyOn(settingsPort,'setValue');expect(await repo.importData(data,'',undefined,only('background'))).toEqual({bookmarks:0,folders:0,images:0,background:true,warnings:[]});expect(write).not.toHaveBeenCalled();expect(await (await db.assets.get('background'))!.blob.text()).toBe('new');expect(await api.getTree()).toEqual(tree);
+  await repo.importData({bookmarks:false,entries:[],background:null},'',undefined,only('background'));expect(await db.assets.get('background')).toBeUndefined();
+ });
+});
+
+
+it('can prepare settings-only export even when the native tree exceeds the file entry limit',async()=>{
+ await setup();for(let i=0;i<10001;i++)api.nodes.set('large-'+i,{id:'large-'+i,parentId:repo.rootId!,title:'A',url:'https://example.com/'});
+ const prepared=await repo.exportData();expect(prepared.entries).toHaveLength(10001);expect(prepared.settings).toEqual(defaults);
+ const text=await serializeExport(selectExport(prepared,{bookmarks:false,images:false,settings:true,background:false}));expect(JSON.parse(text)).toMatchObject({entries:[],settings:defaults});await expect(serializeExport(prepared)).rejects.toThrow('10000');
 });

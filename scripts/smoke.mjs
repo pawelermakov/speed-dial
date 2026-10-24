@@ -191,15 +191,14 @@ try {
   pass('chrome: UI folder create/rename/DnD/delete confirmation; mass clear absent');
   await openSettings();
   await expect(page.locator('.settings')).toContainText('Выключена');
-  await page.getByRole('button',{name:'Экспорт',exact:true}).click(); const exported=JSON.parse(await page.locator('dialog textarea').inputValue());
-  expect(exported.version).toBe(2); expect(exported.entries.some(entry=>entry.title==='A' && entry.children.length===1)).toBe(true); expect(JSON.stringify(exported)).not.toContain('Hidden');
-  await page.getByRole('button',{name:'Закрыть',exact:true}).click();
-  await openSettings(); await page.getByRole('button',{name:'Импорт',exact:true}).click();
-  await page.locator('dialog textarea').fill(JSON.stringify({version:2,entries:[{title:'Imported',url:siteUrl}],settings:exported.settings})); await page.getByRole('button',{name:'Импортировать',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Импортировать',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0); await expect(page.locator('.bookmark')).toHaveCount(3);
-  await openSettings(); await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click();await page.locator('.confirmation-dialog').getByRole('button',{name:'Сбросить',exact:true}).click();await expect(page.locator('.confirmation-dialog')).toHaveCount(0); await expect(page.locator('.bookmark')).toHaveCount(3);
-  pass('chrome: Sync off, versioned export/append import, reset keeps browser bookmarks');
-  await expect(page.locator('.notice')).toContainText('Настройки и локальный кэш сброшены');
-  await page.getByRole('button',{name:'Закрыть уведомление'}).click();
+  await page.getByRole('button',{name:'Управление данными',exact:true}).click();
+  await page.evaluate(()=>{window.backupClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download)window.backupUrl=this.href;else backupClick.call(this);};});
+  await page.getByRole('button',{name:'Экспорт',exact:true}).click();await page.getByRole('button',{name:'Экспортировать',exact:true}).click();await expect(page.locator('.data-management [role=status]')).toContainText('запущено');const exported=await page.evaluate(async()=>JSON.parse(await (await fetch(backupUrl)).text()));
+  expect(exported.version).toBe(3);expect(exported.entries.some(entry=>entry.title==='A'&&entry.children.length===1)).toBe(true);expect(JSON.stringify(exported)).not.toContain('Hidden');await page.getByRole('button',{name:'Готово',exact:true}).click();await expect(page.locator('.data-management')).toHaveCount(0);await openSettings();await page.getByRole('button',{name:'Управление данными',exact:true}).click();
+  await page.locator('.data-management input[type=file]').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:3,entries:[{title:'Imported',url:siteUrl}],settings:exported.settings,background:null}))});await page.getByRole('button',{name:'Импортировать',exact:true}).click();await expect(page.locator('.data-management [role=status]')).toContainText('Добавлено закладок: 1');await expect(page.locator('.bookmark')).toHaveCount(3);
+  await page.getByRole('button',{name:'Готово',exact:true}).click();await expect(page.locator('.data-management')).toHaveCount(0);await openSettings();await page.getByRole('button',{name:'Управление данными',exact:true}).click();await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click();await page.getByRole('button',{name:'Сбросить',exact:true}).click();await expect(page.locator('.data-management [role=status]')).toContainText('Закладки и выбранная папка сохранены');await expect(page.locator('.bookmark')).toHaveCount(3);
+  await page.keyboard.press('Escape');await expect(page.locator('.data-management')).toHaveCount(0);await expect(page.locator('.settings')).toHaveCount(0);
+  pass('chrome: Sync off, complete backup v3, append import and reset keep browser bookmarks');
   const searchFixture=await page.evaluate(async root=>{
     const a=await chrome.bookmarks.create({parentId:root,title:'Search Work'}), b=await chrome.bookmarks.create({parentId:root,title:'Search Personal'});
     const direct=await chrome.bookmarks.create({parentId:root,title:'Needle root',url:'https://root.example/'});

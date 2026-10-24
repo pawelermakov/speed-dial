@@ -24,8 +24,8 @@ describe('provider contracts',()=>{
   });
   it('has web providers and a local bookmark mode and safe export defaults',async()=>{
     expect(searchProviders.map(row=>row.label)).toEqual(['Яндекс','Google','Закладки','Кинопоиск','IMDb','MyShows']);
-    expect(validateSettings({}).searchProvider).toBe('yandex');expect(validateSettings({searchProvider:'bing'}).searchProvider).toBe('yandex');
-    for(const {id}of searchProviders){const data={entries:[],settings:{...defaults,movieSearch:true,searchProvider:id},background:null};expect(parseImport(await serializeExport(data)).settings.searchProvider).toBe(id);}
+    expect(validateSettings({}).searchProvider).toBe('yandex');expect(()=>validateSettings({searchProvider:'unsupported'})).toThrow('источник поиска');
+    for(const {id}of searchProviders){const data={entries:[],settings:{...defaults,movieSearch:true,searchProvider:id},background:null};expect(parseImport(await serializeExport(data)).settings!.searchProvider).toBe(id);}
   });
   it.each(searchProviders.filter((row): row is {id:Exclude<SearchProviderId,'bookmarks'>;label:string}=>row.id!=='bookmarks'))('encodes queries for $id on its own official search page',({id})=>{
     const query='привет мир & C++ / ? #';const url=new URL(searchUrl(id,query));
@@ -82,12 +82,13 @@ it('bookmarks cannot produce a web request and disabling the mode has a safe fal
  expect(validateSettings({searchProvider:'bookmarks',bookmarkSearch:false})).toMatchObject({searchProvider:'yandex',bookmarkSearch:false});
 });
 
-it('movie sources are opt-in and preserve an existing selection on upgrade',()=>{
+it('movie sources require explicit opt-in',async()=>{
  expect(validateSettings({}).movieSearch).toBe(false);
  for(const searchProvider of ['kinopoisk','imdb','myshows']) {
-  expect(validateSettings({searchProvider})).toMatchObject({searchProvider,movieSearch:true});
+  expect(validateSettings({searchProvider})).toMatchObject({searchProvider:'yandex',movieSearch:false});
+  expect(validateSettings({searchProvider,movieSearch:true})).toMatchObject({searchProvider,movieSearch:true});
   expect(validateSettings({searchProvider,movieSearch:false})).toMatchObject({searchProvider:'yandex',movieSearch:false});
   const settings={...defaults,movieSearch:true,searchProvider};
-  expect(parseImport(JSON.stringify({version:2,entries:[],settings,background:null})).settings).toMatchObject({movieSearch:true,searchProvider});
+  expect(parseImport(await serializeExport({entries:[],settings:validateSettings(settings),background:null})).settings).toMatchObject({movieSearch:true,searchProvider});
  }
 });

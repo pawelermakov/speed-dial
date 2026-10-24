@@ -1,3 +1,4 @@
+import {openData,captureBackup} from './data-management-helpers.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from '@playwright/test';
 import {resolve} from 'node:path';
@@ -57,9 +58,9 @@ async function check(name,{exec,until,key,resize,reload,system,shot}) {
   await exec('document.querySelector(".folder-tab").click();');await until('return !!document.querySelector(".empty-state");');await shot(name+'-'+mode+'-empty');await exec('document.querySelector(".folder-root").click();');await until('return document.querySelectorAll(".bookmark").length===2;');
  }
  await choose('system');await system('dark');await until('return document.documentElement.dataset.theme==="dark";');await system('light');await until('return document.documentElement.dataset.theme==="light";');
- await open();await exec('[...document.querySelectorAll(".settings button")].find(e=>e.textContent.trim()==="Экспорт").click();');await until('return !!document.querySelector("textarea");');assert.equal(await exec('return JSON.parse(document.querySelector("textarea").value).settings.theme;'),'system');await close();
+ await openData(exec,until);assert.equal((await captureBackup(exec,until)).settings.theme,'system');await key('Escape');await until('return !document.querySelector(".data-management");');await close();
  assert.deepEqual(await exec('return themeErrors;'),[]);
- console.log('PASS '+name+': theme persistence, native OS changes, explicit overrides, JSON v2, unchanged tiles/wallpaper bytes, light/dark/pattern backgrounds, 360/1280/1920 and modal/menu/empty screenshots');
+ console.log('PASS '+name+': theme persistence, native OS changes, explicit overrides, JSON v3, unchanged tiles/wallpaper bytes, light/dark/pattern backgrounds, 360/1280/1920 and modal/menu/empty screenshots');
 }
 if(!process.argv.includes('--firefox-only')) {
  const extension=resolve('.output/chrome-mv3'),ctx=await chromium.launchPersistentContext(resolve('.browser-test/themes-chrome-'+crypto.randomUUID()),{channel:'chromium',headless:true,colorScheme:'light',args:['--disable-extensions-except='+extension,'--load-extension='+extension]});

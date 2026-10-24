@@ -1,3 +1,4 @@
+import {openData,dataClick,chooseBackup,captureBackup} from './data-management-helpers.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { resolve } from 'node:path';
@@ -28,24 +29,16 @@ async function check(name, driver) {
  assert.equal(await exec('return document.querySelector(".settings").closest("dialog").matches(":modal");'),true);
  await exec('document.querySelector(".search input").focus();');
  assert.equal(await exec('return !!document.activeElement.closest("dialog");'),true,'modal must isolate background focus');
- await click('Экспорт');await until('return !!document.querySelector("textarea");');
- const exported=await exec('return JSON.parse(document.querySelector("textarea").value);');
- assert.equal(exported.version,2);assert.equal(exported.entries.length,4);
+ await openData(exec,until);const exported=await captureBackup(exec,until);
+ assert.equal(exported.version,3);assert.equal(exported.entries.length,4);
  assert.deepEqual(exported.entries.map(e=>e.title),['Parity 0','Parity 1','Parity 2','Parity folder']);
  assert.equal(exported.entries[3].children[0].title,'Inside folder');
- // Exercise the download button and inspect its actual Blob without allowing a
- // test-created file to escape the isolated browser profile.
- await exec('window.parityDownload=null;window.parityClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download){window.parityDownload={name:this.download,url:this.href};}else window.parityClick.call(this);};');
- await click('Сохранить в файл');
- assert.equal(await exec('const {name,url}=parityDownload;const value=JSON.parse(await (await fetch(url)).text());HTMLAnchorElement.prototype.click=parityClick;return name==="speed-dial.json"&&value.entries.length===4;'),true);
- await close();
- await click('Настройки');await until('return !!document.querySelector(".settings");');await click('Импорт');await until('return !!document.querySelector("textarea");');
- await field('textarea','{"version":1}');await exec('document.querySelector(".transfer-form").requestSubmit();');
- await until('return !!document.querySelector(".transfer-form [role=alert]");');
- assert.equal(await exec('return (await api.bookmarks.getChildren(parityRoot)).filter(e=>e.url&&e.type!=="separator").length;'),3,'invalid import must not mutate bookmarks');
- await field('textarea',JSON.stringify({...exported,entries:[{title:'Imported folder',children:[{title:'Imported link',url:'https://imported.example/'}]}]}));
- await exec('document.querySelector(".transfer-form").requestSubmit();');await until('return !!document.querySelector(".confirmation-dialog");');await exec('document.querySelector(".confirmation-dialog button:not(.secondary):not(.close)").click();');
- await until('return !document.querySelector("dialog") && [...document.querySelectorAll(".folder-tab")].some(e=>e.textContent.trim()==="Imported folder");');
+ await chooseBackup(exec,'{"version":1}');await until('return !!document.querySelector(".data-management [role=alert]");');
+ assert.equal(await exec('return (await api.bookmarks.getChildren(parityRoot)).filter(e=>e.url&&e.type!=="separator").length;'),3);
+ await chooseBackup(exec,{...exported,entries:[{title:'Imported folder',children:[{title:'Imported link',url:'https://imported.example/'}]}]});
+ await until('return !!document.querySelector("#import-destination");');await dataClick(exec,'Импортировать');await until('return document.querySelector(".data-management [role=status]")?.textContent.includes("Добавлено закладок: 1");');
+ await key('Escape');await until('return !document.querySelector(".data-management");');await close();
+ await until('return [...document.querySelectorAll(".folder-tab")].some(e=>e.textContent.trim()==="Imported folder");');
  console.log('PASS '+name+': native source, separator exclusion, modal isolation, export/download Blob, invalid/valid import');
 
  // Reordering must preserve separators and folder slots in native storage.
@@ -111,7 +104,7 @@ if(!process.argv.includes('--firefox-only')) {
   const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker'),page=await context.newPage();
   await page.goto(worker.url().replace('background.js','newtab.html'));
   const exec=(body,...args)=>page.evaluate(new Function('args','return (async function(){'+body+'}).apply(null,args)'),args);
-  await check('chrome',{exec,until:async body=>{const start=Date.now();while(!await exec(body)){if(Date.now()-start>15000)throw Error(body);await new Promise(r=>setTimeout(r,100));}},key:value=>page.keyboard.press(value),pointer:selector=>page.locator(selector).click(),resize:(width,height)=>page.setViewportSize({width,height})});
+  await check('chrome',{exec,until:async body=>{const start=Date.now();while(!await exec(body)){if(Date.now()-start>15000)throw Error(body+' '+await exec('return document.querySelector(".data-management")?.textContent;'));await new Promise(r=>setTimeout(r,100));}},key:value=>page.keyboard.press(value),pointer:selector=>page.locator(selector).click(),resize:(width,height)=>page.setViewportSize({width,height})});
  }finally{await context.close();}
 }
 if(!process.argv.includes('--chrome-only')) {

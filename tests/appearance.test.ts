@@ -9,9 +9,9 @@ function luminance(hex:string):number {
 
 describe('current settings contract',()=>{
  it('roundtrips current settings through export and Sync',async()=>{
-  const settings=validateSettings({width:75,space:12,email:'test@mail.ru',searchProvider:'imdb'});
+  const settings=validateSettings({width:75,space:12,email:'test@mail.ru',movieSearch:true,searchProvider:'imdb'});
   const text=await serializeExport({entries:[],settings,background:null});
-  expect(JSON.parse(text).version).toBe(2);expect(parseImport(text).settings).toEqual(settings);
+  expect(JSON.parse(text).version).toBe(3);expect(parseImport(text).settings).toEqual(settings);
   expect(syncPatch(Object.fromEntries(Object.entries(settings).map(([key,value])=>['settings.v1.'+key,value])))).toEqual(settings);
  });
  it('rejects malformed boolean settings',()=>{
@@ -22,3 +22,5 @@ describe('current settings contract',()=>{
   expect((luminance('#DBDBDB')+.05)/(luminance('#475569')+.05)).toBeGreaterThanOrEqual(4.5);
  });
 });
+
+it('rejects settings outside the current contract',()=>{expect(()=>validateSettings({unexpected:true})).toThrow('Неизвестный параметр');});

@@ -1,7 +1,7 @@
 import { BookmarkAssetStore } from './bookmarkAssets';
 import type { DialDatabase } from './database';
 import type { SettingsPort } from './settings';
-import { defaults, type Bookmark, type Settings, type Snapshot, type ImportData, type SearchProviderId } from '../types/models';
+import { allBackupSections, type BackupSelection, defaults, type Bookmark, type Settings, type Snapshot, type ImportData, type BackupBookmark, type ImportReport, type SearchProviderId } from '../types/models';
 import { normalizeUrl, validateSettings } from './validation';
 import { isBookmark, isFolder, folderChoices, defaultFolderId, type BookmarksPort, type RootPort, type BookmarkNode } from './bookmarks';
 let localQueue:Promise<unknown>=Promise.resolve();
@@ -119,7 +119,8 @@ export class Repository {
     const next = validateSettings(settings);
     if (rootId !== undefined) await this.folder(rootId);
     const previous = await this.settings.getValue();
-    const previousSettings = validateSettings(previous?.value);
+    let previousSettings:Settings;
+    try{previousSettings=validateSettings(previous?.value);}catch{previousSettings={...defaults};}
     const settingsChanged = (Object.keys(defaults) as Array<keyof Settings>).some(key => next[key] !== previousSettings[key]);
     const previousBackground = background !== undefined ? await this.db.assets.get('background') : undefined;
     let wroteSettings = false, wroteBackground = false;
@@ -255,23 +256,81 @@ export class Repository {
   async renameFolder(id: string, title: string) { await this.childFolder(id); if (!title.trim()) throw new Error('Введите название.'); if ((await this.childFolder(id)).title !== title.trim()) await this.bookmarks.update(id, { title: title.trim() }); }
   async removeFolder(id: string) { await this.childFolder(id); await this.bookmarks.removeTree(id); }
   async moveFolder(id: string, beforeId: string) { await this.childFolder(id); const target = await this.childFolder(beforeId); await this.bookmarks.move(id, { parentId: this.rootId!, index: target.index ?? 0 }); }
-  async exportData(): Promise<ImportData> {
-    const root = await this.rootNode(); const children = await this.bookmarks.getChildren(root.id);
-    const row = (node: BookmarkNode) => ({ title: node.title, url: node.url! });
-    const entries = await Promise.all(children.filter(node => isBookmark(node) || isFolder(node)).map(async node => isBookmark(node) ? row(node) : { title: node.title, children: (await this.bookmarks.getChildren(node.id)).filter(isBookmark).map(row) }));
-    const snapshot = await this.load(); return { entries, settings: snapshot.settings, background: snapshot.background };
+  async exportData(warning:(message:string)=>void=()=>{},selection:BackupSelection=allBackupSections): Promise<ImportData> {
+    const children=(selection.bookmarks||selection.images)&&this.rootId?(await this.bookmarks.getChildren((await this.rootNode()).id)):[];
+    const row=async(node:BookmarkNode):Promise<BackupBookmark>=>{
+      const result:BackupBookmark={title:node.title,url:node.url!};
+      try{
+        const cache=selection.images?await this.db.tileAssets.get([node.id,node.url!]):undefined;
+        for(const key of ['thumbnail','favicon'] as const)if(cache?.[key]){result[key]=cache[key];}
+        const marker=await this.db.autoNames.get(node.id);
+        if(selection.bookmarks&&marker?.url===node.url && node.title===new URL(node.url!).hostname)result.autoName=true;
+      }catch{warning('Не удалось прочитать изображения или автоматическое название: '+node.title);}
+      return result;
+    };
+    const entries:ImportData['entries']=[];
+    for(const node of children){
+      if(isBookmark(node))entries.push(await row(node));
+      else if(isFolder(node)&&!node.unmodifiable){
+        const nested=await this.bookmarks.getChildren(node.id),rows=[];
+        if(nested.some(isFolder))warning('Вложенные папки не включены: '+node.title);
+        for(const child of nested.filter(isBookmark))rows.push(await row(child));
+        entries.push({title:node.title,children:rows});
+      }
+    }
+    return {entries,...(!selection.bookmarks?{bookmarks:false as const}:{}),...(selection.settings?{settings:validateSettings((await this.settings.getValue())?.value)}:{}),...(selection.background?{background:(await this.db.assets.get('background'))?.blob??null}:{})};
   }
-  async importData(data: ImportData) {
-    const root = await this.rootNode(); let bookmarks = 0, folders = 0;
+  async importData(data:ImportData,destination:string,expectedSettings?:Settings,selection:BackupSelection=allBackupSections):Promise<ImportReport> {
+    const includeBookmarks=selection.bookmarks&&data.bookmarks!==false;
+    const includeImages=selection.images;
+    const target=(includeBookmarks||includeImages)?await this.folder(destination):undefined;
+    const checkDestination=async()=>{const node=await this.node(destination);if(!isFolder(node)||node.unmodifiable||node.parentId!==target?.parentId)throw new Error('Папка назначения удалена, перемещена или недоступна.');};
+    if(selection.settings&&data.settings&&expectedSettings){
+      const currentSettings=validateSettings((await this.settings.getValue())?.value);
+      if((Object.keys(defaults) as Array<keyof Settings>).some(key=>currentSettings[key]!==expectedSettings[key]))throw new Error('Настройки изменились в другой вкладке. Выберите файл повторно, чтобы подтвердить актуальные данные.');
+    }
+    const report:ImportReport={bookmarks:0,folders:0,images:0,warnings:[]};
+    // Consume existing siblings once, preserving intentional repeated entries in the backup.
+    const siblings=new Map<string,BookmarkNode[]>();
+    const take=async(parentId:string,title:string,url?:string)=>{
+      if(!siblings.has(parentId))siblings.set(parentId,await this.bookmarks.getChildren(parentId));
+      const nodes=siblings.get(parentId)!;
+      const index=nodes.findIndex(node=>!node.unmodifiable&&node.title===title&&(url===undefined?isFolder(node):isBookmark(node)&&node.url===url));
+      return index<0?undefined:nodes.splice(index,1)[0];
+    };
+    const add=async(row:BackupBookmark,parentId:string)=>{
+      await checkDestination();
+      if(parentId!==destination){const folder=await this.node(parentId);if(!isFolder(folder)||folder.unmodifiable||folder.parentId!==destination)throw new Error('Папка удалена или перемещена.');}
+      const existing=await take(parentId,row.title,row.url);
+      if(!existing&&!includeBookmarks){if(row.thumbnail||row.favicon)report.skipped=(report.skipped??0)+1;return;}
+      const node=existing?await this.node(existing.id):await this.bookmarks.create({parentId,title:row.title,url:row.url});
+      if(!existing)report.bookmarks++;
+      if(!isBookmark(node)||node.unmodifiable||node.parentId!==parentId||node.title!==row.title||node.url!==row.url)throw new Error('Закладка изменена или перемещена во время импорта.');
+      for(const key of ['thumbnail','favicon'] as const)if(includeImages&&row[key]){
+        try{await this.cache(node.id,row.url,key,row[key],{title:row.title,parentId});report.images++;}
+        catch{report.warnings.push('Не удалось сохранить изображение: '+row.title+' / '+key);}
+      }
+      if(row.autoName&&!existing)try{await this.db.autoNames.put({bookmarkId:node.id,url:row.url,token:crypto.randomUUID()});}catch{report.warnings.push('Не удалось сохранить автоматическое название: '+row.title);}
+    };
     try {
-      for (const entry of data.entries) {
-        await this.rootNode();
-        if ('url' in entry) { await this.bookmarks.create({ parentId: root.id, ...entry }); bookmarks++; }
-        else { const folder = await this.bookmarks.create({ parentId: root.id, title: entry.title }); folders++;
-          for (const child of entry.children) { await this.childFolder(folder.id); await this.bookmarks.create({ parentId: folder.id, ...child }); bookmarks++; }
+      for(const entry of (includeBookmarks||includeImages)?data.entries:[]){
+        await checkDestination();
+        if('url' in entry)await add(entry,destination);
+        else{
+          const existing=await take(destination,entry.title);
+          if(!existing&&!includeBookmarks){const missing=entry.children.filter(row=>row.thumbnail||row.favicon).length;if(missing)report.skipped=(report.skipped??0)+missing;continue;}
+          const folder=existing?await this.node(existing.id):await this.bookmarks.create({parentId:destination,title:entry.title});
+          if(!existing)report.folders++;
+          if(!isFolder(folder)||folder.unmodifiable||folder.parentId!==destination||folder.title!==entry.title)throw new Error('Папка изменена или перемещена во время импорта.');
+          for(const child of entry.children)await add(child,folder.id);
         }
       }
-      await this.saveSettings(data.settings, data.background,undefined,true);
-    } catch (error) { throw new Error(`Импорт прерван: добавлено закладок ${bookmarks}, папок ${folders}. ${error instanceof Error ? error.message : error}`); }
+      const settings=selection.settings?data.settings:undefined,background=selection.background?data.background:undefined;
+      if(settings)await this.saveSettings(settings,background,undefined,true);
+      else if(background!==undefined){if(background)await this.db.assets.put({key:'background',blob:background});else await this.db.assets.delete('background');}
+      if(settings)report.settings=true;
+      if(background!==undefined)report.background=true;
+    }catch(error){report.error='Импорт прерван: '+(error instanceof Error?error.message:String(error));}
+    return report;
   }
 }

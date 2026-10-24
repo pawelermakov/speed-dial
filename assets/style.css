@@ -31,7 +31,9 @@
  --ui-shadow-tile:0 2px 6px rgb(12 20 34 / .16);--ui-shadow-raised:0 8px 28px rgb(12 20 34 / .20);--ui-shadow-popover:var(--ui-shadow-raised);
  --shadow-overlay:0 18px 50px rgb(12 20 34 / .24);--ui-overlay:rgb(8 14 25 / .20);
 }
-html {font-family:var(--ui-font);background:var(--page-background);color:var(--ui-text);scrollbar-width:thin;scrollbar-color:var(--scrollbar) transparent;scrollbar-gutter:stable}
+html {font-family:var(--ui-font);background:var(--page-background);color:var(--ui-text);scrollbar-width:thin;scrollbar-color:var(--scrollbar) transparent;overflow:hidden}
+/* Keep the page in place while native dialogs own scrolling and focus. */
+.page:has(dialog[open]) .bookmark-content {overflow-y:hidden}
 /* Reserve scrollbar space before overflow so text and controls keep their width. */
 :where(.settings-content,.modal) {scrollbar-gutter:stable}
 /* The modal panel owns scrolling; its fullscreen backdrop must not add a second bar. */
@@ -45,7 +47,6 @@ html {font-family:var(--ui-font);background:var(--page-background);color:var(--u
 @media(forced-colors:active){.bookmark-content [data-bookmark-edge-item] {mask-image:none}}
 .bookmark-content.justify-center {justify-content:safe center}
 .bookmark-content>* {flex-shrink:0}
-.page:has(dialog[open]) .bookmark-content {overflow-y:hidden}
 .page button,.page input,.page select,.page textarea {font-family:var(--ui-font);font-size:16px;line-height:1.45}
 .settings-form {font-size:16px}
 .settings label[for=background] {display:flex;align-items:center;justify-content:center;height:40px}
@@ -76,7 +77,7 @@ html {font-family:var(--ui-font);background:var(--page-background);color:var(--u
 .modal,.settings {border-radius:var(--radius-panel);box-shadow:0 24px 64px rgb(8 14 25 / .20),inset 0 1px 1px var(--glass-top),inset 0 -1px 0 var(--glass-bottom)}
 .modal {width:min(360px,calc(100vw - 32px))}
 .modal.bookmark-dialog {width:min(460px,calc(100vw - 32px))}
-.modal.wide {width:min(800px,calc(100vw - 32px))}
+.modal.wide {width:min(480px,calc(100vw - 32px))}
 :is(input,select,textarea).ui-control:enabled:focus {background:var(--surface-input-emphasis);border-color:transparent}
 :is(input,select,textarea).ui-control[aria-invalid=true]:enabled:focus {border-color:var(--danger)}
 select.ui-control:enabled:active {background:var(--surface-input-pressed)}

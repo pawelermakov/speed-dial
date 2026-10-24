@@ -15,16 +15,17 @@ import ConfirmDialog from './components/ConfirmDialog.vue';
 import MailIndicator from './components/MailIndicator.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import ContextMenu from './components/ContextMenu.vue';
-import ImportExportDialog from './components/ImportExportDialog.vue';
+import DataManagementDialog from './components/DataManagementDialog.vue';
 import { useDial, repository } from './composables/useDial';
 import { requestThumbnail } from './services/thumbnails';
-import { parseImport, serializeExport } from './services/importExport';
+import { withDataLock } from './services/repository';
+import { selectExport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
 import { cacheBackgroundPreview, clearBackgroundPreview } from './utils/backgroundPreview';
 import { BackgroundResource } from './utils/backgroundResource';
 import { insertedOrder } from './utils/reorder';
 import { contextKey } from './utils/keyboard';
-import type { Bookmark, Folder } from './types/models';
+import type { BackupSelection, Bookmark, Folder, ImportData, ImportReport, PreparedExport, Settings } from './types/models';
 
 const { snapshot, loading, settingsReady, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors } = useDial();
 useTheme(()=>snapshot.value.settings.theme,()=>settingsReady.value);
@@ -71,6 +72,7 @@ const editingFolder = shallowRef<{ id: string; title: string }>();
 watch(() => snapshot.value.rootId, () => { creatingFolder.value = false; editingFolder.value = undefined; });
 const disabled = computed(() => loading.value || busy.value || capturing.value || savingBookmark.value);
 const settingsOpen = ref(false);
+const openingData = ref(false);
 const settingsPanel = ref<InstanceType<typeof SettingsPanel>>();
 let settingsGeneration=0;
 async function closeSettings(){
@@ -96,10 +98,11 @@ async function openBookmark(bookmark?: Bookmark) {
     dialogError.value = ''; folderError.value = ''; bookmarkDialog.value = true;
   } catch (error) { notice.value = fail(error); }
 }
-const importError = ref('');
+
 const mailRevision = ref(0);
 watch(()=>snapshot.value.settings.email,()=>mailRevision.value++);
-const transfer = ref<'import' | 'export'>();
+const dataOpen = ref(false);
+const dataDialog=ref<InstanceType<typeof DataManagementDialog>>();
 const confirmation = shallowRef<{title:string;message:string;perform:()=>Promise<boolean>;actionLabel:string;destructive:boolean}>();
 const confirmationBusy=ref(false),confirmationError=ref('');
 function askConfirmation(title:string,message:string,perform:()=>Promise<boolean>,actionLabel='Удалить',destructive=true) {
@@ -114,8 +117,8 @@ async function confirmAction(){
   catch(error){confirmationError.value=error instanceof Error?error.message:String(error);}
   finally{confirmationBusy.value=false;}
 }
-const overlayOpen = computed(() => !!confirmation.value || settingsOpen.value || bookmarkDialog.value || !!transfer.value || creatingFolder.value || !!editingFolder.value);
-const exportText = ref('');
+const overlayOpen = computed(() => !!confirmation.value || settingsOpen.value || openingData.value || bookmarkDialog.value || dataOpen.value || creatingFolder.value || !!editingFolder.value);
+
 const context = shallowRef<{ x: number; y: number; bookmark?: Bookmark; folder?: Folder }>();
 const backgroundUrl = ref('');
 let decodedBackground: {url:string;image:HTMLImageElement}|undefined;
@@ -218,35 +221,27 @@ async function action(name: string) {
   } catch (error) { notice.value = fail(error); }
   finally { if (!overlayOpen.value) restorePageFocus(returnTarget); }
 }
-async function openExport() {
-  if (disabled.value) return;
-  try {
-    if (await run(async () => { exportText.value = await serializeExport(await repository.exportData()); })) {
-      settingsOpen.value = false; transfer.value = 'export';
-    }
-  } catch (error) { notice.value = fail(error); }
+const dataChoices=()=>repository.choices();
+async function prepareBackup():Promise<PreparedExport>{
+  await flushSettings();
+  const warnings:string[]=[];
+  const data=await withDataLock(()=>repository.exportData(message=>warnings.push(message)));
+  return {data,warnings};
 }
-async function importData(text: string) {
-  if (disabled.value) return;
-  try {
-    importError.value = '';
-    const next = parseImport(text);
-    const rootId=snapshot.value.rootId;
-    const path = (await repository.choices()).find(row => row.id === rootId)?.path;
-    if (!path) throw new Error('Выберите папку закладок в настройках.');
-    askConfirmation('Импортировать данные?', 'Импорт добавит закладки и папки в папку «'+path+'»; возможны дубликаты. Настройки и фон будут применены.',async()=>{
-      if(!await run(() => {if(snapshot.value.rootId!==rootId)throw new Error('Папка назначения изменилась. Повторите импорт.');return repository.importData(next);},true))return false;
-      transfer.value=undefined;mailRevision.value++;notice.value='Данные импортированы.';return true;
-    },'Импортировать',false);
-  } catch (error) { importError.value = fail(error); }
+async function exportBackup(selection:BackupSelection,prepared:PreparedExport){
+  const warnings=selection.bookmarks||selection.images?[...prepared.warnings]:[];
+  const text=await withDataLock(()=>serializeExport(selectExport(prepared.data,selection),message=>warnings.push(message)));
+  return {text,warnings};
+}
+async function importBackup(data:ImportData,id:string,expected:Settings,selection:BackupSelection):Promise<ImportReport>{
+  let report:ImportReport|undefined;
+  if(!await run(async()=>{report=await repository.importData(data,id,expected,selection);},true))throw new Error(notice.value||'Не удалось начать импорт.');
+  mailRevision.value++;return report!;
+}
+async function resetData(){
+  if(!await run(()=>repository.reset(),true))throw new Error(notice.value||'Не удалось завершить сброс.');
 }
 function reorder(ids: string[], expected: string[], dragRevision: number) { const parent = snapshot.value.activeId; if (!searching.value) void run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorder(ids, expected, parent); }); }
-async function reset() {
-  askConfirmation('Сбросить настройки и кэш?', 'Настройки вернутся к значениям по умолчанию. Фон и локальный кэш изображений будут удалены. Закладки браузера и выбранная папка сохранятся. Синхронизируемые настройки могут сброситься и на других устройствах.',async()=>{
-    if(!await run(() => repository.reset(),true))return false;
-    settingsOpen.value=false;notice.value='Настройки и локальный кэш сброшены. Закладки сохранены.';return true;
-  },'Сбросить');
-}
 async function updateImages(id: string, url: string) {
   const ticket = await repository.autoNameTicket(id);
   const expected = await repository.bookmark(id);
@@ -352,9 +347,22 @@ function restoreConfirmationFocus(element:Element){
   if(previous?.element.isConnected&&previous.element.closest('dialog[open]:not([inert])')&&!previous.element.matches(':disabled'))previous.element.focus({preventScroll:true});
   else restorePageFocus(previous);
 }
+function openDataManagement(){
+  if(disabled.value||!settingsOpen.value||openingData.value)return;
+  openingData.value=true;
+  settingsOpen.value=false;
+}
+function afterSettingsLeave(element:Element){
+  if(openingData.value){
+    dialogReturnTargets.delete(element);
+    dataOpen.value=true;
+    openingData.value=false;
+  }else restoreDialogFocus(element);
+}
 function beforeDialogLeave(element: Element) { (element as HTMLElement).inert = true; }
 function escape(event: KeyboardEvent) {
   if (event.isComposing) return;
+  if(event.key==='Escape'&&openingData.value){event.preventDefault();openingData.value=false;return;}
   if (contextKey(event) && !overlayOpen.value && !context.value && !disabled.value && !(event.target as HTMLElement).closest('input,textarea,select,[contenteditable],dialog')) {
     event.preventDefault(); rememberContextTarget(document.activeElement);
     context.value = {x:24,y:100}; return;
@@ -362,6 +370,7 @@ function escape(event: KeyboardEvent) {
   if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !disabled.value && snapshot.value.settings.bookmarkSearch && snapshot.value.rootId && !overlayOpen.value && !context.value && !(event.target as HTMLElement).closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),dialog,[role="dialog"]')) {
     event.preventDefault(); openSearch(); return;
   }
+  if (event.key === 'Escape' && dataOpen.value) { event.preventDefault();dataDialog.value?.close();return; }
   if (event.key !== 'Escape' || disabled.value || event.defaultPrevented || (event.target instanceof Element && event.target.closest('dialog'))) return;
   if (searching.value && !overlayOpen.value && !context.value) { event.preventDefault(); closeSearch(); return; }
   if(context.value)closeContext();else void closeSettings();
@@ -399,9 +408,9 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     <div v-if="notice && !settingsOpen" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded-[var(--ui-radius)] shadow-[var(--ui-shadow-popover)] flex justify-between items-start gap-3 z-50 [overflow-wrap:anywhere]">
       <span>{{ notice }}</span><button class="ui-hover rounded-full" aria-label="Закрыть уведомление" @click="notice = ''">×</button>
     </div>
-    <Transition name="settings-panel" :duration="motionEnabled ? 250 : 0" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus" @before-enter="beforeDialogEnter">
+    <Transition name="settings-panel" :duration="motionEnabled ? 250 : 0" @before-leave="beforeDialogLeave" @after-leave="afterSettingsLeave" @before-enter="beforeDialogEnter">
     <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="Object.values(settingErrors).join(' ')" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
-      @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" @error="notice=$event" />
+      @manage="openDataManagement" @error="notice=$event" />
     </Transition>
     <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus">
       <FolderDialog v-if="creatingFolder || editingFolder" :title="editingFolder?.title" :busy="disabled" :error="folderDialogError" @close="cancelFolder" @save="saveFolder" />
@@ -410,7 +419,7 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     <BookmarkDialog v-if="bookmarkDialog" :bookmark="editing" :folders="dialogFolders" :active-id="snapshot.activeId" :folder-error="folderError" :busy="disabled" :error="dialogError" @close="bookmarkDialog = false" @save="saveBookmark" />
     </Transition>
     <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus">
-    <ImportExportDialog v-if="transfer" :mode="transfer" :value="exportText" :busy="disabled" :operation-error="importError" @close="transfer = undefined" @import="importData" />
+    <DataManagementDialog v-if="dataOpen" ref="dataDialog" :root-id="snapshot.rootId" :settings="snapshot.settings" :choices="dataChoices" :prepare-export="prepareBackup" :export-data="exportBackup" :import-data="importBackup" :reset-data="resetData" @close="dataOpen = false" />
     </Transition>
     <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreConfirmationFocus">
       <ConfirmDialog v-if="confirmation" :title="confirmation.title" :message="confirmation.message" :action-label="confirmation.actionLabel" :destructive="confirmation.destructive" :busy="confirmationBusy" :error="confirmationError" @close="closeConfirmation" @confirm="confirmAction" />

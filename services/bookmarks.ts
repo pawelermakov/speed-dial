@@ -50,3 +50,12 @@ export function defaultFolderId(choices: FolderChoice[]): string | null {
   const account = others.filter(choice => choice.syncing === true);
   return account.length === 1 ? account[0]!.id : others.length === 1 ? others[0]!.id : null;
 }
+// Display labels only: native folder names and IDs remain unchanged.
+export function folderOptionLabels(choices:FolderChoice[]):Array<FolderChoice&{label:string}>{
+  const names=new Set(choices.map(row=>row.path)),used=new Set<string>();
+  return choices.map(row=>{
+    let label=row.path,index=2;
+    if(used.has(label)){do{label=row.path+' ('+index+')';index++;}while(names.has(label)||used.has(label));}
+    used.add(label);return {...row,label};
+  });
+}

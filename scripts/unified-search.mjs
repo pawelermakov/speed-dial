@@ -1,3 +1,4 @@
+import {openData,captureBackup} from './data-management-helpers.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { resolve } from 'node:path';
@@ -46,8 +47,7 @@ async function check(name,{exec,until,key,resize,reload}) {
  await reload();await until('return document.querySelector(".search select")?.value==="bookmarks"&&!document.querySelector(".search input").disabled;');
  assert.equal(await exec('return document.querySelector(".search input").value;'),'');
  await exec('document.querySelector(".settings-trigger").click();');await until('return !!document.querySelector(".settings");');
- await exec('[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Экспорт").click();');await until('return !!document.querySelector("textarea");');
- assert.equal(await exec('return JSON.parse(document.querySelector("textarea").value).settings.searchProvider;'),'bookmarks');
+ await openData(exec,until);assert.equal((await captureBackup(exec,until)).settings.searchProvider,'bookmarks');
  console.log('PASS '+name+': unified bookmark mode, stale remote cancellation, no network for local queries, setting/fallback/slash, folder selection, persistence/export and 360/1280/1920');
 }
 

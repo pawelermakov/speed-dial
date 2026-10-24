@@ -11,7 +11,12 @@ export interface Folder { id: string; title: string; index: number; virtual?: bo
 export interface FolderChoice { id: string; title: string; path: string; syncing?: boolean; standard: boolean; folderType?: string; writableChildren: boolean }
 export interface Snapshot { tabs: Bookmark[]; folders: Folder[]; rootId: string | null; activeId: string | null; settings: Settings; background: Blob | null; rootNotice?: string }
 export interface BookmarkAssets { bookmarkId: string; url: string; thumbnail?: Blob; favicon?: Blob; faviconColor?: string | null; thumbnailUpdatedAt?: number; faviconUpdatedAt?: number }
-export interface ImportData { entries: Array<{ title: string; url: string } | { title: string; children: Array<{ title: string; url: string }> }>; settings: Settings; background: Blob | null }
+export interface BackupBookmark { title: string; url: string; thumbnail?: Blob; favicon?: Blob; autoName?: true }
+export interface BackupSelection { bookmarks:boolean; images:boolean; settings:boolean; background:boolean }
+export const allBackupSections:BackupSelection={bookmarks:true,images:true,settings:true,background:true};
+export interface ImportData { bookmarks?:false; entries: Array<BackupBookmark | { title: string; children: BackupBookmark[] }>; settings?: Settings; background?: Blob | null }
+export interface PreparedExport { data:ImportData; warnings:string[] }
+export interface ImportReport { bookmarks: number; folders: number; images: number; settings?:true; background?:true; skipped?:number; warnings: string[]; error?: string }
 export interface CaptureRequest { type: 'capture'; requestId: string; url: string }
 export interface CaptureResponse { requestId: string; title?: string; favicon?: string; thumbnail?: string; error?: string }
 export const defaults: Settings = { theme: 'system', width: 100, countColumns: 6, space: 24, verticalCenter: false, addButton: false, bookmarkSearch: true, movieSearch: false, searchProvider: 'yandex', email: '' };

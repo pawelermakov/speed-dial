@@ -38,6 +38,10 @@ function boolean(value: unknown, fallback: boolean): boolean {
 }
 export function validateSettings(input: unknown): Settings {
   const data = input === undefined ? {} : record(input, 'Настройки');
+  if(Object.keys(data).some(key=>!Object.hasOwn(defaults,key)))throw new Error('Неизвестный параметр настроек.');
+  if(data.theme!==undefined&&!themeModes.includes(data.theme as ThemeMode))throw new Error('Некорректная тема.');
+  if(data.searchProvider!==undefined&&!searchProviderIds.includes(data.searchProvider as SearchProviderId))throw new Error('Некорректный источник поиска.');
+  const bookmarkSearch=boolean(data.bookmarkSearch,defaults.bookmarkSearch),movieSearch=boolean(data.movieSearch,defaults.movieSearch);
   const number = (key: 'width' | 'countColumns' | 'space', min: number, max: number) => {
     const value = data[key] === undefined || data[key] === '' ? defaults[key] : Number(data[key]);
     if ((typeof data[key] !== 'number' && typeof data[key] !== 'string' && data[key] !== undefined) ||
@@ -50,8 +54,8 @@ export function validateSettings(input: unknown): Settings {
   return {
     theme: themeModes.includes(data.theme as ThemeMode) ? data.theme as ThemeMode : 'system',
     width: number('width', 50, 100), countColumns: number('countColumns', 2, 12), space: number('space', 0, 48),
-    verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch: boolean(data.bookmarkSearch, true), movieSearch: boolean(data.movieSearch, isMovieProvider(data.searchProvider)), email: email.trim(),
-    searchProvider: ((data.bookmarkSearch === false && data.searchProvider === 'bookmarks') || (data.movieSearch === false && isMovieProvider(data.searchProvider))) ? 'yandex' : searchProviderIds.includes(data.searchProvider as SearchProviderId) ? data.searchProvider as SearchProviderId : 'yandex',
+    verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch, movieSearch, email: email.trim(),
+    searchProvider: ((!bookmarkSearch && data.searchProvider === 'bookmarks') || (!movieSearch && isMovieProvider(data.searchProvider))) ? 'yandex' : searchProviderIds.includes(data.searchProvider as SearchProviderId) ? data.searchProvider as SearchProviderId : 'yandex',
   };
 }
 export function safeFavicon(value: unknown): string {
