@@ -18,7 +18,7 @@ describe('favicon color cache', () => {
     const { db, store, decode } = setup();
     decode.mockRejectedValueOnce(new Error('temporary canvas failure'));
     await store.put('1', 'https://example.com', 'favicon', icon());
-    expect((await db.tileAssets.get(['1', 'https://example.com']))?.faviconColorVersion).toBeUndefined();
+    expect((await db.tileAssets.get(['1', 'https://example.com']))?.faviconColor).toBeUndefined();
     const result = await store.get('1', 'https://example.com');
     expect(result?.favicon).toBeTruthy();
     expect(result?.faviconColor).toBe('#754691');
@@ -36,16 +36,16 @@ describe('favicon color cache', () => {
     expect((await reloaded.get('1', 'https://example.com'))?.faviconColor).toBe('#754691');
     expect(await reloaded.get('1', 'https://other.example')).toBeUndefined();
   });
-  it('does not persist a temporary failure when backfilling an old icon', async () => {
+  it('does not persist a temporary failure when resolving an uncached icon color', async () => {
     const { db, store, decode } = setup();
     await db.tileAssets.put({ bookmarkId:'1', url:'https://example.com', favicon:icon() });
     decode.mockRejectedValueOnce(new Error('temporary decoder failure'));
     expect((await store.get('1','https://example.com'))?.favicon).toBeTruthy();
-    expect((await db.tileAssets.get(['1','https://example.com']))?.faviconColorVersion).toBeUndefined();
+    expect((await db.tileAssets.get(['1','https://example.com']))?.faviconColor).toBeUndefined();
     expect((await store.get('1','https://example.com'))?.faviconColor).toBe('#754691');
     expect(decode).toHaveBeenCalledTimes(2);
   });
-  it('backfills existing icons once and recalculates when the icon is replaced', async () => {
+  it('resolves existing icons once and recalculates when the icon is replaced', async () => {
     const { db, store, decode } = setup();
     await db.tileAssets.put({ bookmarkId: '1', url: 'https://example.com', favicon: icon() });
     expect((await store.get('1', 'https://example.com'))?.faviconColor).toBe('#754691');

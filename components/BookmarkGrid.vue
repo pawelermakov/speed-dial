@@ -1,56 +1,90 @@
 <script setup lang="ts">
-import { watch, onMounted, onUnmounted, ref, computed } from 'vue';
+import { watch, nextTick, onMounted, onUnmounted, ref, computed } from 'vue';
 import { BookmarkImages } from '../utils/bookmarkImages';
 import type { Bookmark, Settings } from '../types/models';
 import TileHostname from './TileHostname.vue';
-import { insertedOrder } from '../utils/reorder';
+import { insertedOrder, nearestInsertion } from '../utils/reorder';
 import { tileHostname, tileColor, fitTileColumns } from '../utils/tile';
-const props = defineProps<{ revision?: number; tabs: Bookmark[]; settings: Settings; disabled: boolean; searching?: boolean; categoryNames?: Record<string,string> }>();
+const props = defineProps<{ revision?: number; motionEnabled: boolean; folderId?: string | null; tabs: Bookmark[]; settings: Settings; disabled: boolean; searching?: boolean; folderNames?: Record<string,string> }>();
 const emit = defineEmits<{ add: []; context: [event: MouseEvent, bookmark: Bookmark]; reorder: [ids: string[], expected: string[], revision: number]; refresh: [] }>();
 const previews = ref<Record<string, string>>({});
 const icons = ref<Record<string, string>>({});
+const failedIcons = ref<Record<string, string>>({});
 const dragId = ref<string | null>(null);
 const overId = ref<string | null>(null);
 const after = ref(false);
 let expected: string[] = [], suppressClick = false, dragRevision = 0;
+let clickResetTimer:ReturnType<typeof setTimeout>|undefined;
 const grid = ref<HTMLElement>();
 const gridWidth = ref(0);
 const preparing = ref(true);
 let generation = 0, disposed = false;
+let revealPending = true;
+let revealAnimations: Animation[] = [];
+function cancelReveal() { for (const animation of revealAnimations) animation.cancel(); revealAnimations = []; }
+watch(() => props.motionEnabled, enabled => { if (!enabled) cancelReveal(); });
 const columns = computed(() => fitTileColumns(gridWidth.value, props.settings.countColumns, props.settings.space));
 const images = new BookmarkImages((nextPreviews, nextIcons) => {
   previews.value = nextPreviews;
   icons.value = nextIcons;
 });
-watch(() => props.tabs, async tabs => {
-  if (dragId.value) { finish(); emit('refresh'); }
+watch([() => props.tabs, () => props.folderId], async ([tabs,folderId], previous) => {
+  if (previous[0] && folderId !== previous[1]) {
+    revealPending = true;
+    cancelReveal();
+  }
+  const identity=(rows:Bookmark[])=>JSON.stringify(rows.map(tab=>[tab.id,tab.parentId,tab.title,tab.url]));
+  if (dragId.value && previous[0] && identity(tabs)!==identity(previous[0])) end();
+  const liveIds=new Set(tabs.map(tab=>tab.id));
+  for(const id of Object.keys(failedIcons.value))if(!liveIds.has(id))delete failedIcons.value[id];
   const current = ++generation;
   const ready = images.sync(tabs);
   preparing.value = images.pending;
   await ready;
-  if (!disposed && current === generation) preparing.value = false;
+  if (disposed || current !== generation) return;
+  preparing.value = false;
+  await nextTick();
+  if (disposed || current !== generation || !revealPending || !grid.value) return;
+  // Settle the responsive columns before rasterizing each tile at its final size.
+  gridWidth.value = grid.value.getBoundingClientRect().width;
+  await nextTick();
+  if (disposed || current !== generation || !grid.value) return;
+  revealPending = false;
+  if (props.motionEnabled) {
+    const style = getComputedStyle(grid.value);
+    const duration = style.getPropertyValue('--motion-fast').trim();
+    const options = {
+      id:'bookmark-reveal', duration:parseFloat(duration) * (duration.endsWith('ms') ? 1 : 1000), easing:style.getPropertyValue('--ease-enter').trim(),
+    };
+    // Do not flatten the whole grid into a temporary bitmap during the fade.
+    revealAnimations = Array.from(grid.value.querySelectorAll<HTMLElement>('.bookmark,.add-card'))
+      .filter(tile => { const box = tile.getBoundingClientRect(); return box.bottom > 0 && box.top < innerHeight && box.right > 0 && box.left < innerWidth; })
+      .map(tile => tile.animate([{opacity:0},{opacity:1}], options));
+  }
 }, { immediate: true });
 let observer: ResizeObserver | undefined;
 onMounted(() => {
-  gridWidth.value = grid.value!.clientWidth;
+  gridWidth.value = grid.value!.getBoundingClientRect().width;
   observer = new ResizeObserver(entries => { gridWidth.value = entries[0]!.contentRect.width; });
   observer.observe(grid.value!);
 });
-onUnmounted(() => { disposed = true; generation++; observer?.disconnect(); images.dispose(); });
+onUnmounted(() => { disposed = true; generation++; cancelReveal(); clearTimeout(clickResetTimer); observer?.disconnect(); images.dispose(); });
 function start(event: DragEvent, id: string) {
   if (props.disabled || props.searching) { event.preventDefault(); return; }
-  dragId.value = id; dragRevision = props.revision ?? 0; expected = props.tabs.map(row => row.id); suppressClick = true;
+  cancelReveal();
+  clearTimeout(clickResetTimer);dragId.value = id; dragRevision = props.revision ?? 0; expected = props.tabs.map(row => row.id); suppressClick = true;
   event.dataTransfer?.setData('text/plain', String(id));
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 }
 function finish() { dragId.value = null; overId.value = null; }
-function end() { const cancelled = !!dragId.value; finish(); if (cancelled) emit('refresh'); setTimeout(() => { suppressClick = false; }, 100); }
+function end() { const cancelled = !!dragId.value; finish(); if (cancelled) emit('refresh'); clearTimeout(clickResetTimer);clickResetTimer=setTimeout(() => { suppressClick = false; }, 100); }
 watch(() => [props.disabled, props.searching, props.revision], () => { if (dragId.value) end(); });
 function over(event: DragEvent, id: string) {
-  if (!dragId.value || dragId.value === id || props.disabled || props.searching) return;
-  event.preventDefault(); overId.value = id;
+  if (!dragId.value || props.disabled || props.searching) return;
+  event.preventDefault();
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   after.value = event.clientX > rect.left + rect.width / 2;
+  overId.value = insertedOrder(expected,dragId.value,id,after.value) ? id : null;
 }
 function drop(event: DragEvent, target: string) {
   if (!dragId.value || props.disabled || props.searching) { finish(); return; }
@@ -58,27 +92,39 @@ function drop(event: DragEvent, target: string) {
   const ids = insertedOrder(expected, dragId.value, target, event.clientX > rect.left + rect.width / 2);
   finish(); if (ids && dragRevision === (props.revision ?? 0)) emit('reorder', ids, expected, dragRevision);
 }
+function gridTarget(event:DragEvent){
+  return nearestInsertion(Array.from(grid.value?.querySelectorAll<HTMLElement>('.bookmark')??[]).map(el=>({id:el.dataset.bookmarkId!,...el.getBoundingClientRect().toJSON()})),event.clientX,event.clientY);
+}
+function overGrid(event:DragEvent){
+  if(!dragId.value||props.disabled||props.searching||(event.target as Element).closest('.bookmark'))return;
+  event.preventDefault();const target=gridTarget(event);overId.value=target&&insertedOrder(expected,dragId.value,target.id,target.after)?target.id:null;if(target)after.value=target.after;
+}
+function dropGrid(event:DragEvent){
+  if(!dragId.value||props.disabled||props.searching)return;
+  const target=gridTarget(event),ids=target&&insertedOrder(expected,dragId.value,target.id,target.after);
+  finish();if(ids&&dragRevision===(props.revision??0))emit('reorder',ids,expected,dragRevision);
+}
 function click(event: MouseEvent) { if (suppressClick) { event.preventDefault(); suppressClick = false; } }
 </script>
 <template>
   <section ref="grid" aria-label="Визуальные закладки" :aria-busy="preparing" class="grid bookmarks grid-cols-[repeat(var(--columns),minmax(0,1fr))] mx-auto" :style="{
-      '--columns': columns, '--gap': settings.space + 'px', width: settings.width + '%', gap: settings.space + 'px', visibility: preparing ? 'hidden' : undefined
-    }" >
-    <a v-for="tab in tabs" :key="tab.id" class="bookmark relative overflow-hidden group block min-w-0 pt-[56.25%] h-auto rounded-[var(--ui-radius)] bg-center bg-cover bg-no-repeat text-black shadow-[var(--ui-shadow-tile)] hover:shadow-[var(--ui-shadow-raised)] [&.dragging]:opacity-40 [&.drop-target]:outline-3 [&.drop-target]:outline-[var(--ui-accent)] transition-all duration-250 ease-in-out motion-reduce:transition-none"
+      '--columns': columns, '--gap': settings.space + 'px', width: settings.width + '%', gap: settings.space + 'px', visibility: preparing && !dragId ? 'hidden' : undefined
+    }" @dragover="overGrid" @drop.prevent="dropGrid">
+    <a v-for="tab in tabs" :key="tab.id" class="bookmark select-none relative overflow-hidden group block min-w-0 bg-center bg-cover bg-no-repeat text-black [&.dragging]:opacity-40 [&.drop-target]:outline-3 [&.drop-target]:outline-[var(--ui-accent)]"
       :class="{ dragging: dragId === tab.id, 'drop-target': overId === tab.id, 'insert-after': overId === tab.id && after, 'insert-before': overId === tab.id && !after }"
-      :href="tab.url" :title="tab.title + ' — ' + tab.url + (searching && categoryNames?.[tab.parentId] ? ' · ' + categoryNames[tab.parentId] : '')" :aria-label="tab.title + ' — ' + tab.url + (searching && categoryNames?.[tab.parentId] ? ' · ' + categoryNames[tab.parentId] : '')" :draggable="!disabled && !searching"
+      :data-bookmark-id="tab.id" :href="tab.url" :title="tab.title + ' — ' + tab.url + (searching && folderNames?.[tab.parentId] ? ' · ' + folderNames[tab.parentId] : '')" :aria-label="tab.title + ' — ' + tab.url + (searching && folderNames?.[tab.parentId] ? ' · ' + folderNames[tab.parentId] : '')" :draggable="!disabled && !searching"
       :style="{ backgroundImage: previews[tab.id] ? 'url(' + previews[tab.id] + ')' : undefined, backgroundColor: previews[tab.id] ? undefined : tab.faviconColor ?? tileColor(tileHostname(tab.url)) }"
       @contextmenu.stop.prevent="emit('context', $event, tab)"
       @dragstart="start($event, tab.id)" @dragend="end" @dragover="over($event, tab.id)" @click="click"
       @drop.stop.prevent="drop($event, tab.id)">
       <TileHostname v-if="!previews[tab.id]" :hostname="tileHostname(tab.url)" />
-      <span v-else class="bookmark-title flex items-center gap-2 absolute bottom-1 w-full border-y border-black/20 ui-caption p-1 text-base leading-[normal] transition-transform duration-250 ease-in-out group-hover:translate-y-[calc(100%+4px)] group-focus-visible:translate-y-0 [&_img]:w-4 [&_img]:min-w-4 [&_img]:h-4 [&_img]:object-cover">
-        <img v-if="icons[tab.id]" :src="icons[tab.id]" width="16" height="16" alt="" class="shrink-0" @error="($event.target as HTMLImageElement).style.visibility = 'hidden'" />
-        <span v-else class="bookmark-icon shrink-0 w-4 min-w-4 h-4" aria-hidden="true"></span>
-        <span class="truncate">{{ tab.title }}</span>
+      <span v-else class="bookmark-title flex items-center gap-2 absolute bottom-0 inset-x-0 ui-caption px-2 py-1 text-base [&_img]:w-4 [&_img]:min-w-4 [&_img]:h-4 [&_img]:object-contain">
+        <img v-if="icons[tab.id] && failedIcons[tab.id] !== icons[tab.id]" :src="icons[tab.id]" width="16" height="16" alt="" draggable="false" class="shrink-0 pointer-events-none" @error="failedIcons[tab.id] = icons[tab.id]!" />
+        <svg v-else class="bookmark-icon pointer-events-none shrink-0 size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z"/></svg>
+        <span class="bookmark-title-label min-w-0 flex-1 truncate">{{ tab.title }}</span>
       </span>
     </a>
-    <button v-if="!searching && (!tabs.length || settings.addButton) && dragId === null" class="add-card ui-glass relative block min-w-0 pt-[56.25%] h-auto rounded-[var(--ui-radius)] ui-hover transition-all duration-250 ease-in-out motion-reduce:transition-none" aria-label="Новая закладка" :disabled="disabled" @click="emit('add')"><svg class="absolute left-1/2 top-1/2 w-[40%] max-w-14 h-auto max-h-[60%] -translate-x-1/2 -translate-y-1/2" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6v28M6 20h28"/></svg></button>
+    <button v-if="!searching && (!tabs.length || settings.addButton)" :inert="dragId !== null" :style="{visibility:dragId !== null?'hidden':undefined}" class="add-card relative block min-w-0" aria-label="Новая закладка" :disabled="disabled || dragId !== null" @click="emit('add')"><svg class="absolute left-1/2 top-1/2 w-[40%] max-w-14 h-auto max-h-[60%] -translate-x-1/2 -translate-y-1/2" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6v28M6 20h28"/></svg></button>
   </section>
 </template>
 <style scoped>

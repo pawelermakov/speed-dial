@@ -42,7 +42,7 @@ try{
      await expect(page.locator('.suggestions li').first()).toBeVisible();expect(requests.slice(start).every(source=>source===id)).toBe(true);
      const typed=await input.inputValue();await input.press('ArrowDown');await expect(page.locator('.suggestions [aria-selected=true]')).toHaveCount(1);await expect(input).toHaveValue(typed);
      // The Find button must use raw input even when a suggestion is highlighted.
-     await page.locator('.search button').click();await expect(page).not.toHaveURL(url);
+     await page.locator('.search-submit').click();await expect(page).not.toHaveURL(url);
      const target=new URL(navigation.at(-1));expect([...target.searchParams.values()]).toContain(typed);
      await page.goto(url);await expect(select).toHaveValue(id);await expect(select).toBeEnabled();await input.fill(queries[id]);await expect(page.locator('.suggestions li').first()).toBeVisible();
      await input.press('ArrowDown');await input.press('Enter');await expect(page).not.toHaveURL(url);
@@ -58,18 +58,19 @@ try{
    await expect(input).toHaveValue('slow');await expect(page.locator('.suggestions li').first()).toContainText('The Matrix');releaseSlow();
    await input.press('Escape');await expect(page.locator('.suggestions')).toHaveCount(0);
    await input.fill('blocked');await expect(page.locator('.search [role=status]')).toContainText('Подсказки временно недоступны');
-   await page.locator('.search button').click();await expect(page).not.toHaveURL(url);expect(navigation.at(-1)).toBe('https://www.imdb.com/find/?q=blocked');await page.goto(url);await expect(select).toBeEnabled();
+   await page.locator('.search-submit').click();await expect(page).not.toHaveURL(url);expect(navigation.at(-1)).toBe('https://www.imdb.com/find/?q=blocked');await page.goto(url);await expect(select).toBeEnabled();
    await page.evaluate(async()=>{const {settings}=await chrome.storage.local.get('settings');settings.value.searchProvider='unknown';await chrome.storage.local.set({settings});});await page.reload();await expect(select).toHaveValue('yandex');
    for(const [width,height]of[[360,800],[1280,800],[1920,1080]]){
      await page.setViewportSize({width,height});
      for(const id of providers){await input.fill('');await expect(select).toBeEnabled();await select.selectOption(id);await expect(select).toBeEnabled();await input.fill(queries[id]);await expect(page.locator('.suggestions li').first()).toBeVisible();
-       const a=await select.boundingBox(),b=await input.boundingBox(),c=await page.locator('.search button').boundingBox();expect(a.x+a.width).toBeLessThanOrEqual(b.x+1);expect(b.x+b.width).toBeLessThanOrEqual(c.x+1);expect(b.width).toBeGreaterThan(60);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+       const a=await select.boundingBox(),b=await input.boundingBox(),c=await page.locator('.search-submit').boundingBox();expect(a.x+a.width).toBeLessThanOrEqual(b.x+1);expect(b.x+b.width).toBeLessThanOrEqual(c.x+1);expect(b.width).toBeGreaterThan(60);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
        await page.screenshot({path:resolve(out,`${id}-${width}.png`)});
      }
    }
    expect(errors).toEqual([]);console.log('PASS Chrome provider UI: flat select, persistence, own requests, keyboard/raw button, direct links, stale cancellation, failures, 15 responsive screenshots');
  }
 }finally{await ctx.close();}
+if(!process.argv.includes('--chrome-only')) {
 const driver=await launchFirefox();try{
  await driver.command('WebDriver:Navigate',{url:firefoxUrl});await driver.until('return !!document.querySelector(".search select")&&!document.querySelector(".search select").disabled;');
  if(!live)await driver.exec('window.providerCalls=[];const fixtures=arguments[0],hosts=arguments[1],original=window.fetch;window.fetch=async function(url,init){const id=hosts[new URL(String(url)).hostname];if(!id)return original(url,init);window.providerCalls.push(id);return new Response(JSON.stringify(fixtures[id]),{headers:{"content-type":"application/json"}});};',fixtures,hosts);
@@ -85,4 +86,5 @@ const driver=await launchFirefox();try{
  }
  if(!live)console.log('PASS Firefox provider UI: flat select, persistence, real-fixture parsers, keyboard keeps raw query');
 }finally{await driver.close();}
+}
 if(live){await writeFile(resolve(out,headed?'live-headed-results.json':'live-results.json'),JSON.stringify({checkedAt:new Date().toISOString(),headless:!headed,results},null,2));if(results.some(row=>row.status==='BLOCKED'))process.exitCode=2;}

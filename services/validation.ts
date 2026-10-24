@@ -32,9 +32,8 @@ export function normalizeBookmarkUrl(input: string): string {
   return value;
 }
 function boolean(value: unknown, fallback: boolean): boolean {
-  if (value === undefined || value === null) return fallback;
-  if (value === true || value === 'true' || value === 'on' || value === '1' || value === 1) return true;
-  if (value === false || value === 'false' || value === '' || value === '0' || value === 0) return false;
+  if (value === undefined) return fallback;
+  if (typeof value === 'boolean') return value;
   throw new Error('Некорректное значение переключателя.');
 }
 export function validateSettings(input: unknown): Settings {
@@ -46,20 +45,12 @@ export function validateSettings(input: unknown): Settings {
     return value;
   };
   const email = data.email ?? '';
-  const appearanceNumber=(key:'uiRadius'|'uiTransparency',max:number)=>{
-    const raw=data[key],value=typeof raw==='number'||typeof raw==='string'&&raw.trim()!==''?Number(raw):NaN;
-    return Number.isInteger(value)&&value>=0&&value<=max?value:defaults[key];
-  };
-  let uiBlur=defaults.uiBlur;
-  try{uiBlur=boolean(data.uiBlur,defaults.uiBlur);}catch{/* Older or damaged preferences use the safe default. */}
   if (typeof email !== 'string' || email.length > 254 || (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())))
     throw new Error('Некорректный E-mail.');
   return {
     width: number('width', 50, 100), countColumns: number('countColumns', 2, 12), space: number('space', 0, 48),
     verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch: boolean(data.bookmarkSearch, true), email: email.trim(),
     searchProvider: searchProviderIds.includes(data.searchProvider as SearchProviderId) ? data.searchProvider as SearchProviderId : 'yandex',
-    uiRadius:appearanceNumber('uiRadius',24),uiTransparency:appearanceNumber('uiTransparency',50),uiBlur,
-    uiAccent:typeof data.uiAccent==='string'&&/^#[0-9a-f]{6}$/i.test(data.uiAccent)?data.uiAccent.toUpperCase():defaults.uiAccent,
   };
 }
 export function safeFavicon(value: unknown): string {

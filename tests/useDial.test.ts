@@ -10,10 +10,20 @@ vi.mock('../services/favicons', () => ({ faviconBlob: vi.fn(async () => null) })
 vi.mock('../services/repository', () => ({ Repository: class { load = state.load; initialize = state.initialize; }, withDataLock: (fn: ()=>Promise<unknown>) => fn() }));
 import { useDial, repository } from '../composables/useDial';
 import { defaults } from '../types/models';
-const snapshot = (title: string) => ({ tabs: [{ id:'x', parentId:'root', title, url:'https://example.com/', index:0, favicon:null, thumbnail:null }], categories:[],rootId:'root',activeId:'root',settings:defaults,background:null });
+const snapshot = (title: string) => ({ tabs: [{ id:'x', parentId:'root', title, url:'https://example.com/', index:0, favicon:null, thumbnail:null }], folders:[],rootId:'root',activeId:'root',settings:defaults,background:null });
 beforeEach(() => { vi.useFakeTimers(); state.mounted.length=0;state.unmounted.length=0;state.listeners.clear();state.background.mockReset().mockResolvedValue(undefined);state.load.mockReset().mockResolvedValue(snapshot('Initial'));state.initialize.mockReset().mockResolvedValue(undefined);vi.stubGlobal('BroadcastChannel',class { postMessage=state.post; close=state.close; onmessage=null; });vi.stubGlobal('navigator',{}); });
 afterEach(() => { state.unmounted.forEach(callback=>callback());vi.useRealTimers();vi.unstubAllGlobals(); });
 describe('browser event refresh lifecycle', () => {
+ it('refreshes asset-only broadcasts without invalidating a drag, but invalidates structural updates',async()=>{
+   const channels:Array<{onmessage:((event:{data:unknown})=>void)|null}>=[];
+   vi.stubGlobal('BroadcastChannel',class {onmessage:((event:{data:unknown})=>void)|null=null;postMessage=state.post;close=state.close;constructor(){channels.push(this);}});
+   const dial=useDial();await state.mounted[0]!();state.load.mockClear();
+   channels[0]!.onmessage!({data:{type:'updated',assets:true}});await vi.advanceTimersByTimeAsync(60);
+   expect(state.load).toHaveBeenCalled();expect(dial.revision.value).toBe(0);
+   channels[0]!.onmessage!({data:{type:'updated'}});expect(dial.revision.value).toBe(1);
+   [...state.listeners][0]!();expect(dial.revision.value).toBe(2);
+ });
+
  it('loads wallpaper while bookmark initialization is still pending',async()=>{
    const blob=new Blob(['wallpaper']);state.background.mockResolvedValue({blob});
    let finish!:()=>void;state.initialize.mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;}));
@@ -28,13 +38,12 @@ describe('browser event refresh lifecycle', () => {
    const dial=useDial();await state.mounted[0]!();finish({blob:new Blob(['old'])});await Promise.resolve();
    expect(dial.snapshot.value.background).toBe(current);
  });
- it('previews appearance without writing, then commits through the same field update API',async()=>{
+ it('saves current fields and rolls back failed writes',async()=>{
    const dial=useDial();await state.mounted[0]!();
-   repository.patchSettings=vi.fn().mockResolvedValue({...defaults,uiRadius:24});
-   dial.previewSettings({uiRadius:24});expect(dial.snapshot.value.settings.uiRadius).toBe(24);expect(repository.patchSettings).not.toHaveBeenCalled();
-   expect(await dial.updateSettings({uiRadius:24})).toBe(true);expect(repository.patchSettings).toHaveBeenCalledWith({uiRadius:24});
-   dial.previewSettings({uiAccent:'#3366CC'});repository.patchSettings=vi.fn().mockRejectedValue(new Error('write denied'));
-   expect(await dial.updateSettings({uiAccent:'#3366CC'})).toBe(false);expect(dial.snapshot.value.settings.uiAccent).toBe(defaults.uiAccent);
+   repository.patchSettings=vi.fn().mockResolvedValue({...defaults,width:75});
+   expect(await dial.updateSettings({width:75})).toBe(true);expect(repository.patchSettings).toHaveBeenCalledWith({width:75});
+   repository.patchSettings=vi.fn().mockRejectedValue(new Error('write denied'));
+   expect(await dial.updateSettings({space:12})).toBe(false);expect(dial.snapshot.value.settings.space).toBe(defaults.space);
  });
  it('a failed background write preserves the current image and exposes a persistent error',async()=>{
    const initial={...snapshot('Initial'),background:new Blob(['old image'])};state.load.mockResolvedValueOnce(initial);

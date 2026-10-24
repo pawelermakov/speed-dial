@@ -6,9 +6,7 @@ export class DialDatabase extends Dexie {
   assets!: Table<{ key: string; blob: Blob }, string>;
   constructor(name = 'SpeedDialX') {
     super(name);
-    this.version(1).stores({ bookmarks: '++id,position', assets: 'key', journal: 'key' });
-    this.version(2).stores({ bookmarks: null, journal: null, assets: 'key', tileAssets: '[bookmarkId+url],bookmarkId' });
-    this.version(3).stores({ autoNames: 'bookmarkId' });
+    this.version(3).stores({ assets: 'key', tileAssets: '[bookmarkId+url],bookmarkId', autoNames: 'bookmarkId' });
   }
 }
 export const db = new DialDatabase();

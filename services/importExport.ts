@@ -11,18 +11,18 @@ export function parseImport(text: string): ImportData {
   function bookmark(value: unknown) {
     if (++count > 10000) throw new Error('Больше 10000 закладок.');
     const row = record(value, 'Закладка');
-    if ('children' in row) throw new Error('Вложенные категории не поддерживаются.');
+    if ('children' in row) throw new Error('Вложенные папки не поддерживаются.');
     return { title: title(row.title), url: normalizeUrl(row.url) };
   }
   const entries = data.entries.map(value => {
     const row = record(value, 'Элемент');
     if ('url' in row) return bookmark(row);
-    if (!Array.isArray(row.children) || row.children.length > 10000) throw new Error('Категория: нужен массив children.');
+    if (!Array.isArray(row.children) || row.children.length > 10000) throw new Error('Папка: нужен массив children.');
     return { title: title(row.title), children: row.children.map(bookmark) };
   });
   return { entries, settings: validateSettings(data.settings), background: imageFromDataUrl(data.background, 'Фон') };
 }
-export async function serializeExport(data: ImportData): Promise<string> { return JSON.stringify({ version: 2, entries: data.entries, settings: data.settings, background: await blobToDataUrl(data.background) }, null, 2); }
+export async function serializeExport(data: ImportData): Promise<string> { return JSON.stringify({ version: 2, entries: data.entries, settings: validateSettings(data.settings), background: await blobToDataUrl(data.background) }, null, 2); }
 export function downloadExport(text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
   const link = document.createElement('a'); link.href = url; link.download = 'speed-dial.json'; link.click();

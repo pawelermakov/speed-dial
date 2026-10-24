@@ -27,8 +27,11 @@ try {
   const decode=HTMLImageElement.prototype.decode;
   HTMLImageElement.prototype.decode=function(){
    const decoded=decode.call(this);
-   if(this.src.startsWith('blob:') && !window.releaseWallpaperDecode)
-    return decoded.then(()=>new Promise(resolve=>{window.releaseWallpaperDecode=resolve;}));
+   if(this.src.startsWith('blob:') && !window.wallpaperDecodeReleased)
+    return decoded.then(()=>new Promise(resolve=>{
+     (window.wallpaperDecodeWaiters??=[]).push(resolve);
+     window.releaseWallpaperDecode=()=>{window.wallpaperDecodeReleased=true;window.wallpaperDecodeWaiters.splice(0).forEach(done=>done());};
+    }));
    return decoded;
   };
  });
@@ -51,7 +54,7 @@ try {
  await expect(page.locator('.page')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
  await expect(page.locator('.page-background')).toHaveCSS('position','fixed');
  await expect(page.locator('.page-background')).toHaveCSS('opacity','1');
- assert.equal(await page.locator('.page-background').evaluate(e=>getComputedStyle(e).transitionProperty),'filter, opacity');
+ assert.equal(await page.locator('.page-background').evaluate(e=>getComputedStyle(e).transitionProperty),'opacity');
  await page.screenshot({path:resolve(out,'after-load.png')});
  await open();await upload('#9b354a');
  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('speed-dial-background-preview'))).not.toBe(preview);

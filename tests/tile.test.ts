@@ -33,7 +33,7 @@ describe('text bookmark tiles', () => {
     expect(tileHostname('invalid')).toBe('Сайт');
     expect(tileHostname('file:///tmp/a')).toBe('Сайт');
   });
-  it('keeps color independent of paths, titles, ids and categories', () => {
+  it('keeps color independent of paths, titles, ids and folders', () => {
     expect(tileColor(tileHostname('https://www.Example.com/a'))).toBe(tileColor(tileHostname('http://example.com/b')));
     expect(tileColor('example.com')).toBe('#754691');
   });

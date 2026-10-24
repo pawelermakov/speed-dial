@@ -1,4 +1,8 @@
-# Public provider responses, 2026-10-17
+# Test fixtures
+
+## Search providers (`search-providers/`)
+
+Public provider responses, collected 2026-10-17
 
 JSON fixtures retain only fields used by parsers, from real responses. No cookies, accounts, request history or credentials are included. Image URLs/descriptions and unrelated fields were removed; adversarial inputs are built separately in tests.
 
@@ -8,6 +12,15 @@ JSON fixtures retain only fields used by parsers, from real responses. No cookie
 - MyShows: POST `https://api.myshows.me/v2/rpc/`, JSON-RPC `shows.Search` with `Breaking Bad` and `Во все тяжкие`. `application/json`, HTTP 200 in Firefox, Node and non-headless Chromium; HeadlessChrome User-Agent produces HTTP 502. The fixture is from Firefox.
 - Kinopoisk: POST `https://graphql.kinopoisk.ru/graphql/?operationName=SuggestSearch`, published full operation and public `service-id: 25`, `withUserData:false`. `application/json; charset=utf-8`, HTTP 200 in Node. The fixture is from Node; subsequent live UI checks passed in Chromium and Firefox after installing the narrowly scoped Origin rule.
 
-The Kinopoisk operation/configuration were read from the official page's public runtime configuration and JavaScript (`_app` plus its `SuggestContainer` module). The old `handler_search.php` endpoint returned 404. The API rejects modified operations (`the query is not allowed`). No sessions, cookies, proxy or CAPTCHA bypass were used to collect fixtures. The final extension sets Origin only for its own SuggestSearch POST requests, as explicitly authorized by the user.
+The Kinopoisk operation/configuration were read from the official page's public runtime configuration and JavaScript (`_app` plus its `SuggestContainer` module). The API rejects modified operations (`the query is not allowed`). No sessions, cookies, proxy or CAPTCHA bypass were used to collect fixtures. The final extension sets Origin only for its own SuggestSearch POST requests, as explicitly authorized by the user.
 
-Verified official search routes: Kinopoisk's visible “Показать все” link uses `/new-search/?text=...`; submitting MyShows' own search form navigated to `/search/?q=...` and showed the matching series. All five providers subsequently passed real UI checks in non-headless Chromium and Firefox (`npm run test:providers:live:headed`); see `docs/verification.md`. Fixtures alone do not prove network access.
+Verified official search routes: Kinopoisk's visible “Показать все” link uses `/new-search/?text=...`; submitting MyShows' own search form navigated to `/search/?q=...` and showed the matching series. All five providers subsequently passed real UI checks in non-headless Chromium and Firefox (`npm run test:live -- --headed`). Fixtures alone do not prove network access.
+
+## Favicons (`favicons/`)
+
+Public favicon regression fixtures fetched on 2026-10-17 from:
+
+- https://ya.ru/favicon.ico
+- https://www.youtube.com/favicon.ico
+
+Used only to verify decoding, recognizable red/orange hues, color resolution and reload stability. Browser tests use these local files without contacting those sites.

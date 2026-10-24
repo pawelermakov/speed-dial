@@ -1,5 +1,4 @@
 import { faviconTileColor } from '../utils/tile';
-export const faviconColorVersion = 8;
 
 export async function readFaviconColor(blob: Blob): Promise<string | undefined> {
   if (typeof Image === 'undefined' || typeof document === 'undefined') throw new Error('Image decoder unavailable');

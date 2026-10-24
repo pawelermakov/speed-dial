@@ -53,7 +53,7 @@ try{
  await open(a.page);await expect(a.page.getByLabel('Расстояние (px)',{exact:true})).toHaveValue('12');
 
  await a.page.getByLabel('E-mail Mail.ru',{exact:true}).fill('draft@mail.ru');
- await a.worker.evaluate(()=>chrome.storage.sync.set({'settings.v1.email':'remote@mail.ru','settings.v1.uiAccent':'#123456','settings.v1.uiRadius':12}));
+ await a.worker.evaluate(()=>chrome.storage.sync.set({'settings.v1.email':'remote@mail.ru'}));
  await expect(a.page.getByLabel('E-mail Mail.ru',{exact:true})).toHaveValue('draft@mail.ru');
  await expect(a.page.getByLabel('E-mail Mail.ru',{exact:true})).toBeFocused();
  await close(a.page);await expect.poll(async()=>(await cloud(a.worker))['settings.v1.email']).toBe('draft@mail.ru');

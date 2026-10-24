@@ -6,7 +6,7 @@ import { defaults, type Snapshot, type Bookmark } from '../types/models';
 const state=vi.hoisted(()=>({unmount:[] as Array<()=>void>}));
 vi.mock('vue',async()=>({...await vi.importActual('vue'),onUnmounted:(fn:()=>void)=>state.unmount.push(fn)}));
 afterEach(()=>{state.unmount.splice(0).forEach(fn=>fn());});
-const initial:Snapshot={tabs:[],categories:[],rootId:'root',activeId:'work',settings:defaults,background:null};
+const initial:Snapshot={tabs:[],folders:[],rootId:'root',activeId:'work',settings:defaults,background:null};
 it('rejects stale results, refreshes on browser snapshots and clears query/errors',async()=>{
   let finish!:(rows:Bookmark[])=>void;
   const search=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;})).mockResolvedValue([{id:'new'}]);
@@ -26,7 +26,7 @@ it('ignores late search completions after unmount',async()=>{
   dial.query.value='query';state.unmount.splice(0).forEach(fn=>fn());finish([{id:'late'} as Bookmark]);await nextTick();
   expect(dial.results.value).toEqual([]);
 });
-it('invalidates results immediately on browser changes independently of the normal category read',async()=>{
+it('invalidates results immediately on browser changes independently of the normal folder read',async()=>{
   const revision=ref(0),search=vi.fn().mockResolvedValue([{id:'first'}]);
   const dial=useBookmarkSearch({search} as unknown as Repository,shallowRef(initial),revision);
   dial.query.value='query';await nextTick();expect(dial.results.value).toHaveLength(1);

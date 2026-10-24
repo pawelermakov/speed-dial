@@ -41,7 +41,7 @@ export async function firefoxSmoke(siteUrl, results) {
   await driver.exec('document.activeElement.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));');
   await driver.until('return !document.querySelector(".bookmark-search-field.is-open");');
   results.push('firefox: local search focus, case/trim, unchanged tiles, no drag, external rename and clear/close');
-  const category = await driver.exec('const category=await browser.bookmarks.create({parentId:arguments[0],title:"Work"});await browser.bookmarks.move(arguments[1],{parentId:category.id});return category.id;',rootId,id);
+  const folder = await driver.exec('const folder=await browser.bookmarks.create({parentId:arguments[0],title:"Work"});await browser.bookmarks.move(arguments[1],{parentId:folder.id});return folder.id;',rootId,id);
   await driver.until('return Array.from(document.querySelectorAll("nav button")).some(button=>button.textContent.trim()==="Work");');
   await click('Work');await driver.until('return document.querySelectorAll(".bookmark").length===1;');
   await driver.exec('await browser.bookmarks.update(arguments[0],{title:"External Firefox"});',id);
@@ -50,9 +50,9 @@ export async function firefoxSmoke(siteUrl, results) {
   await driver.until('return !!document.querySelector("#bookmark-title");');
   await driver.exec('const input=document.querySelector("#bookmark-title");input.value="Edited Firefox";input.dispatchEvent(new Event("input",{bubbles:true}));'); await click('Сохранить');
   await driver.until('return !document.querySelector("dialog") && document.querySelector(".bookmark")?.textContent.includes("Edited Firefox");');
-  await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',category);
+  await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',folder);
   await driver.until('return document.querySelectorAll(".bookmark").length===0;');
-  results.push('firefox: category transfer, external change, UI edit and external category removal');
+  results.push('firefox: folder transfer, external change, UI edit and external folder removal');
   await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
   await driver.until('return document.querySelector(".settings")?.textContent.includes("Статус недоступен");');
   await driver.exec('window.confirm=()=>true;'); await click('Сбросить настройки и кэш');

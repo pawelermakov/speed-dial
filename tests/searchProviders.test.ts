@@ -22,7 +22,7 @@ describe('provider contracts',()=>{
     await expect(providerSuggestions('kinopoisk','Матрица',new AbortController().signal)).rejects.toThrow('HTTP 403');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
-  it('has exactly five flat providers and safe migration/export defaults',async()=>{
+  it('has exactly five flat providers and safe export defaults',async()=>{
     expect(searchProviders.map(row=>row.label)).toEqual(['Яндекс','Google','Кинопоиск','IMDb','MyShows']);
     expect(validateSettings({}).searchProvider).toBe('yandex');expect(validateSettings({searchProvider:'bing'}).searchProvider).toBe('yandex');
     for(const {id}of searchProviders){const data={entries:[],settings:{...defaults,searchProvider:id},background:null};expect(parseImport(await serializeExport(data)).settings.searchProvider).toBe(id);}

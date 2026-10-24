@@ -10,7 +10,7 @@ beforeEach(async () => {
  await repo.initialize();
 });
 afterEach(async () => { await db.delete(); });
-it('creates directly in the selected category and rejects foreign/stale parents', async () => {
+it('creates directly in the selected folder and rejects foreign/stale parents', async () => {
  const folder = await api.create({parentId:'other',title:'Work'});
  const id = await repo.add({url:'example.com',title:'',parentId:folder.id});
  expect(await repo.node(id)).toMatchObject({parentId:folder.id,title:'example.com',url:'https://example.com/'});
@@ -85,7 +85,7 @@ it('consumes combined Chrome and split Firefox events without deleting our new f
   expect(await repo.autoNameTicket(id)).toBeUndefined();
  }
 });
-it('preserves pending automatic names and assets when only the category changes', async () => {
+it('preserves pending automatic names and assets when only the folder changes', async () => {
  const id=await repo.add({url:'example.com',title:''});const ticket=await repo.autoNameTicket(id);
  const folder=await api.create({parentId:'other',title:'Work'});
  expect(await repo.edit(id,'https://example.com/','example.com',folder.id,false)).toBe(false);

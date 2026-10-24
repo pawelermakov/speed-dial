@@ -1,6 +1,6 @@
 import type { DialDatabase } from './database';
 import type { BookmarkAssets } from '../types/models';
-import { readFaviconColor, faviconColorVersion } from './faviconColor';
+import { readFaviconColor } from './faviconColor';
 function valid(blob: unknown): blob is Blob {
   return blob instanceof Blob && /^image\/(png|jpeg|webp|gif|bmp|avif|x-icon|vnd.microsoft.icon)$/.test(blob.type) && blob.size <= 20 * 1024 * 1024;
 }
@@ -11,21 +11,19 @@ export class BookmarkAssetStore {
     try {
       const row = await this.db.tileAssets.get([bookmarkId, url]);
       if (row && valid(row.favicon)) {
-        if (row.faviconColorVersion !== faviconColorVersion || (row.faviconColor !== null && !/^#[0-9a-f]{6}$/i.test(row.faviconColor ?? ''))) {
+        if (row.faviconColor === undefined) {
           let resolved = false;
           try {
             row.faviconColor = await this.colorOf(row.favicon) ?? null;
-            row.faviconColorVersion = faviconColorVersion;
             resolved = true;
           } catch {
             row.faviconColor = undefined;
-            row.faviconColorVersion = undefined;
           }
-          // Backfill old caches without overwriting an icon updated during decoding.
+          // Retry unresolved colors without overwriting an icon updated during decoding.
           if (resolved) await this.db.transaction('rw', this.db.tileAssets, async () => {
             const latest = await this.db.tileAssets.get([bookmarkId, url]);
             if (latest && latest.faviconUpdatedAt === row.faviconUpdatedAt)
-              await this.db.tileAssets.update([bookmarkId, url], { faviconColor: row.faviconColor, faviconColorVersion });
+              await this.db.tileAssets.update([bookmarkId, url], { faviconColor: row.faviconColor });
           }).catch(() => {});
         }
       } else if (row) row.faviconColor = null;
@@ -35,15 +33,14 @@ export class BookmarkAssetStore {
   async put(bookmarkId: string, url: string, resource: 'thumbnail' | 'favicon', blob: Blob) {
     if (!valid(blob)) throw new Error('Неподдерживаемое изображение.');
     let color: string | null | undefined;
-    let colorVersion: number | undefined;
     if (resource === 'favicon') {
-      try { color = await this.colorOf(blob) ?? null; colorVersion = faviconColorVersion; }
+      try { color = await this.colorOf(blob) ?? null; }
       catch { /* Retry a transient decoder failure on a subsequent read. */ }
     }
     await this.db.transaction('rw', this.db.tileAssets, async () => {
       const old = await this.db.tileAssets.get([bookmarkId, url]);
       const revision = Math.max(Date.now(), (old?.[resource === 'thumbnail' ? 'thumbnailUpdatedAt' : 'faviconUpdatedAt'] ?? 0) + 1);
-      await this.db.tileAssets.put({ ...old, bookmarkId, url, [resource]: blob, [resource + 'UpdatedAt']: revision, ...(resource === 'favicon' ? { faviconColor: color, faviconColorVersion: colorVersion } : {}) });
+      await this.db.tileAssets.put({ ...old, bookmarkId, url, [resource]: blob, [resource + 'UpdatedAt']: revision, ...(resource === 'favicon' ? { faviconColor: color } : {}) });
     });
   }
   async remove(bookmarkId: string) { await this.db.tileAssets.where('bookmarkId').equals(bookmarkId).delete().catch(() => {}); }

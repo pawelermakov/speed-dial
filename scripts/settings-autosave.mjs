@@ -6,13 +6,13 @@ import {launchFirefox,firefoxUrl} from './firefox-driver.mjs';
 const out=resolve('.browser-test/settings-autosave');await mkdir(out,{recursive:true});
 const image=await readFile('public/images/icon128.png');
 const ext=resolve('.output/chrome-mv3');
-const context=await chromium.launchPersistentContext(resolve('.browser-test/f05-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/settings-autosave-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
 try{
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const url=worker.url().replace('background.js','newtab.html');
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',dialog=>dialog.accept());
  await page.addInitScript(()=>{window.mutations=[];for(const key of ['create','update','move','remove','removeTree']){const original=chrome.bookmarks[key];chrome.bookmarks[key]=(...args)=>{window.mutations.push(key);return original.apply(chrome.bookmarks,args);};}});
  await page.goto(url);await expect(page.getByRole('button',{name:'Настройки',exact:true})).toBeEnabled();
- const fixture=await page.evaluate(async()=>{const {rootFolderId}=await chrome.storage.local.get('rootFolderId');const other=await chrome.bookmarks.create({parentId:rootFolderId,title:'Another source'});const a=await chrome.bookmarks.create({parentId:rootFolderId,title:'Category A'}),b=await chrome.bookmarks.create({parentId:rootFolderId,title:'Category B'});await chrome.bookmarks.create({parentId:a.id,title:'A tile',url:'https://a.example/'});await chrome.bookmarks.create({parentId:b.id,title:'B tile',url:'https://b.example/'});return{root:rootFolderId,other:other.id,a:a.id,b:b.id};});
+ const fixture=await page.evaluate(async()=>{const {rootFolderId}=await chrome.storage.local.get('rootFolderId');const other=await chrome.bookmarks.create({parentId:rootFolderId,title:'Another source'});const a=await chrome.bookmarks.create({parentId:rootFolderId,title:'Folder A'}),b=await chrome.bookmarks.create({parentId:rootFolderId,title:'Folder B'});await chrome.bookmarks.create({parentId:a.id,title:'A tile',url:'https://a.example/'});await chrome.bookmarks.create({parentId:b.id,title:'B tile',url:'https://b.example/'});return{root:rootFolderId,other:other.id,a:a.id,b:b.id};});
  const open=async target=>{const button=target.getByRole('button',{name:'Настройки',exact:true});await expect(button).toBeEnabled();await button.focus();await button.press('Enter');await expect(target.getByLabel('Папка закладок',{exact:true})).toBeEnabled();};
  const close=async target=>{await target.getByRole('button',{name:'Закрыть настройки',exact:true}).click();await expect(target.locator('.settings')).toHaveCount(0);};
  const stored=(target,key)=>target.evaluate(async key=>(await chrome.storage.local.get('settings')).settings?.value[key],key);
@@ -27,17 +27,17 @@ try{
  await expect.poll(()=>stored(page,'width')).toBe(70);await expect.poll(()=>stored(page,'space')).toBe(12);await expect.poll(()=>stored(page,'searchProvider')).toBe('imdb');
  await expect(page.getByLabel('Расстояние (px)',{exact:true})).toHaveValue('12');
  await close(peer);await peer.close();
- await page.evaluate(()=>{const original=chrome.storage.local.set;window.restoreSet=()=>chrome.storage.local.set=original;chrome.storage.local.set=(value,...args)=>value.settings?Promise.reject(new Error('F05 write failed')):original.call(chrome.storage.local,value,...args);});
+ await page.evaluate(()=>{const original=chrome.storage.local.set;window.restoreSet=()=>chrome.storage.local.set=original;chrome.storage.local.set=(value,...args)=>value.settings?Promise.reject(new Error('settings write failed')):original.call(chrome.storage.local,value,...args);});
  await page.getByLabel('Ширина (%)',{exact:true}).fill('75');await page.getByLabel('Ширина (%)',{exact:true}).blur();await expect(page.locator('.settings [role=alert]')).toContainText('Ширина');
- await close(page);await expect(page.locator('[role=alert]')).toContainText('F05 write failed');assert.equal(await stored(page,'width'),70);
+ await close(page);await expect(page.locator('[role=alert]')).toContainText('settings write failed');assert.equal(await stored(page,'width'),70);
  await page.evaluate(()=>window.restoreSet());await open(page);await page.getByLabel('Ширина (%)',{exact:true}).fill('90');await page.getByLabel('Ширина (%)',{exact:true}).blur();await expect.poll(()=>stored(page,'width')).toBe(90);
  await page.getByLabel('Изменить фон',{exact:true}).setInputFiles({name:'background.png',mimeType:'image/png',buffer:image});await expect(page.getByRole('button',{name:'Удалить фон',exact:true})).toBeVisible();await close(page);
  await expect.poll(()=>page.locator('.page-background').evaluate(e=>e.style.backgroundImage)).toContain('blob:');const background=await page.locator('.page-background').evaluate(e=>e.style.backgroundImage);
  await page.evaluate(()=>{window.mutations=[];});
- for(const name of ['Category B','Category A','Category B','Category A']){await page.getByRole('button',{name,exact:true}).click();await expect(page.getByRole('button',{name,exact:true})).toHaveAttribute('aria-pressed','true');assert.equal(await page.locator('.page-background').evaluate(e=>e.style.backgroundImage),background);}
+ for(const name of ['Folder B','Folder A','Folder B','Folder A']){await page.getByRole('button',{name,exact:true}).click();await expect(page.getByRole('button',{name,exact:true})).toHaveAttribute('aria-pressed','true');assert.equal(await page.locator('.page-background').evaluate(e=>e.style.backgroundImage),background);}
  await page.evaluate(id=>{const original=chrome.bookmarks.getChildren;window.restoreChildren=()=>chrome.bookmarks.getChildren=original;window.delayedRead=false;chrome.bookmarks.getChildren=async requested=>{if(requested===id){window.delayedRead=true;await new Promise(resolve=>setTimeout(resolve,150));}return original.call(chrome.bookmarks,requested);};},fixture.a);
- await page.getByRole('button',{name:'Category A',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.delayedRead)).toBe(true);
- await page.getByRole('button',{name:'Category B',exact:true}).click();await expect(page.getByRole('button',{name:'Category B',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.locator('.bookmark')).toHaveAttribute('href','https://b.example/');await page.evaluate(()=>window.restoreChildren());
+ await page.getByRole('button',{name:'Folder A',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.delayedRead)).toBe(true);
+ await page.getByRole('button',{name:'Folder B',exact:true}).click();await expect(page.getByRole('button',{name:'Folder B',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.locator('.bookmark')).toHaveAttribute('href','https://b.example/');await page.evaluate(()=>window.restoreChildren());
  await open(page);const source=page.getByLabel('Папка закладок',{exact:true});
  for(const id of [fixture.other,fixture.root,fixture.other,fixture.root]){await source.selectOption(id);await expect.poll(()=>page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId)).toBe(id);}
  await page.evaluate(({root,other})=>{const select=document.querySelector('#bookmark-folder');for(const id of [other,root,other,root]){select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));}},fixture);
@@ -56,8 +56,9 @@ try{
  await open(page);await page.getByLabel('Ширина (%)',{exact:true}).fill('89');await page.getByRole('button',{name:'Сбросить настройки и кэш',exact:true}).click();
  await expect(page.locator('.settings')).toHaveCount(0);await expect.poll(()=>stored(page,'width')).toBe(100);assert.equal(await stored(page,'space'),24);assert.equal(await page.evaluate(async()=> (await chrome.storage.local.get('rootFolderId')).rootFolderId),fixture.root);
  assert.deepEqual(await page.evaluate(()=>window.mutations),[]);
- console.log('PASS Chrome F05: autosave, invalid input, close flush, two tabs, provider patch, failure rollback/persistent alert, stable background across categories/sources, zero bookmark writes, Sync states, responsive panels, reload, pending edits cannot overwrite import/reset');
+ console.log('PASS Chrome settings: autosave, invalid input, close flush, two tabs, provider patch, failure rollback/persistent alert, stable background across folders/sources, zero bookmark writes, Sync states, responsive panels, reload, pending edits cannot overwrite import/reset');
 }finally{await context.close();}
+if(!process.argv.includes('--chrome-only')) {
 const driver=await launchFirefox();try{
  await driver.command('WebDriver:Navigate',{url:firefoxUrl});await driver.until('return !!document.querySelector(".page")&&!document.querySelector("button[aria-label=Настройки]").disabled;');
  await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');await driver.until('return !!document.querySelector("#bookmark-folder")&&!document.querySelector("#bookmark-folder").disabled;');
@@ -75,5 +76,7 @@ const driver=await launchFirefox();try{
  for(const id of ids){await driver.until('return !!document.querySelector("nav button[aria-pressed]");');await driver.exec('const name=arguments[0];Array.from(document.querySelectorAll("nav button")).find(e=>e.textContent.trim()===name).click();',id===ids[0]?'Firefox A':'Firefox B');await driver.until('return Array.from(document.querySelectorAll("nav button[aria-pressed=true]")).some(e=>e.textContent.trim()==="'+(id===ids[0]?'Firefox A':'Firefox B')+'");');assert.equal(await driver.exec('return document.querySelector(".page-background").style.backgroundImage;'),background);}
  await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');await driver.until('return !!document.querySelector("[data-icon=circle-minus]");');
  const screenshot=await driver.command('WebDriver:TakeScreenshot',{full:false});await writeFile(resolve(out,'settings-firefox.png'),Buffer.from(screenshot,'base64'));
- console.log('PASS Firefox F05: autosave close flush, unsupported Sync, real background upload, stable category background');
+ console.log('PASS Firefox settings: autosave close flush, unsupported Sync, real background upload, stable folder background');
 }finally{await driver.close();}
+
+}

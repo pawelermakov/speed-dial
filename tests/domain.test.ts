@@ -5,12 +5,12 @@ import { imageFromDataUrl } from '../services/images';
 import { parseMailCount } from '../services/network';
 import { defaults } from '../types/models';
 describe('versioned append import validation', () => {
-  it('round trips categories/order/settings without cache or profile IDs', async () => {
+  it('round trips folders/order/settings without cache or profile IDs', async () => {
     const data = { entries: [{ title: 'Site', url: 'https://example.com/' }, { title: 'Empty', children: [] }, { title: 'Work', children: [{ title: 'A', url: 'https://a.example/' }] }], settings: defaults, background: null };
     const text = await serializeExport(data); expect(parseImport(text)).toEqual(data); expect(text).not.toContain('favicon'); expect(text).not.toContain('bookmarkId');
   });
   it.each(['javascript:alert(1)', 'data:text/html,x', 'file:///x', 'chrome://settings', 'about:blank', 'https://user:pass@example.com'])('rejects unsafe URL %s', url => { expect(() => normalizeUrl(url)).toThrow(); expect(() => parseImport(JSON.stringify({ version: 2, entries: [{ title: 'A', url }] }))).toThrow(); });
-  it.each(['invalid', '[]', '{}', '{"tabs":[]}', '{"version":2,"entries":null}', '{"version":2,"entries":[{"title":"A","children":[{"title":"B","children":[]}]}]}', '{"version":2,"entries":[],"settings":{"width":49}}'])('rejects invalid/legacy %s before mutations', text => { expect(() => parseImport(text)).toThrow(); });
+  it.each(['invalid', '[]', '{}', '{"tabs":[]}', '{"version":2,"entries":null}', '{"version":2,"entries":[{"title":"A","children":[{"title":"B","children":[]}]}]}', '{"version":2,"entries":[],"settings":{"width":49}}'])('rejects invalid %s before mutations', text => { expect(() => parseImport(text)).toThrow(); });
   it('limits count and title length', () => { expect(() => parseImport(JSON.stringify({ version: 2, entries: Array(10001).fill({ title: 'A', url: 'https://a.example' }) }))).toThrow(); expect(() => parseImport(JSON.stringify({ version: 2, entries: [{ title: 'x'.repeat(4097), children: [] }] }))).toThrow(); });
   it('accepts raster and rejects SVG/script/corrupt data', async () => { expect(await imageFromDataUrl('data:image/png;base64,YQ==')?.text()).toBe('a'); expect(() => imageFromDataUrl('data:image/svg+xml;base64,PHN2Zz4=')).toThrow(); expect(() => imageFromDataUrl('data:image/png;base64,a')).toThrow(); });
   it('normalizes HTTP/HTTPS', () => { expect(normalizeUrl(' example.com ')).toBe('https://example.com/'); expect(normalizeUrl('http://example.com')).toBe('http://example.com/'); });

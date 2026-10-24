@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted } from 'vue';
-import type { Bookmark, Category } from '../types/models';
-const props = defineProps<{ x: number; y: number; bookmark?: Bookmark; category?: Category }>();
+import type { Bookmark, Folder } from '../types/models';
+const props = defineProps<{ x: number; y: number; bookmark?: Bookmark; folder?: Folder }>();
 const emit = defineEmits<{ close: []; action: [name: string] }>();
 const menu = ref<HTMLElement>();
 const keyboardIndex = ref(-1);
@@ -30,22 +30,24 @@ function keys(event: KeyboardEvent) {
 </script>
 <template>
   <div class="fixed inset-0 z-30" @pointerdown.self="close" @contextmenu.self.prevent="close">
-    <div ref="menu" tabindex="-1" role="menu" aria-label="Действия" class="context ui-glass fixed min-w-[160px] max-w-[calc(100vw-8px)] overflow-hidden animate-fade motion-reduce:animate-none"
+    <div ref="menu" tabindex="-1" role="menu" :aria-label="folder ? 'Действия с папкой' : bookmark ? 'Действия с закладкой' : 'Действия со страницей'" class="context ui-glass fixed w-max min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto"
       :style="{ left: left + 'px', top: top + 'px' }" @keydown="keys" @pointermove="keyboardIndex = -1">
-      <template v-if="category">
-        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'edit')">Изменить</button>
-        <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'delete')">Удалить</button>
+      <template v-if="folder">
+        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'edit')">Изменить папку</button>
+        <hr class="context-divider" role="separator" />
+        <button :class="{ 'keyboard-active': keyboardIndex === 1 }" class="destructive" role="menuitem" @click="emit('action', 'delete')">Удалить папку</button>
       </template>
       <template v-else-if="bookmark">
-        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'open')">Открыть в новой вкладке</button><hr class="context-divider" />
-        <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'edit')">Изменить</button>
+        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'open')">Открыть в новой вкладке</button><hr class="context-divider" role="separator" />
+        <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'edit')">Изменить закладку</button>
         <button :class="{ 'keyboard-active': keyboardIndex === 2 }" role="menuitem" @click="emit('action', 'thumbnail')">Обновить эскиз</button>
-        <button :class="{ 'keyboard-active': keyboardIndex === 3 }" role="menuitem" @click="emit('action', 'delete')">Удалить</button>
+        <hr class="context-divider" role="separator" />
+        <button :class="{ 'keyboard-active': keyboardIndex === 3 }" class="destructive" role="menuitem" @click="emit('action', 'delete')">Удалить закладку</button>
       </template>
       <template v-else>
-        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'add')">Новая закладка</button><hr class="context-divider" />
-        <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'category')">Новая категория</button>
-        <hr class="context-divider" />
+        <button :class="{ 'keyboard-active': keyboardIndex === 0 }" role="menuitem" @click="emit('action', 'add')">Новая закладка</button>
+        <button :class="{ 'keyboard-active': keyboardIndex === 1 }" role="menuitem" @click="emit('action', 'folder')">Новая папка</button>
+        <hr class="context-divider" role="separator" />
         <button :class="{ 'keyboard-active': keyboardIndex === 2 }" role="menuitem" @click="emit('action', 'settings')">Настройки</button>
       </template>
     </div>

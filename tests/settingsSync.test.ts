@@ -23,9 +23,9 @@ const localSettings=(patch={})=>({settings:{value:{...defaults,...patch}},rootFo
 const settings=(area:Area)=>(area.values.settings as {value:typeof defaults}).value;
 
 describe('per-field Chrome settings synchronization',()=>{
-  it('migrates existing local settings, gives partial cloud priority and keeps IDs/images local',async()=>{
+  it('uploads confirmed local settings, gives cloud priority and keeps IDs/images local',async()=>{
     const f=fixture({...localSettings({width:70,space:12}),background:'local-only'}, {[syncPrefix+'width']:85});
-    await f.c.initialize();await f.c.flush();
+    await f.c.initialize();await f.c.confirmLocal(true);await f.c.flush();
     expect(settings(f.local)).toMatchObject({width:85,space:12});
     expect(f.sync.values[syncPrefix+'space']).toBe(12);
     expect(f.sync.values[folderKey]).toEqual({version:1,anchor:{folderType:'other',syncing:true},path:['Speed Dial','Избранное']});
@@ -38,18 +38,18 @@ describe('per-field Chrome settings synchronization',()=>{
     await f.c.remote({[syncPrefix+'width']:{newValue:75}});
     expect(settings(f.local).width).toBe(75);expect(f.sync.set).not.toHaveBeenCalled();
   });
-  it('rechecks migration fields before writing late first cloud data',async()=>{
+  it('rechecks cloud fields before confirming local settings',async()=>{
     const f=fixture(localSettings({width:70}));await f.c.initialize();
-    f.sync.values[syncPrefix+'width']=95;await f.c.flush();
+    f.sync.values[syncPrefix+'width']=95;await f.c.confirmLocal(true);await f.c.flush();
     expect(settings(f.local).width).toBe(95);expect(f.sync.values[syncPrefix+'width']).toBe(95);
   });
   it('batches only edited fields and never echoes remote updates',async()=>{
     const f=fixture();await f.c.initialize();
     await f.c.changed({width:75});await f.c.changed({space:10});
-    await f.c.remote({[syncPrefix+'uiAccent']:{newValue:'#123456'}});await f.c.flush();
+    await f.c.remote({[syncPrefix+'searchProvider']:{newValue:'google'}});await f.c.flush();
     expect(f.sync.set).toHaveBeenCalledTimes(1);
     expect(f.sync.set.mock.calls[0]![0]).toEqual({[syncPrefix+'width']:75,[syncPrefix+'space']:10});
-    expect(settings(f.local).uiAccent).toBe('#123456');
+    expect(settings(f.local).searchProvider).toBe('google');
     await f.c.remote({[syncPrefix+'width']:{newValue:75}});await f.c.flush();expect(f.sync.set).toHaveBeenCalledTimes(1);
   });
   it('same-field incoming delivery supersedes an older queued edit',async()=>{
@@ -58,8 +58,8 @@ describe('per-field Chrome settings synchronization',()=>{
     expect(settings(f.local).width).toBe(90);expect(f.sync.set).not.toHaveBeenCalled();
   });
   it('validates types/ranges/unknown keys without normalizing bad remote fields into defaults',async()=>{
-    const f=fixture(localSettings({uiRadius:12,width:70}),{[syncPrefix+'width']:'99',[syncPrefix+'uiRadius']:999,[syncPrefix+'uiBlur']:'true',[syncPrefix+'uiAccent']:'#oops',[syncPrefix+'googleEmail']:'secret'});
-    await f.c.initialize();expect(settings(f.local)).toMatchObject({width:70,uiRadius:12});
+    const f=fixture(localSettings({space:12,width:70}),{[syncPrefix+'width']:'99',[syncPrefix+'countColumns']:999,[syncPrefix+'verticalCenter']:'true',[syncPrefix+'searchProvider']:'bogus',[syncPrefix+'googleEmail']:'secret'});
+    await f.c.initialize();expect(settings(f.local)).toMatchObject({width:70,space:12});
     expect(syncPatch({[syncPrefix+'width']:101,[syncPrefix+'searchProvider']:'bogus'})).toEqual({});
     await f.c.changed({googleEmail:'secret',width:80} as never);await f.c.flush();
     expect(f.sync.set.mock.calls.some(([batch])=>Object.hasOwn(batch,syncPrefix+'googleEmail'))).toBe(false);
@@ -176,16 +176,14 @@ describe('portable folder resolution',()=>{
 });
 
 describe('account boundaries',()=>{
-  it('allows first migration with confirmed Sync disabled; storage.sync remains a usable local area',async()=>{
-    const f=fixture(localSettings({width:70}),{},'');await f.c.initialize();await f.c.flush();
+  it('uploads confirmed settings when browser account Sync is disabled',async()=>{
+    const f=fixture(localSettings({width:70}),{},'');await f.c.initialize();await f.c.confirmLocal(true);await f.c.flush();
     expect(f.sync.values[syncPrefix+'width']).toBe(70);
   });
-  it('never fills missing cloud fields from an already migrated or unknown-account snapshot',async()=>{
-    for(const extra of [{ 'settingsSyncMigrated.v1':true },{}]){
-      const f=fixture({...localSettings({width:70,space:12}),...extra},{[syncPrefix+'space']:30},null);
+  it('never uploads unconfirmed local settings',async()=>{
+      const f=fixture({...localSettings({width:70,space:12})},{[syncPrefix+'space']:30},null);
       await f.c.initialize();await f.c.flush();expect(settings(f.local)).toMatchObject({width:70,space:30});expect(f.sync.set).not.toHaveBeenCalled();
       expect(f.local.values.settingsSyncState).toMatchObject({confirm:true});
-    }
   });
   it('cancels A pending writes and applies B remote values without filling missing fields',async()=>{
     const f=fixture(localSettings({width:70}));await f.c.initialize();await f.c.changed({width:75});
@@ -200,23 +198,23 @@ describe('account boundaries',()=>{
     await staleEvent;await switched;await f.c.flush();expect(f.sync.set).not.toHaveBeenCalled();
   });
   it('one-time confirmation reads late cloud data again and uploads only missing settings',async()=>{
-    const f=fixture({...localSettings({width:70,space:12}),'settingsSyncMigrated.v1':true});await f.c.initialize();
+    const f=fixture({...localSettings({width:70,space:12})});await f.c.initialize();
     f.sync.values[syncPrefix+'width']=95;await f.c.confirmLocal(true);await f.c.flush();
     expect(settings(f.local)).toMatchObject({width:95,space:12});expect(f.sync.values[syncPrefix+'width']).toBe(95);expect(f.sync.values[syncPrefix+'space']).toBe(12);
     expect(f.local.values.settingsSyncState).toMatchObject({confirm:false});
   });
   it('confirmation cancels an older queued value when the cloud field already exists',async()=>{
-    const f=fixture({...localSettings({width:70}),'settingsSyncMigrated.v1':true});await f.c.initialize();
+    const f=fixture({...localSettings({width:70})});await f.c.initialize();
     await f.c.changed({width:75});f.sync.values[syncPrefix+'width']=95;
     await f.c.confirmLocal(true);await f.c.flush();expect(f.sync.values[syncPrefix+'width']).toBe(95);
   });
-  it('a failed first cloud read still marks the installation to avoid an unsafe later automatic migration',async()=>{
+  it('does not upload unconfirmed settings after a failed cloud read and restart',async()=>{
     const first=fixture(localSettings({width:70}));first.sync.get.mockRejectedValueOnce(new Error('offline'));await first.c.initialize();
     const restarted=fixture(structuredClone(first.local.values),{},'B');await restarted.c.initialize();await restarted.c.flush();
     expect(restarted.sync.set).not.toHaveBeenCalled();expect(restarted.local.values.settingsSyncState).toMatchObject({confirm:true});
   });
   it('safe-default confirmation preserves cloud values and selected folder',async()=>{
-    const locator=locateFolder(tree(),'a')!;const f=fixture({...localSettings({width:70,space:12}),'settingsSyncMigrated.v1':true},{[syncPrefix+'width']:95,[folderKey]:locator});
+    const locator=locateFolder(tree(),'a')!;const f=fixture({...localSettings({width:70,space:12})},{[syncPrefix+'width']:95,[folderKey]:locator});
     await f.c.initialize();await f.c.confirmLocal(false);await f.c.flush();
     expect(settings(f.local)).toMatchObject({width:95,space:defaults.space});expect(f.sync.values[folderKey]).toEqual(locator);
   });

@@ -18,12 +18,12 @@ afterEach(async () => { await db.delete(); });
 async function setup() { const node = await api.create({parentId:'other',title:'Speed Dial'}); await repo.selectRoot(node.id); }
 const add = (url = 'https://example.com/') => repo.add({ url, title: 'Свой заголовок' });
 describe('browser bookmarks source', () => {
-  it('an older category read cannot reset the latest requested category',async()=>{
+  it('an older folder read cannot reset the latest requested folder',async()=>{
     await setup();const a=await api.create({parentId:repo.rootId!,title:'A'}),b=await api.create({parentId:repo.rootId!,title:'B'});
     const original=api.getChildren.bind(api);let release!:(value:Awaited<ReturnType<typeof api.getChildren>>)=>void;
     vi.spyOn(api,'getChildren').mockImplementationOnce(()=>new Promise(resolve=>{release=resolve;}));
-    repo.selectCategory(a.id);const old=repo.load(false);await vi.waitFor(()=>expect(release).toBeTypeOf('function'));
-    repo.selectCategory(b.id);release(await original(repo.rootId!));await old;
+    repo.selectFolder(a.id);const old=repo.load(false);await vi.waitFor(()=>expect(release).toBeTypeOf('function'));
+    repo.selectFolder(b.id);release(await original(repo.rootId!));await old;
     expect(repo.activeId).toBe(b.id);expect((await repo.load(false)).activeId).toBe(b.id);
   });
   it('patches only current keys and does not reload background for bookmark-only reads',async()=>{
@@ -43,11 +43,9 @@ describe('browser bookmarks source', () => {
     expect((await repo.load()).settings).toEqual({...defaults,width:75,bookmarkSearch:false,searchProvider:'imdb'});
     expect(repo.rootId).toBe(source);expect((await repo.load()).tabs[0]?.id).toBe(bookmark);
   });
-  it('defaults bookmark search on for old preferences and persists an explicit opt-out', async () => {
+  it('enables bookmark search by default and persists an explicit opt-out', async () => {
     await setup();
-    const legacy = { ...defaults } as Partial<typeof defaults>;
-    delete legacy.bookmarkSearch;
-    stored = { value:legacy as typeof defaults };
+    stored = { value:{...defaults} };
     expect((await repo.load()).settings.bookmarkSearch).toBe(true);
     const write=vi.spyOn(settingsPort,'setValue');
     await repo.saveSettings({...defaults},undefined,repo.rootId!);
@@ -56,7 +54,7 @@ describe('browser bookmarks source', () => {
     expect((await repo.load()).settings.bookmarkSearch).toBe(false);
     await repo.reset();expect((await repo.load()).settings.bookmarkSearch).toBe(true);
   });
-  it('searches titles and URLs in root and direct categories without changing active category or bookmarks', async () => {
+  it('searches titles and URLs in root and direct folders without changing active folder or bookmarks', async () => {
     await setup(); const root=repo.rootId!;
     const direct=await api.create({parentId:root,title:'MATCH root',url:'https://root.example/'});
     const a=await api.create({parentId:root,title:'Work'}), b=await api.create({parentId:root,title:'Personal'});
@@ -154,17 +152,17 @@ describe('browser bookmarks source', () => {
   });
   it('allows child CRUD in system folders while protecting the system folder itself', async () => {
     await repo.initialize(); const id=await add();
-    await repo.createCategory('A');
-    const category=(await api.getChildren('other')).find(row=>!row.url)!;
-    await repo.edit(id,'https://example.com/','Moved',category.id);
-    await repo.renameCategory(category.id,'B');
-    await expect(repo.removeCategory('other')).rejects.toThrow();
-    await expect(repo.renameCategory('other','Wrong')).rejects.toThrow();
-    await repo.removeCategory(category.id);
+    await repo.createFolder('A');
+    const folder=(await api.getChildren('other')).find(row=>!row.url)!;
+    await repo.edit(id,'https://example.com/','Moved',folder.id);
+    await repo.renameFolder(folder.id,'B');
+    await expect(repo.removeFolder('other')).rejects.toThrow();
+    await expect(repo.renameFolder('other','Wrong')).rejects.toThrow();
+    await repo.removeFolder(folder.id);
     expect(await api.getChildren('other')).toEqual([]);
   });
-  it('keeps the current category when saving visual preferences for the same source', async () => {
-    await setup(); await repo.createCategory('A');
+  it('keeps the current folder when saving visual preferences for the same source', async () => {
+    await setup(); await repo.createFolder('A');
     repo.activeId=(await api.getChildren(repo.rootId!))[0]!.id;
     const active=repo.activeId;
     await repo.saveSettings({...defaults,width:75},undefined,repo.rootId!);
@@ -177,20 +175,20 @@ describe('browser bookmarks source', () => {
   it('distinguishes account/local branches without relying on fixed IDs', async () => { const local=await api.create({parentId:'root',title:'Local'});Object.assign(api.nodes.get(local.id)!,{folderType:'other',syncing:false});await api.create({parentId:'other',title:'Speed Dial'});await api.create({parentId:local.id,title:'Speed Dial'});const choices=await repo.choices();expect(choices.find(node=>node.id==='other')?.path).toContain('аккаунт');expect(choices.find(node=>node.id===local.id)?.path).toContain('локально');expect((await repo.initialize()).rootId).toBe('other'); });
   it('protects technical, standard and managed folders', async () => { await expect(repo.selectRoot('root')).rejects.toThrow(); await expect(repo.selectRoot('other')).resolves.toBeUndefined(); const managed = await api.create({ parentId: 'other', title: 'Managed' }); api.nodes.get(managed.id)!.unmodifiable = 'managed'; const nested = await api.create({ parentId: managed.id, title: 'Nested' }); await expect(repo.selectRoot(nested.id)).rejects.toThrow(); });
   it('rejects unavailable API instead of presenting an empty source', async () => { vi.spyOn(api, 'getTree').mockRejectedValue(new Error('Permission denied')); await expect(repo.initialize()).rejects.toThrow('Permission'); });
-  it('shows direct bookmarks without categories and with empty cache', async () => { await setup(); const id = await add(); await db.tileAssets.clear(); const state = await repo.load(); expect(state.categories).toEqual([{id:repo.rootId,title:'Speed Dial',index:-1,virtual:true}]); expect(state.tabs[0]).toMatchObject({ id, thumbnail: null, favicon: null }); });
+  it('shows direct bookmarks without folders and with empty cache', async () => { await setup(); const id = await add(); await db.tileAssets.clear(); const state = await repo.load(); expect(state.folders).toEqual([{id:repo.rootId,title:'Speed Dial',index:-1,virtual:true}]); expect(state.tabs[0]).toMatchObject({ id, thumbnail: null, favicon: null }); });
   it('handles mixed, only-folder, empty and deep structures', async () => {
     await setup(); expect((await repo.load()).tabs).toEqual([]);
-    const direct = await add(); await repo.createCategory('Главная'); const category = (await api.getChildren(repo.rootId!)).find(node => !node.url)!;
-    const deep = await api.create({ parentId: category.id, title: 'Deep' }); await api.create({ parentId: deep.id, title: 'Hidden', url: 'https://hidden.example' });
-    const state = await repo.load(); expect(state.categories.map(node => node.title)).toEqual(['Speed Dial', 'Главная']); expect(state.activeId).toBe(category.id);repo.selectCategory(repo.rootId!);expect((await repo.load()).tabs.map(node=>node.id)).toEqual([direct]);
-    repo.activeId = category.id; expect((await repo.load()).tabs).toEqual([]);
-    await api.remove(direct); expect((await repo.load()).categories.length).toBe(2); expect((await api.getChildren(deep.id)).length).toBe(1);
+    const direct = await add(); await repo.createFolder('Главная'); const folder = (await api.getChildren(repo.rootId!)).find(node => !node.url)!;
+    const deep = await api.create({ parentId: folder.id, title: 'Deep' }); await api.create({ parentId: deep.id, title: 'Hidden', url: 'https://hidden.example' });
+    const state = await repo.load(); expect(state.folders.map(node => node.title)).toEqual(['Speed Dial', 'Главная']); expect(state.activeId).toBe(folder.id);repo.selectFolder(repo.rootId!);expect((await repo.load()).tabs.map(node=>node.id)).toEqual([direct]);
+    repo.activeId = folder.id; expect((await repo.load()).tabs).toEqual([]);
+    await api.remove(direct); expect((await repo.load()).folders.length).toBe(2); expect((await api.getChildren(deep.id)).length).toBe(1);
   });
   it('CRUD, moves, cache and reset preserve browser source and custom titles', async () => {
     await setup(); const id = await add(); const image = new Blob(['image'], { type: 'image/png' }); await repo.cache(id, 'https://example.com/', 'thumbnail', image);
     await repo.edit(id, 'https://example.com/', 'Edited'); expect((await repo.load()).tabs[0]?.thumbnail).toBeTruthy();
-    await repo.createCategory('Work'); const category = (await api.getChildren(repo.rootId!)).find(node => !node.url)!;
-    await repo.edit(id, 'https://example.com/', 'Edited', category.id); repo.activeId = category.id;
+    await repo.createFolder('Work'); const folder = (await api.getChildren(repo.rootId!)).find(node => !node.url)!;
+    await repo.edit(id, 'https://example.com/', 'Edited', folder.id); repo.activeId = folder.id;
     expect((await repo.load()).tabs[0]?.title).toBe('Edited'); expect((await repo.load()).tabs[0]?.thumbnail).toBeTruthy();
     await repo.reset(); expect((await repo.load()).tabs[0]?.id).toBe(id); expect((await repo.load()).settings).toEqual(defaults);
     await repo.remove(id); expect((await repo.load()).tabs).toEqual([]);
@@ -213,59 +211,59 @@ describe('browser bookmarks source', () => {
   });
   it('keeps a named virtual root for empty trees, disambiguates only equal names and follows external renames', async () => {
     await setup();
-    expect((await repo.load()).categories).toEqual([{id:repo.rootId,title:'Speed Dial',index:-1,virtual:true}]);
-    await repo.createCategory('Speed Dial'); const selected=repo.activeId;
-    await repo.createCategory('Главная');
-    expect((await repo.load()).categories.map(row=>row.title)).toEqual(['Speed Dial','Speed Dial (папка)','Главная']);
+    expect((await repo.load()).folders).toEqual([{id:repo.rootId,title:'Speed Dial',index:-1,virtual:true}]);
+    await repo.createFolder('Speed Dial'); const selected=repo.activeId;
+    await repo.createFolder('Главная');
+    expect((await repo.load()).folders.map(row=>row.title)).toEqual(['Speed Dial','Speed Dial (папка)','Главная']);
     await api.update(repo.rootId!,{title:'Работа'});
-    expect((await repo.load()).categories.map(row=>row.title)).toEqual(['Работа','Speed Dial','Главная']);
-    repo.selectCategory(selected!); await api.removeTree(selected!);
+    expect((await repo.load()).folders.map(row=>row.title)).toEqual(['Работа','Speed Dial','Главная']);
+    repo.selectFolder(selected!); await api.removeTree(selected!);
     expect((await repo.load()).activeId).toBe(repo.rootId);
   });
-  it('preserves folder slots during bookmark sorting and bookmark slots during category sorting', async () => {
+  it('preserves folder slots during bookmark sorting and bookmark slots during folder sorting', async () => {
     await setup(); const a=await add();
-    await repo.createCategory('Folder'); const folder=repo.activeId!;
-    repo.selectCategory(repo.rootId!); const b=await add('https://b.example'),c=await add('https://c.example');
+    await repo.createFolder('Folder'); const folder=repo.activeId!;
+    repo.selectFolder(repo.rootId!); const b=await add('https://b.example'),c=await add('https://c.example');
     await repo.reorder([c,b,a],[a,b,c]);
     expect((await api.getChildren(repo.rootId!)).map(row=>row.id)).toEqual([c,folder,b,a]);
-    await repo.createCategory('Second'); const second=repo.activeId!;
-    const calls=vi.spyOn(api,'move'); await repo.reorderCategories([second,folder],[folder,second]);
+    await repo.createFolder('Second'); const second=repo.activeId!;
+    const calls=vi.spyOn(api,'move'); await repo.reorderFolders([second,folder],[folder,second]);
     expect((await api.getChildren(repo.rootId!)).map(row=>row.id)).toEqual([c,second,b,a,folder]);
     expect(calls.mock.calls.every(([id])=>id===folder||id===second)).toBe(true);
-    calls.mockClear();await repo.reorderCategories([second,folder],[second,folder]);expect(calls).not.toHaveBeenCalled();
-    await expect(repo.reorderCategories([folder,second],[folder,second])).rejects.toThrow('Список изменился');
+    calls.mockClear();await repo.reorderFolders([second,folder],[second,folder]);expect(calls).not.toHaveBeenCalled();
+    await expect(repo.reorderFolders([folder,second],[folder,second])).rejects.toThrow('Список изменился');
     expect(calls).not.toHaveBeenCalled();
   });
-  it('stops a partially completed reorder on API failure and rejects stale category context', async () => {
+  it('stops a partially completed reorder on API failure and rejects stale folder context', async () => {
     await setup();const ids=[await add(),await add('https://b.example'),await add('https://c.example')];
     const move=api.move.bind(api);let count=0;
     vi.spyOn(api,'move').mockImplementation(async(id,destination)=>{if(++count===2)throw Error('partial');return move(id,destination);});
     await expect(repo.reorder(ids.slice().reverse(),ids)).rejects.toThrow('partial');
     expect((await repo.load()).tabs.map(row=>row.id)).toEqual([ids[2],ids[0],ids[1]]);
-    const parent=repo.activeId;await repo.createCategory('Changed');
-    await expect(repo.reorder(ids,ids,parent)).rejects.toThrow('Категория изменилась');
+    const parent=repo.activeId;await repo.createFolder('Changed');
+    await expect(repo.reorder(ids,ids,parent)).rejects.toThrow('Папка изменилась');
   });
   it('accounts for Chromium destination indices before removing a sibling', async () => {
-    await setup();const a=await add();await repo.createCategory('Folder');const folder=repo.activeId!;repo.selectCategory(repo.rootId!);
+    await setup();const a=await add();await repo.createFolder('Folder');const folder=repo.activeId!;repo.selectFolder(repo.rootId!);
     const b=await add('https://b.example'),c=await add('https://c.example');const move=api.move.bind(api);
     vi.spyOn(api,'move').mockImplementation(async(id,destination)=>{const before=(await api.get(id))[0]!;return move(id,{...destination,index:destination.index! - Number(before.parentId===destination.parentId && before.index!<destination.index!)});});
     vi.stubEnv('BROWSER','chrome');
     try {await repo.reorder([c,b,a],[a,b,c]);expect((await api.getChildren(repo.rootId!)).map(row=>row.id)).toEqual([c,folder,b,a]);}
     finally {vi.unstubAllEnvs();}
   });
-  it('category lifecycle and external removal choose a valid fallback', async () => {
-    await setup(); await add(); await repo.createCategory('A'); await repo.createCategory('B'); const [a,b] = (await api.getChildren(repo.rootId!)).filter(node => !node.url);
-    await repo.renameCategory(a!.id, 'New'); await repo.moveCategory(b!.id, a!.id); expect((await repo.load()).categories.map(node => node.title)).toEqual(['Speed Dial', 'B', 'New']);
+  it('folder lifecycle and external removal choose a valid fallback', async () => {
+    await setup(); await add(); await repo.createFolder('A'); await repo.createFolder('B'); const [a,b] = (await api.getChildren(repo.rootId!)).filter(node => !node.url);
+    await repo.renameFolder(a!.id, 'New'); await repo.moveFolder(b!.id, a!.id); expect((await repo.load()).folders.map(node => node.title)).toEqual(['Speed Dial', 'B', 'New']);
     repo.activeId = a!.id; await api.move(a!.id, { parentId: 'other' }); expect((await repo.load()).activeId).toBe(repo.rootId);
-    await repo.removeCategory(b!.id); await expect(repo.removeCategory(repo.rootId!)).rejects.toThrow();
+    await repo.removeFolder(b!.id); await expect(repo.removeFolder(repo.rootId!)).rejects.toThrow();
     await api.removeTree(repo.rootId!); expect((await repo.load()).rootId).toBe('other'); expect((await api.getChildren('other')).length).toBe(1);
   });
   it('switching roots does not copy/delete data', async () => { await setup(); const id = await add(); const other = await api.create({ parentId: 'other', title: 'Second' }); await repo.selectRoot(other.id); expect((await repo.load()).tabs).toEqual([]); expect((await api.get(id))[0]?.url).toBe('https://example.com/'); });
-  it('export/import includes empty categories and order; append is restricted and reports partial errors', async () => {
-    await setup(); await add(); await repo.createCategory('Empty'); const data = await repo.exportData(); expect(data.entries).toEqual([{ title: 'Свой заголовок', url: 'https://example.com/' }, { title: 'Empty', children: [] }]);
+  it('export/import includes empty folders and order; append is restricted and reports partial errors', async () => {
+    await setup(); await add(); await repo.createFolder('Empty'); const data = await repo.exportData(); expect(data.entries).toEqual([{ title: 'Свой заголовок', url: 'https://example.com/' }, { title: 'Empty', children: [] }]);
     const outside = await api.create({ parentId: 'other', title: 'Outside', url: 'https://outside.example' }); await repo.importData(data); expect((await api.getChildren(repo.rootId!)).length).toBe(4); expect((await api.get(outside.id))[0]?.title).toBe('Outside');
     const original = api.create.bind(api); vi.spyOn(api, 'create').mockImplementationOnce(original).mockRejectedValueOnce(new Error('failed'));
     await expect(repo.importData(data)).rejects.toThrow('добавлено закладок 1, папок 0');
   });
-  it('does not expose mass clear and preserves hidden descendants when selecting sources', async () => { await setup(); const id=await add(); await repo.createCategory('A'); const a=(await api.getChildren(repo.rootId!)).find(node=>!node.url)!; const deep=await api.create({parentId:a.id,title:'Deep'}); const before=await api.getTree(); await repo.selectRoot('other'); expect('clear' in repo).toBe(false); expect(await api.getTree()).toEqual(before); expect((await api.get(id))[0]).toBeTruthy(); expect((await api.get(deep.id))[0]).toBeTruthy(); });
+  it('does not expose mass clear and preserves hidden descendants when selecting sources', async () => { await setup(); const id=await add(); await repo.createFolder('A'); const a=(await api.getChildren(repo.rootId!)).find(node=>!node.url)!; const deep=await api.create({parentId:a.id,title:'Deep'}); const before=await api.getTree(); await repo.selectRoot('other'); expect('clear' in repo).toBe(false); expect(await api.getTree()).toEqual(before); expect((await api.get(id))[0]).toBeTruthy(); expect((await api.get(deep.id))[0]).toBeTruthy(); });
 });

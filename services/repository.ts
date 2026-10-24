@@ -15,7 +15,7 @@ export class Repository {
   private readGeneration = 0;
   private sourceNotice: string | undefined;
   clearSourceNotice() { this.sourceNotice = undefined; }
-  selectCategory(id:string) { this.readGeneration++;this.activeId=id; }
+  selectFolder(id:string) { this.readGeneration++;this.activeId=id; }
   private images: BookmarkAssetStore;
   constructor(private db: DialDatabase, private settings: SettingsPort, readonly bookmarks: BookmarksPort, private root: RootPort) { this.images = new BookmarkAssetStore(db); }
   async choices() { return folderChoices(await this.bookmarks.getTree()); }
@@ -54,9 +54,9 @@ export class Repository {
   async parent(id = this.activeId ?? this.rootId) {
     const root = await this.rootNode();
     if (id === root.id) return root;
-    if (!id) throw new Error('Категория не выбрана.');
+    if (!id) throw new Error('Папка не выбрана.');
     const node = await this.node(id);
-    if (node.url || node.unmodifiable || node.folderType || node.parentId !== root.id) throw new Error('Категория была удалена или перемещена.');
+    if (node.url || node.unmodifiable || node.folderType || node.parentId !== root.id) throw new Error('Папка была удалена или перемещена.');
     return node;
   }
   async bookmark(id: string) {
@@ -98,13 +98,13 @@ export class Repository {
         if (initialRoot) rootNotice = this.sourceNotice = 'Выбранная папка недоступна. Используется папка «Другие закладки».';
       }
     }
-    let tabs: Bookmark[] = [], categories: Snapshot['categories'] = [];
+    let tabs: Bookmark[] = [], folders: Snapshot['folders'] = [];
     if (rootId) {
       const children = await this.bookmarks.getChildren(rootId);
-      const folders = children.filter(node => !node.url && !node.unmodifiable);
+      const childFolders = children.filter(node => !node.url && !node.unmodifiable);
       const rootTitle = choices.find(choice => choice.id === rootId)!.title;
-      categories = [{ id: rootId, title: rootTitle, index: -1, virtual: true }, ...folders.map(node => ({ id: node.id, title: node.title === rootTitle ? rootTitle + ' (папка)' : node.title, index: node.index ?? 0 }))];
-      if (!activeId || (categories.length ? !categories.some(node => node.id === activeId) : activeId !== rootId)) activeId = categories[0]?.id ?? rootId;
+      folders = [{ id: rootId, title: rootTitle, index: -1, virtual: true }, ...childFolders.map(node => ({ id: node.id, title: node.title === rootTitle ? rootTitle + ' (папка)' : node.title, index: node.index ?? 0 }))];
+      if (!activeId || (folders.length ? !folders.some(node => node.id === activeId) : activeId !== rootId)) activeId = folders[0]?.id ?? rootId;
       const nodes = activeId === rootId ? children : await this.bookmarks.getChildren(activeId);
       tabs = await Promise.all(nodes.filter(node => node.url).map(async node => {
         const url = node.url!;
@@ -113,7 +113,7 @@ export class Repository {
       }));
     }
     if (generation === this.readGeneration && initialRoot === this.rootId) { this.rootId = rootId; this.activeId = activeId; }
-    return { tabs, categories, rootId, activeId, settings: envelope ? validateSettings(envelope.value) : { ...defaults }, background: background?.blob ?? null, rootNotice };
+    return { tabs, folders, rootId, activeId, settings: envelope ? validateSettings(envelope.value) : { ...defaults }, background: background?.blob ?? null, rootNotice };
   }
   async saveSettings(settings: Settings, background?: Blob | null, rootId?: string, replace=false) {
     const next = validateSettings(settings);
@@ -238,23 +238,23 @@ export class Repository {
       throw new Error('Порядок изменился; показаны актуальные закладки.');
   }
   async reorder(ids: string[], expected?: string[], parentId = this.activeId) {
-    if (parentId !== this.activeId) throw new Error('Категория изменилась; повторите перетаскивание.');
+    if (parentId !== this.activeId) throw new Error('Папка изменилась; повторите перетаскивание.');
     const parent = await this.parent(parentId ?? undefined);
     await this.sortChildren(parent.id, ids, false, expected);
   }
-  async reorderCategories(ids: string[], expected?: string[]) {
+  async reorderFolders(ids: string[], expected?: string[]) {
     const root = await this.rootNode();
     await this.sortChildren(root.id, ids, true, expected);
   }
-  async createCategory(title: string) {
+  async createFolder(title: string) {
     const root = await this.rootNode(); if (!title.trim()) throw new Error('Введите название.');
     const node = await this.bookmarks.create({ parentId: root.id, title: title.trim() });
     this.activeId = node.id;
   }
-  async category(id: string): Promise<BookmarkNode> { const node = await this.parent(id); if (id === this.rootId) throw new Error('Основная папка защищена.'); return node; }
-  async renameCategory(id: string, title: string) { await this.category(id); if (!title.trim()) throw new Error('Введите название.'); if ((await this.category(id)).title !== title.trim()) await this.bookmarks.update(id, { title: title.trim() }); }
-  async removeCategory(id: string) { await this.category(id); await this.bookmarks.removeTree(id); }
-  async moveCategory(id: string, beforeId: string) { await this.category(id); const target = await this.category(beforeId); await this.bookmarks.move(id, { parentId: this.rootId!, index: target.index ?? 0 }); }
+  async childFolder(id: string): Promise<BookmarkNode> { const node = await this.parent(id); if (id === this.rootId) throw new Error('Основная папка защищена.'); return node; }
+  async renameFolder(id: string, title: string) { await this.childFolder(id); if (!title.trim()) throw new Error('Введите название.'); if ((await this.childFolder(id)).title !== title.trim()) await this.bookmarks.update(id, { title: title.trim() }); }
+  async removeFolder(id: string) { await this.childFolder(id); await this.bookmarks.removeTree(id); }
+  async moveFolder(id: string, beforeId: string) { await this.childFolder(id); const target = await this.childFolder(beforeId); await this.bookmarks.move(id, { parentId: this.rootId!, index: target.index ?? 0 }); }
   async exportData(): Promise<ImportData> {
     const root = await this.rootNode(); const children = await this.bookmarks.getChildren(root.id);
     const row = (node: BookmarkNode) => ({ title: node.title, url: node.url! });
@@ -268,7 +268,7 @@ export class Repository {
         await this.rootNode();
         if ('url' in entry) { await this.bookmarks.create({ parentId: root.id, ...entry }); bookmarks++; }
         else { const folder = await this.bookmarks.create({ parentId: root.id, title: entry.title }); folders++;
-          for (const child of entry.children) { await this.category(folder.id); await this.bookmarks.create({ parentId: folder.id, ...child }); bookmarks++; }
+          for (const child of entry.children) { await this.childFolder(folder.id); await this.bookmarks.create({ parentId: folder.id, ...child }); bookmarks++; }
         }
       }
       await this.saveSettings(data.settings, data.background,undefined,true);

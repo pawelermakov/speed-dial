@@ -11,7 +11,6 @@ export interface StorageArea {
 }
 export interface SyncState { error: string; folder: string; confirm: boolean }
 export const syncStateKey = 'settingsSyncState';
-const migrationKey = 'settingsSyncMigrated.v1';
 const lastWriteKey = 'settingsSyncLastWrite';
 const selectedSourceKey='settingsSyncSelectedSource.v1';
 function equal(a:unknown,b:unknown):boolean {
@@ -44,7 +43,6 @@ export class SettingsSync {
   private folderEpoch = 0;
   private lastWrite = 0;
   private flushing?:Promise<void>;
-  private migrationFields = new Set<string>();
   private state: SyncState = { error: '', folder: '', confirm: false };
   private now: () => number;
   constructor(private ports: SyncPorts) { this.now = ports.now ?? Date.now; }
@@ -92,36 +90,26 @@ export class SettingsSync {
   }
   initialize() { const epoch=this.epoch;return this.serial(async () => {
     if(epoch!==this.epoch)return;
-    const local = await this.ports.local.get(['settings', 'rootFolderId', migrationKey, lastWriteKey]);
+    const local = await this.ports.local.get(['settings', lastWriteKey]);
     this.lastWrite = typeof local[lastWriteKey] === 'number' ? local[lastWriteKey] as number : 0;
     this.accountId = await this.ports.account();
     if(epoch!==this.epoch)return;
     try {
-      // Persist the anonymous migration guard before any cloud write can start.
-      await this.ports.local.set({ [migrationKey]: true });
       this.cloud = await this.ports.sync.get(null);
       if(epoch!==this.epoch)return;
       const remote = syncPatch(this.cloud);
       await this.apply(remote);
       if(epoch!==this.epoch)return;
       const missing = settingKeys.filter(key => !(key in remote));
-      const firstMigration = local[migrationKey] !== true && !!local.settings && this.accountId !== null;
-      if (firstMigration) {
-        const current = await this.snapshot();
-        if(epoch!==this.epoch)return;
-        for (const key of missing) this.migrationFields.add(syncPrefix + key);
-        this.enqueue(Object.fromEntries(missing.map(key => [syncPrefix + key, current[key]])));
-      }
-      await this.publish({ error: '', confirm: !firstMigration && !!local.settings && missing.length > 0 });
+      await this.publish({ error: '', confirm: !!local.settings && missing.length > 0 });
       if(epoch!==this.epoch)return;
       if (this.cloud[folderKey] !== undefined) await this.restoreFolder();
-      else if (firstMigration && typeof local.rootFolderId === 'string') { this.migrationFields.add(folderKey); await this.selectFolderInternal(local.rootFolderId); }
     } catch(error) { await this.failure(error); }
   }); }
   changed(patch: Partial<Settings>) { const epoch=this.epoch; return this.serial(async () => {
     if(epoch!==this.epoch)return;
     const values: Record<string, unknown> = {};
-    for (const key of settingKeys) if (Object.hasOwn(patch, key) && validSetting(key, patch[key])) { values[syncPrefix + key] = patch[key]; this.migrationFields.delete(syncPrefix+key); }
+    for (const key of settingKeys) if (Object.hasOwn(patch, key) && validSetting(key, patch[key])) { values[syncPrefix + key] = patch[key]; }
     this.enqueue(values);
   }); }
   /** Immediate flush still obeys the sustained write limit. It returns after the
@@ -138,19 +126,6 @@ export class SettingsSync {
         if (epoch !== this.epoch || !Object.keys(this.pending).length) return;
         const batch = this.pending; this.pending = {};
         try {
-          if (this.migrationFields.size) {
-            const latest=await this.ports.sync.get(null);
-            if(epoch!==this.epoch)return;
-            const remote:Record<string,unknown>={};
-            for(const key of this.migrationFields)if(Object.hasOwn(batch,key)&&latest[key]!==undefined){
-              const valid=key===folderKey?validLocator(latest[key]):validSetting(key.slice(syncPrefix.length) as keyof Settings,latest[key]);
-              if(valid){delete batch[key];remote[key]=latest[key];this.cloud[key]=latest[key];}
-            }
-            await this.apply(syncPatch(remote));
-            if(epoch!==this.epoch)return;
-            if(Object.hasOwn(remote,folderKey)){this.selectedId=null;await this.restoreFolder();}
-            this.migrationFields.clear();
-          }
           if(!Object.keys(batch).length)return;
           this.lastWrite = this.now();
           await this.ports.local.set({ [lastWriteKey]: this.lastWrite });
@@ -229,7 +204,7 @@ export class SettingsSync {
   selectFolder(id: string) {
     const generation=++this.folderEpoch,epoch=this.epoch;
     this.manualFolder=true;
-    delete this.pending[folderKey];this.migrationFields.delete(folderKey);
+    delete this.pending[folderKey];
     return this.serial(async () => {if(generation===this.folderEpoch&&epoch===this.epoch)await this.selectFolderInternal(id);});
   }
   private async selectFolderInternal(id: string) {
@@ -271,7 +246,7 @@ export class SettingsSync {
   }); }
   /** Invalidate immediately, before queued getTree/storage promises can finish. */
   accountChanged() {
-    this.epoch++; this.folderEpoch++; this.pending = {}; this.migrationFields.clear(); this.selectedId = null; this.manualFolder=false; clearTimeout(this.timer);
+    this.epoch++; this.folderEpoch++; this.pending = {}; this.selectedId = null; this.manualFolder=false; clearTimeout(this.timer);
     const epoch=this.epoch;
     return this.serial(async () => {
       if(epoch!==this.epoch)return;
@@ -312,7 +287,7 @@ export class SettingsSync {
       if(epoch!==this.epoch)return;
       this.cloud = remote;
       const patch = syncPatch(remote), local = await this.snapshot();
-      for(const key of settingKeys){delete this.pending[syncPrefix+key];this.migrationFields.delete(syncPrefix+key);}
+      for(const key of settingKeys){delete this.pending[syncPrefix+key];}
       const upload: Record<string, unknown> = {};
       for (const key of settingKeys) if (!(key in patch)) {
         const value = transfer ? local[key] : defaults[key];

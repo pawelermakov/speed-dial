@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, watch, nextTick, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
-import CategoryTabs from './components/CategoryTabs.vue';
-import CategoryDialog from './components/CategoryDialog.vue';
+import FolderTabs from './components/FolderTabs.vue';
+import FolderDialog from './components/FolderDialog.vue';
 import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
 import BookmarkSearch from './components/BookmarkSearch.vue';
@@ -19,16 +19,22 @@ import { parseImport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
 import { cacheBackgroundPreview, clearBackgroundPreview } from './utils/backgroundPreview';
 import { BackgroundResource } from './utils/backgroundResource';
-import { appearanceTokens } from './utils/appearance';
-import type { Bookmark, Category } from './types/models';
+import type { Bookmark, Folder } from './types/models';
 
-const { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors,previewSettings } = useDial();
-const appearance=computed(()=>appearanceTokens(snapshot.value.settings));
-watch(()=>snapshot.value.settings.uiAccent,accent=>{
-  document.documentElement.style.setProperty('--scrollbar-accent',accent);
-},{immediate:true});
-onUnmounted(()=>document.documentElement.style.removeProperty('--scrollbar-accent'));
+const { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors } = useDial();
 const { query, results, pending: searchPending, error: searchError } = useBookmarkSearch(repository, snapshot, revision);
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion:reduce)');
+const reducedMotion = ref(reducedMotionQuery.matches);
+const motionEnabled = computed(() => !reducedMotion.value);
+function motionPreferenceChanged(event:MediaQueryListEvent) { reducedMotion.value = event.matches; }
+reducedMotionQuery.addEventListener('change',motionPreferenceChanged);
+onUnmounted(() => reducedMotionQuery.removeEventListener('change',motionPreferenceChanged));
+const keyboardFocus = ref(true);
+function trackKeyboardFocus(event:KeyboardEvent){if(event.key==='Tab')keyboardFocus.value=true;}
+function trackPointerFocus(){keyboardFocus.value=false;}
+window.addEventListener('keydown',trackKeyboardFocus,true);
+window.addEventListener('pointerdown',trackPointerFocus,true);
+onUnmounted(()=>{window.removeEventListener('keydown',trackKeyboardFocus,true);window.removeEventListener('pointerdown',trackPointerFocus,true);});
 const searchOpen = ref(false);
 const searchControl = ref<InstanceType<typeof BookmarkSearch>>();
 const searching = computed(() => searchOpen.value && !!query.value.trim());
@@ -46,11 +52,11 @@ function closeSearch(restoreFocus = true) { searchOpen.value = false; query.valu
 watch(() => snapshot.value.settings.bookmarkSearch, enabled => { if (!enabled) closeSearch(false); });
 const capturing = ref(false);
 const savingBookmark = ref(false);
-const categoryDialogError=ref('');
-const creatingCategory = ref(false);
-const editingCategory = shallowRef<{ id: string; title: string }>();
+const folderDialogError=ref('');
+const creatingFolder = ref(false);
+const editingFolder = shallowRef<{ id: string; title: string }>();
 
-watch(() => snapshot.value.rootId, () => { creatingCategory.value = false; editingCategory.value = undefined; });
+watch(() => snapshot.value.rootId, () => { creatingFolder.value = false; editingFolder.value = undefined; });
 const disabled = computed(() => loading.value || busy.value || capturing.value || savingBookmark.value);
 const settingsOpen = ref(false);
 const settingsPanel = ref<InstanceType<typeof SettingsPanel>>();
@@ -65,26 +71,26 @@ function openSettings() { settingsGeneration++;settingsOpen.value = true; }
 const bookmarkDialog = ref(false);
 const editing = shallowRef<Bookmark>();
 const dialogError = ref('');
-const categoryError = ref('');
-const dialogCategories = ref<Category[]>([]);
+const folderError = ref('');
+const dialogFolders = ref<Folder[]>([]);
 async function openBookmark(bookmark?: Bookmark) {
   if (disabled.value) return;
   try {
     const root = await repository.rootNode();
     const choices = await repository.choices();
     const children = await repository.bookmarks.getChildren(root.id);
-    dialogCategories.value = [{ id: root.id, title: root.title, index: -1 }, ...children.filter(row => !row.url && choices.some(choice => choice.id === row.id)).map(row => ({ id: row.id, title: row.title, index: row.index ?? 0 }))];
+    dialogFolders.value = [{ id: root.id, title: root.title, index: -1 }, ...children.filter(row => !row.url && choices.some(choice => choice.id === row.id)).map(row => ({ id: row.id, title: row.title, index: row.index ?? 0 }))];
     editing.value = bookmark ? { ...bookmark, ...(await repository.bookmark(bookmark.id)) } as Bookmark : undefined;
-    dialogError.value = ''; categoryError.value = ''; bookmarkDialog.value = true;
+    dialogError.value = ''; folderError.value = ''; bookmarkDialog.value = true;
   } catch (error) { notice.value = fail(error); }
 }
 const importError = ref('');
 const mailRevision = ref(0);
 watch(()=>snapshot.value.settings.email,()=>mailRevision.value++);
 const transfer = ref<'import' | 'export'>();
-const overlayOpen = computed(() => settingsOpen.value || bookmarkDialog.value || !!transfer.value || creatingCategory.value || !!editingCategory.value);
+const overlayOpen = computed(() => settingsOpen.value || bookmarkDialog.value || !!transfer.value || creatingFolder.value || !!editingFolder.value);
 const exportText = ref('');
-const context = shallowRef<{ x: number; y: number; bookmark?: Bookmark; category?: Category }>();
+const context = shallowRef<{ x: number; y: number; bookmark?: Bookmark; folder?: Folder }>();
 const backgroundUrl = ref('');
 let decodedBackground: {url:string;image:HTMLImageElement}|undefined;
 const backgroundResource=new BackgroundResource(async url=>{
@@ -110,20 +116,20 @@ function showContext(event: MouseEvent, bookmark?: Bookmark) {
   event.preventDefault();
   context.value = { x: event.clientX, y: event.clientY, bookmark };
 }
-function showCategoryContext(event: MouseEvent | KeyboardEvent, category: Category) {
-  if (category.virtual || disabled.value || overlayOpen.value) return;
+function showFolderContext(event: MouseEvent | KeyboardEvent, folder: Folder) {
+  if (folder.virtual || disabled.value || overlayOpen.value) return;
   const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  context.value = { x: event instanceof MouseEvent ? event.clientX : bounds.left, y: event instanceof MouseEvent ? event.clientY : bounds.bottom, category };
+  context.value = { x: event instanceof MouseEvent ? event.clientX : bounds.left, y: event instanceof MouseEvent ? event.clientY : bounds.bottom, folder };
 }
 async function saveBookmark(value: { url: string; title: string; capture: boolean; parentId?: string; titleEdited: boolean }) {
   if (disabled.value) return;
   savingBookmark.value = true;
   dialogError.value = '';
-  categoryError.value = '';
+  folderError.value = '';
   try {
     const url = normalizeUrl(value.url);
     try { await repository.parent(value.parentId); }
-    catch (error) { categoryError.value = fail(error); return; }
+    catch (error) { folderError.value = fail(error); return; }
     const selected = editing.value;
     const idResult = { id: selected?.id ?? '' };
     let capture = !selected && value.capture;
@@ -143,15 +149,15 @@ async function saveBookmark(value: { url: string; title: string; capture: boolea
 }
 async function action(name: string) {
   const selected = context.value?.bookmark;
-  const category = context.value?.category;
+  const folder = context.value?.folder;
   context.value = undefined;
   try {
-    if (category && name !== 'category') {
-      if (name === 'edit' || name === 'delete') await categoryAction(name === 'edit' ? 'rename' : 'delete', category.id);
+    if (folder && name !== 'folder') {
+      if (name === 'edit' || name === 'delete') await folderAction(name === 'edit' ? 'rename' : 'delete', folder.id);
       return;
     }
     if (name === 'add') add();
-    if (name === 'category') await categoryAction('create');
+    if (name === 'folder') await folderAction('create');
     if (name === 'settings') openSettings();
     if (!selected) return;
     if (name === 'open') await browser.tabs.create({ url: selected.url });
@@ -183,7 +189,7 @@ async function importData(text: string) {
     const next = parseImport(text);
     const path = (await repository.choices()).find(row => row.id === snapshot.value.rootId)?.path;
     if (!path) throw new Error('Выберите папку закладок в настройках.');
-    if (!confirm('Импорт добавит закладки и категории в папку «' + path + '»; возможны дубликаты. Настройки и фон будут применены. Продолжить?')) return;
+    if (!confirm('Импорт добавит закладки и папки в папку «' + path + '»; возможны дубликаты. Настройки и фон будут применены. Продолжить?')) return;
     if (await run(() => repository.importData(next),true)) { transfer.value = undefined; mailRevision.value++; notice.value = 'Данные импортированы.'; }
     else importError.value = notice.value;
   } catch (error) { importError.value = fail(error); }
@@ -210,46 +216,56 @@ async function updateImages(id: string, url: string) {
   await refresh(); announce();
   if (results[0]?.status === 'rejected') throw results[0].reason;
 }
-async function selectCategory(id: string) { if (searchOpen.value) closeSearch(); repository.selectCategory(id); try { await refresh(); } catch (error) { notice.value = fail(error); } }
-async function beginCategory() {
+async function selectFolder(id: string) { if (searchOpen.value) closeSearch(); repository.selectFolder(id); try { await refresh(); } catch (error) { notice.value = fail(error); } }
+async function beginFolder() {
   if (disabled.value || !snapshot.value.rootId) return;
   context.value = undefined;
-  editingCategory.value = undefined;
-  categoryDialogError.value = '';
-  creatingCategory.value = true;
+  editingFolder.value = undefined;
+  folderDialogError.value = '';
+  creatingFolder.value = true;
 }
-async function cancelCategory() {
+async function cancelFolder() {
   if (disabled.value) return;
-  creatingCategory.value = false;
-  editingCategory.value = undefined;
+  creatingFolder.value = false;
+  editingFolder.value = undefined;
 
 }
-async function saveCategory(title: string) {
-  if (disabled.value || (!creatingCategory.value && !editingCategory.value)) return;
-  const selected = editingCategory.value;
-  categoryDialogError.value='';
-  if (await run(() => selected ? repository.renameCategory(selected.id, title) : repository.createCategory(title))) await cancelCategory();
-  else {categoryDialogError.value=notice.value;notice.value='';}
+async function saveFolder(title: string) {
+  if (disabled.value || (!creatingFolder.value && !editingFolder.value)) return;
+  const selected = editingFolder.value;
+  folderDialogError.value='';
+  if (await run(() => selected ? repository.renameFolder(selected.id, title) : repository.createFolder(title))) await cancelFolder();
+  else {folderDialogError.value=notice.value;notice.value='';}
 }
-async function categoryAction(name: 'create' | 'rename' | 'delete', id = snapshot.value.activeId) {
-  if (name === 'create') { await beginCategory(); return; }
+async function folderAction(name: 'create' | 'rename' | 'delete', id = snapshot.value.activeId) {
+  if (name === 'create') { await beginFolder(); return; }
   if (!id || id === snapshot.value.rootId) return;
   if (name === 'rename') {
     if (disabled.value) return;
-    const category = await repository.category(id);
-    creatingCategory.value = false;
-    categoryDialogError.value='';
-    editingCategory.value = { id, title: category.title };
+    const folder = await repository.folder(id);
+    creatingFolder.value = false;
+    folderDialogError.value='';
+    editingFolder.value = { id, title: folder.title };
   }
-  if (name === 'delete' && confirm('Удалить реальную папку браузера и ВСЕ её потомки, включая скрытые вложенные папки? Удаление может синхронизироваться на другие устройства.')) await run(() => repository.removeCategory(id));
+  if (name === 'delete' && confirm('Удалить реальную папку браузера и ВСЕ её потомки, включая скрытые вложенные папки? Удаление может синхронизироваться на другие устройства.')) await run(() => repository.removeFolder(id));
 }
-async function reorderCategories(ids: string[], expected: string[], dragRevision: number) { await run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorderCategories(ids, expected); }); }
+async function reorderFolders(ids: string[], expected: string[], dragRevision: number) { await run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorderFolders(ids, expected); }); }
+const dialogReturnTargets=new WeakMap<Element,HTMLElement>();
+function beforeDialogEnter(element:Element){
+  if(document.activeElement instanceof HTMLElement)dialogReturnTargets.set(element,document.activeElement);
+}
+function restoreDialogFocus(element:Element){
+  const previous=dialogReturnTargets.get(element);dialogReturnTargets.delete(element);
+  if(overlayOpen.value||context.value)return;
+  const target=previous?.isConnected&&!previous.matches(':disabled')?previous:document.querySelector<HTMLElement>('.settings-trigger');
+  target?.focus({preventScroll:true});
+}
 function beforeDialogLeave(element: Element) { (element as HTMLElement).inert = true; }
 function escape(event: KeyboardEvent) {
   if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !disabled.value && snapshot.value.settings.bookmarkSearch && snapshot.value.rootId && !overlayOpen.value && !context.value && !(event.target as HTMLElement).closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),dialog,[role="dialog"]')) {
     event.preventDefault(); openSearch(); return;
   }
-  if (event.key !== 'Escape' || disabled.value) return;
+  if (event.key !== 'Escape' || disabled.value || event.defaultPrevented || (event.target instanceof Element && event.target.closest('dialog'))) return;
   if (searchOpen.value && !overlayOpen.value && !context.value) { event.preventDefault(); closeSearch(); return; }
   context.value = undefined;void closeSettings();
 }
@@ -257,52 +273,53 @@ window.addEventListener('keydown', escape);
 onUnmounted(() => window.removeEventListener('keydown', escape));
 </script>
 <template>
-  <div class="page relative font-[family-name:var(--ui-font)] leading-[normal] min-h-screen bg-center bg-cover bg-no-repeat [:where(&)_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-100 [:where(&)_button]:font-[family-name:var(--ui-font)] [:where(&)_input]:font-[family-name:var(--ui-font)] [:where(&)_textarea]:font-[family-name:var(--ui-font)] [:where(&)_button]:text-base [:where(&)_input]:text-base [:where(&)_textarea]:text-base [:where(&)_button]:font-normal [:where(&)_button]:leading-[normal] [:where(&)_input]:leading-[normal] [:where(&)_textarea]:leading-[normal] [:where(&)_button]:[-webkit-tap-highlight-color:transparent] [&_a]:[-webkit-tap-highlight-color:transparent] [:where(&)_input]:[-webkit-tap-highlight-color:transparent] [:where(&)_textarea]:[-webkit-tap-highlight-color:transparent] [&_input::placeholder]:text-[#757575] [&_textarea::placeholder]:text-[#757575] [&_input::placeholder]:opacity-100 [&_textarea::placeholder]:opacity-100 [&_*]:motion-reduce:transition-none [&_*]:motion-reduce:animate-none [&_*::before]:motion-reduce:transition-none [&_*::after]:motion-reduce:transition-none" :style="appearance" @contextmenu="showContext">
-    <div aria-hidden="true" class="page-background fixed inset-0 pointer-events-none bg-center bg-cover bg-no-repeat" :class="{ 'is-blurred': overlayOpen, 'is-ready': !!backgroundUrl }" :style="{ backgroundImage: backgroundUrl ? 'url(' + backgroundUrl + ')' : undefined, backgroundColor: backgroundUrl ? '#808590' : undefined }"/>
-    <main class="dial relative flex flex-col p-6 min-h-screen transition-all duration-250 ease-in-out motion-reduce:transition-none [&.pushed]:-translate-x-[300px] [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen, 'is-blurred': overlayOpen }">
-      <header class="relative shrink-0">
+  <div :data-keyboard-focus="keyboardFocus||undefined" class="page relative font-[family-name:var(--ui-font)] leading-[normal] min-h-screen bg-center bg-cover bg-no-repeat [:where(&)_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-100 [:where(&)_button]:font-[family-name:var(--ui-font)] [:where(&)_input]:font-[family-name:var(--ui-font)] [:where(&)_textarea]:font-[family-name:var(--ui-font)] [:where(&)_button]:text-base [:where(&)_input]:text-base [:where(&)_textarea]:text-base [:where(&)_button]:font-normal [:where(&)_button]:leading-[normal] [:where(&)_input]:leading-[normal] [:where(&)_textarea]:leading-[normal] [:where(&)_button]:[-webkit-tap-highlight-color:transparent] [&_a]:[-webkit-tap-highlight-color:transparent] [:where(&)_input]:[-webkit-tap-highlight-color:transparent] [:where(&)_textarea]:[-webkit-tap-highlight-color:transparent] [&_input::placeholder]:text-[#757575] [&_textarea::placeholder]:text-[#757575] [&_input::placeholder]:opacity-100 [&_textarea::placeholder]:opacity-100 [&_*]:motion-reduce:transition-none [&_*]:motion-reduce:animate-none [&_*::before]:motion-reduce:transition-none [&_*::after]:motion-reduce:transition-none" @contextmenu="showContext">
+    <div aria-hidden="true" class="page-background fixed inset-0 pointer-events-none bg-center bg-cover bg-no-repeat" :class="{ 'is-ready': !!backgroundUrl }" :style="{ backgroundImage: backgroundUrl ? 'url(' + backgroundUrl + ')' : undefined, backgroundColor: backgroundUrl ? '#808590' : undefined }"/>
+    <main class="dial relative flex flex-col p-6 min-h-screen motion-reduce:transition-none [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen, 'is-loaded': !loading }">
+      <header class="relative shrink-0" :class="{'startup-reveal':!loading}">
         <SearchBar :provider="snapshot.settings.searchProvider" :disabled="disabled" :save-provider="changeSearchProvider" />
-        <div class="tools flex items-center gap-4 absolute right-0 top-0 block">
+        <div class="tools flex items-center gap-2">
           <MailIndicator :key="mailRevision" :email="snapshot.settings.email" />
-          <button class="sr-only focus:not-sr-only" aria-label="Настройки" :disabled="disabled" @click="openSettings">Настройки</button>
+          <button class="settings-trigger ui-folder inline-flex size-12 items-center justify-center" aria-label="Настройки" title="Настройки" aria-haspopup="dialog" :aria-expanded="settingsOpen" :aria-controls="settingsOpen?'settings-modal':undefined" :disabled="disabled" @click="openSettings"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><g transform="translate(0 1)"><path d="m9 3-1 3-3 1-2 4 2 2v3l4 3 3-1 3 1 4-3v-3l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></g></svg></button>
         </div>
       </header>
       <div class="bookmark-area flex flex-col flex-1" :class="{ 'justify-center': snapshot.settings.verticalCenter }">
-        <p v-if="loading" role="status" class="text-white text-center">Загрузка…</p>
-        <div v-else-if="!snapshot.rootId" class="text-white text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
-        <template v-else>
-        <div v-if="snapshot.settings.bookmarkSearch || snapshot.categories.length || creatingCategory" class="bookmark-toolbar relative flex items-center min-h-11 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
-        <CategoryTabs :revision="revision" :categories="snapshot.categories" :active-id="snapshot.activeId" :disabled="disabled" :hidden="searchOpen" :creating="creatingCategory" :editing="editingCategory" :class="{'pr-[52px]':snapshot.settings.bookmarkSearch}" @select="selectCategory" @context="showCategoryContext" @background="event => { if (!disabled && !overlayOpen) context = {x:event.clientX,y:event.clientY}; }" @reorder="reorderCategories" @refresh="refresh" />
+        <div v-if="!loading && !snapshot.rootId" class="surface-empty startup-reveal text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
+        <template v-else-if="!loading">
+        <div v-if="snapshot.settings.bookmarkSearch || snapshot.folders.length || creatingFolder" class="bookmark-toolbar startup-reveal relative flex items-center min-h-12 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
+        <FolderTabs :motion-enabled="motionEnabled" :revision="revision" :folders="snapshot.folders" :active-id="snapshot.activeId" :disabled="disabled" :hidden="searchOpen" :creating="creatingFolder" :editing="editingFolder" :class="{'pr-[56px]':snapshot.settings.bookmarkSearch}" @select="selectFolder" @context="showFolderContext" @background="event => { if (!disabled && !overlayOpen) context = {x:event.clientX,y:event.clientY}; }" @reorder="reorderFolders" @refresh="refresh" />
         <BookmarkSearch v-if="snapshot.settings.bookmarkSearch" ref="searchControl" :open="searchOpen" v-model:query="query" :disabled="disabled" @open="openSearch" @close="closeSearch" />
         </div>
-        <p v-if="searching && searchError" role="alert" class="text-white text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
+        <p v-if="searching && searchError" role="alert" class="surface-empty text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
         <div v-else-if="showEmptySearch" role="status" class="mx-auto min-h-36 flex flex-col items-center justify-center gap-2 ui-glass p-6 text-center text-[#454952]" :style="{ width: snapshot.settings.width + '%' }">
           <svg class="mb-1 opacity-50" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
           <p>Закладки не найдены</p>
-          <p class="text-sm opacity-75">Попробуйте другое название или адрес сайта.</p>
+          <p class="text-sm text-[var(--text-secondary)]">Попробуйте другое название или адрес сайта.</p>
         </div>
-        <BookmarkGrid :revision="revision" :category-names="Object.fromEntries(snapshot.categories.map(row=>[row.id,row.title]))" :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
+        <BookmarkGrid :motion-enabled="motionEnabled" :folder-id="snapshot.activeId" :revision="revision" :folder-names="Object.fromEntries(snapshot.folders.map(row=>[row.id,row.title]))" :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
           @add="add" @context="showContext" @reorder="reorder" @refresh="refresh" />
         </template>
       </div>
     </main>
     <div v-if="!settingsOpen && Object.keys(settingErrors).length" role="alert" class="fixed bottom-4 left-4 right-4 p-4 rounded-[var(--ui-radius)] shadow-[var(--ui-shadow-popover)] bg-[#fff8d6] z-50 break-words">{{Object.values(settingErrors).join(' ')}}</div>
     <div v-if="notice && !settingsOpen" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded-[var(--ui-radius)] shadow-[var(--ui-shadow-popover)] flex justify-between items-start gap-3 bg-[#fff8d6] z-50 [overflow-wrap:anywhere]">
-      <span>{{ notice }}</span><button aria-label="Закрыть уведомление" @click="notice = ''">×</button>
+      <span>{{ notice }}</span><button class="ui-hover rounded-full" aria-label="Закрыть уведомление" @click="notice = ''">×</button>
     </div>
-    <Transition enter-from-class="overlay-clear" leave-active-class="[&_.settings]:animate-none [&_.settings]:transition-transform [&_.settings]:duration-250 motion-reduce:[&_.settings]:transition-none" leave-to-class="overlay-clear [&_.settings]:translate-x-full" :duration="250" @before-leave="beforeDialogLeave">
-    <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="Object.values(settingErrors).join(' ')" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :preview-settings="previewSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
+    <Transition name="settings-panel" :duration="motionEnabled ? 250 : 0" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus" @before-enter="beforeDialogEnter">
+    <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="Object.values(settingErrors).join(' ')" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
       @import="settingsOpen = false; importError = ''; transfer = 'import'" @export="openExport" @reset="reset" @error="notice=$event" />
     </Transition>
-    <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
-      <CategoryDialog v-if="creatingCategory || editingCategory" :title="editingCategory?.title" :busy="disabled" :error="categoryDialogError" @close="cancelCategory" @save="saveCategory" />
+    <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus">
+      <FolderDialog v-if="creatingFolder || editingFolder" :title="editingFolder?.title" :busy="disabled" :error="folderDialogError" @close="cancelFolder" @save="saveFolder" />
     </Transition>
-    <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
-    <BookmarkDialog v-if="bookmarkDialog" :bookmark="editing" :categories="dialogCategories" :active-id="snapshot.activeId" :category-error="categoryError" :busy="disabled" :error="dialogError" @close="bookmarkDialog = false" @save="saveBookmark" />
+    <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus">
+    <BookmarkDialog v-if="bookmarkDialog" :bookmark="editing" :folders="dialogFolders" :active-id="snapshot.activeId" :folder-error="folderError" :busy="disabled" :error="dialogError" @close="bookmarkDialog = false" @save="saveBookmark" />
     </Transition>
-    <Transition enter-active-class="transition-opacity duration-250 motion-reduce:transition-none" leave-active-class="transition-opacity duration-250 motion-reduce:transition-none" enter-from-class="opacity-0" leave-to-class="opacity-0" :duration="250" @before-leave="beforeDialogLeave">
+    <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus">
     <ImportExportDialog v-if="transfer" :mode="transfer" :value="exportText" :busy="disabled" :operation-error="importError" @close="transfer = undefined" @import="importData" />
     </Transition>
-    <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" :category="context.category" @close="context = undefined" @action="action" />
+    <Transition name="floating" :duration="motionEnabled ? 150 : 0" @before-enter="element => { (element as HTMLElement).inert = false; element.removeAttribute('aria-hidden'); }" @before-leave="element => { beforeDialogLeave(element); element.setAttribute('aria-hidden','true'); }">
+      <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" :folder="context.folder" @close="context = undefined" @action="action" />
+    </Transition>
   </div>
 </template>

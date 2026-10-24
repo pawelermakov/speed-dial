@@ -1,154 +1,252 @@
 @import 'tailwindcss';
-
+@property --folder-edge-start {syntax:'<length>';inherits:true;initial-value:0px}
+@property --folder-edge-end {syntax:'<length>';inherits:true;initial-value:0px}
 @theme {
-  --color-accent: #ffcc00;
-  --animate-fade: fade .25s;
-  --animate-slide: slide .25s;
-  @keyframes fade {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes slide {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
-  }
+ --color-accent:#ffcc00;
+ --animate-fade:fade var(--motion-standard) var(--ease-enter);
+ --animate-slide:slide var(--motion-standard) var(--ease-enter);
+ @keyframes fade {from {opacity:0;transform:translateY(-4px)} to {opacity:1;transform:translateY(0)}}
+ @keyframes slide {from {transform:translateX(100%)} to {transform:translateX(0)}}
+}
+:root {
+ --ui-font:system-ui,-apple-system,"Segoe UI",sans-serif;
+ --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--space-10:40px;
+ --radius-sm:6px;--radius-md:10px;--radius-lg:14px;--radius-xl:18px;--radius-full:9999px;
+ --radius-action:20px;--radius-toolbar:24px;--radius-panel:24px;--radius-popover:16px;--radius-menu-item:8px;
+ --motion-fast:150ms;--motion-standard:250ms;--ease-enter:ease-out;--ease-exit:ease-in;--ease-state:ease-in-out;
+ --ui-surface-base:#fff;--ui-text:#17212f;--text-secondary:#475569;
+ --ui-accent:#ffcc00;--ui-accent-hover:#f2c200;--ui-accent-pressed:#e6b800;--ui-accent-rgb:255 204 0;--ui-accent-contrast:#17212f;
+ --ui-radius:var(--radius-md);--ui-surface-alpha:.86;
+ --surface-control:rgb(255 255 255 / .86);--surface-floating:rgb(255 255 255 / .54);--surface-overlay:rgb(255 255 255 / .96);
+ --surface-input:rgb(255 255 255 / .46);--surface-caption:rgb(255 255 255 / .92);--surface-empty:rgb(255 255 255 / .94);
+ --surface-highlight:rgb(var(--ui-accent-rgb) / .45);--surface-highlight-pressed:rgb(var(--ui-accent-rgb) / .60);
+ --surface-floating-emphasis:var(--surface-highlight);--surface-floating-pressed:var(--surface-highlight-pressed);
+ --ui-surface:var(--surface-control);--ui-accent-soft:rgb(23 33 47 / .08);
+ --surface-control-hover:rgb(238 241 245 / .96);
+ --surface-folder-hover:rgb(255 255 255 / .65);--surface-folder-pressed:rgb(255 255 255 / .55);
+ --surface-input-emphasis:rgb(255 255 255 / .58);--surface-input-pressed:rgb(255 255 255 / .38);
+ --focus-ring:#52647a;--border-material:rgb(255 255 255 / .50);--ui-border:rgb(23 33 47 / .12);--border-strong:rgb(23 33 47 / .25);--ui-control-border:var(--ui-border);
+ --mail-icon:var(--text-secondary);--danger:#a61b1b;--success:#166534;--warning:#92400e;
+ --ui-shadow-tile:0 2px 6px rgb(12 20 34 / .16);--ui-shadow-raised:0 8px 28px rgb(12 20 34 / .20);--ui-shadow-popover:var(--ui-shadow-raised);
+ --shadow-overlay:0 18px 50px rgb(12 20 34 / .24);--ui-overlay:rgb(8 14 25 / .20);
+}
+html {font-family:var(--ui-font);background:#e9edf2;scrollbar-width:thin;scrollbar-color:#94a3b8 transparent;scrollbar-gutter:stable}
+/* Reserve scrollbar space before overflow so text and controls keep their width. */
+:where(.settings-content,.modal) {scrollbar-gutter:stable}
+/* The modal panel owns scrolling; its fullscreen backdrop must not add a second bar. */
+.modal-screen {overflow:clip}
+.page {color:var(--ui-text);font-size:16px;line-height:1.45;min-height:100dvh}
+.page button,.page input,.page select,.page textarea {font-family:var(--ui-font);font-size:16px;line-height:1.45}
+.settings-form {font-size:16px}
+.ui-control[type=number] {padding-right:24px}
+.settings label[for=background] {display:flex;align-items:center;justify-content:center;height:40px}
+.page input::placeholder,.page textarea::placeholder {color:var(--text-secondary);opacity:1}
+@keyframes startup-reveal {from {opacity:0} to {opacity:1}}
+.startup-reveal {animation:startup-reveal var(--motion-fast) var(--ease-enter) backwards}
+.dial:not(.is-loaded)>header {visibility:hidden}
+.page-background {opacity:0;transition:opacity var(--motion-standard) var(--ease-state)}
+.page-background.is-ready {opacity:1}
+.dial>header {display:grid;grid-template-columns:1fr minmax(0,700px) 1fr;align-items:start;gap:16px;z-index:10}
+.search {z-index:1;padding:1px;isolation:isolate;grid-column:2;height:48px;max-width:700px;border-radius:var(--radius-toolbar)}
+.tools {justify-self:end}
+.search-surface {border-radius:inherit;z-index:-1}
+.surface-control,.ui-folder,.bookmark-search-field {background:var(--surface-control);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.ui-glass {--text-secondary:var(--ui-text);--danger:#4a0808;--success:#052312;background:linear-gradient(135deg,rgb(255 255 255 / .30),rgb(255 255 255 / .01) 32%,transparent 64%,rgb(255 255 255 / .12)),var(--surface-floating);color:var(--ui-text);border:1px solid rgb(255 255 255 / .60);border-radius:var(--radius-popover);box-shadow:var(--ui-shadow-popover),inset 0 1px 1px rgb(255 255 255 / .85),inset 0 -1px 0 rgb(255 255 255 / .18);-webkit-backdrop-filter:blur(12px) saturate(1.6);backdrop-filter:blur(12px) saturate(1.6)}
+.surface-control {border:1px solid var(--border-material);box-shadow:var(--ui-shadow-tile)}
+.ui-overlay {background:var(--ui-overlay)}
+/* Keep glass ancestors opaque: fading an ancestor changes the backdrop used by blur. */
+:is(.modal-panel-enter-active,.modal-panel-leave-active,.settings-panel-enter-active,.settings-panel-leave-active) {transition:background-color var(--motion-standard) var(--ease-state)}
+:is(.modal-panel-enter-from,.modal-panel-leave-to,.settings-panel-enter-from,.settings-panel-leave-to) {background:transparent}
+.modal-panel-enter-active .modal,.modal-panel-leave-active .modal {animation:none;transition:opacity var(--motion-standard) var(--ease-state),transform var(--motion-standard) var(--ease-state)}
+.modal-panel-enter-from .modal,.modal-panel-leave-to .modal {opacity:0;transform:translateY(-4px)}
+.settings-panel-enter-active .settings,.settings-panel-leave-active .settings {animation:none;transition:transform var(--motion-standard) var(--ease-state)}
+.settings-panel-enter-from .settings,.settings-panel-leave-to .settings {transform:translateX(100%)}
+:is(.modal-panel-leave-active,.settings-panel-leave-active) {pointer-events:none}
+.modal-screen[open] {display:flex;align-items:safe center;justify-content:center}
+.modal,.settings {border-radius:var(--radius-panel);box-shadow:0 24px 64px rgb(8 14 25 / .20),inset 0 1px 1px rgb(255 255 255 / .85),inset 0 -1px 0 rgb(255 255 255 / .18)}
+.modal {width:min(360px,calc(100vw - 32px))}
+.modal.bookmark-dialog {width:min(460px,calc(100vw - 32px))}
+.modal.wide {width:min(800px,calc(100vw - 32px))}
+:is(input,select,textarea).ui-control:enabled:focus {background:var(--surface-input-emphasis);border-color:transparent}
+:is(input,select,textarea).ui-control[aria-invalid=true]:enabled:focus {border-color:var(--danger)}
+select.ui-control:enabled:active {background:var(--surface-input-pressed)}
+.ui-button.secondary:enabled:active,.ui-button.danger:enabled:active,.sync-action:enabled:active,.settings-bottom .ui-button:enabled:active,input:is(.file-input,.peer):enabled+label.ui-control:active {background:var(--surface-input-pressed)}
+.ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:hover {background:var(--ui-accent-hover)}
+.ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:active {background:var(--ui-accent-pressed)}
+.ui-hover:enabled:active {background:var(--ui-border)}
+input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:#475569;cursor:not-allowed;box-shadow:none}
+
+.settings {border-radius:var(--radius-panel) 0 0 var(--radius-panel);line-height:1.45}
+.panel-header {padding:20px;padding-right:64px;border:0}
+.panel-header h2 {font-size:20px;font-weight:600;line-height:1.25}
+.ui-control,.ui-button,.ui-folder {border:1px solid transparent;border-radius:var(--radius-md);color:var(--ui-text)}
+.ui-control {background:var(--surface-input);min-height:40px;padding:8px 12px;backdrop-filter:none}
+.ui-control:not(textarea) {height:40px}
+.ui-file-button {border-radius:var(--radius-action)}
+.ui-button {border-radius:var(--radius-action);background:var(--ui-accent);min-height:40px;padding:8px 12px;font-weight:500}
+.page .ui-button {line-height:1.3}
+.ui-button.secondary,.ui-button.danger,.settings-bottom .ui-button,.sync-action {background:var(--surface-input)}
+.ui-button.danger,.destructive {color:var(--danger)}
+.ui-folder {padding-inline:16px;border-color:var(--border-material);border-radius:var(--radius-toolbar)}
+.ui-folder[aria-pressed=true] {background:var(--ui-accent);color:var(--ui-accent-contrast)}
+.ui-folder[aria-pressed=true] {border-color:transparent}
+.ui-hover,.ui-control,.ui-button,.ui-folder,.context button,.bookmark,.add-card {transition:border-color var(--motion-fast) var(--ease-state),background-color var(--motion-fast) var(--ease-state),color var(--motion-fast) var(--ease-state),box-shadow var(--motion-fast) var(--ease-state)}
+.ui-hover:enabled:hover:not(:active),.ui-folder:not([aria-pressed=true]):enabled:hover,.ui-button.secondary:enabled:hover,.context button:enabled:hover,.context .keyboard-active {background:var(--ui-accent-soft)}
+.ui-folder:not([aria-pressed=true]):enabled:hover,.add-card:enabled:hover {background:var(--surface-control-hover)}
+.folder-tabs .ui-folder {transition:border-bottom-color var(--motion-standard) var(--ease-state),background-color var(--motion-standard) var(--ease-state),color var(--motion-standard) var(--ease-state),box-shadow var(--motion-standard) var(--ease-state),outline-color var(--motion-standard) var(--ease-state),opacity var(--motion-standard) var(--ease-state)}
+.folder-tabs .ui-folder:not([aria-pressed=true]):enabled:hover {background:var(--surface-folder-hover)}
+.ui-button.secondary:enabled:hover:not(:active),.ui-button.danger:enabled:hover:not(:active),.settings-bottom .ui-button:enabled:hover:not(:active),.sync-action:enabled:hover:not(:active) {background:var(--surface-input-emphasis)}
+.ui-action-label {color:inherit}
+.ui-caption {background:var(--surface-caption);color:var(--ui-text);backdrop-filter:none}
+.surface-empty,.bookmark-area>div[role=status] {background:var(--surface-empty);color:var(--ui-text);border-radius:var(--radius-lg);padding:24px;backdrop-filter:none}
+.bookmark,.add-card {aspect-ratio:16/9;border-radius:var(--radius-lg);box-shadow:var(--ui-shadow-tile);transition:box-shadow var(--motion-standard) var(--ease-state),background-color var(--motion-standard) var(--ease-state)}
+.bookmark:not(.dragging):not(.drop-target):hover {box-shadow:var(--ui-shadow-raised),inset 0 0 0 1px rgb(255 255 255 / .22)}
+.add-card:enabled:hover {box-shadow:var(--ui-shadow-raised)}
+.bookmark.drop-target {outline:3px solid var(--ui-accent);outline-offset:-3px}
+.bookmark:not(.dragging):not(.drop-target):active,.add-card:enabled:active {box-shadow:var(--ui-shadow-tile)}
+.add-card:enabled:hover {background:var(--surface-folder-hover)}
+.add-card:enabled:active {background:var(--surface-folder-pressed)}
+.bookmark-title {line-height:1.45;border-top:1px solid var(--ui-border);transition:background-color var(--motion-standard) var(--ease-state)}
+.bookmark:hover .bookmark-title {background:var(--surface-overlay)}
+.folder-scroll {padding:var(--space-1)}
+.folder-tab:focus-visible,.folder-root:focus-visible {outline-offset:-3px}
+.context {border-radius:var(--radius-popover);padding:4px;font-size:16px;line-height:1.45;scrollbar-width:thin;overscroll-behavior:contain;animation-duration:var(--motion-fast)}
+.context button {display:block;width:100%;min-height:36px;padding:6px 12px;border-radius:var(--radius-menu-item);text-align:left;overflow-wrap:anywhere}
+.context button:enabled:hover,.context .keyboard-active {background:var(--surface-floating-emphasis)}
+.context button:enabled:active {background:var(--surface-floating-pressed)}
+.context:has(button:hover) .keyboard-active:not(:hover) {background:transparent}
+.page[data-keyboard-focus] .context button:focus-visible:not(:disabled) {outline-offset:-2px}
+.context-divider {height:1px;margin:4px 8px;border:0;background:var(--ui-border)}
+.info-tooltip {border-radius:var(--radius-md);font-size:14px;line-height:1.45;max-height:calc(100dvh - 32px);overflow:auto}
+.search-provider {height:40px;width:120px;margin-left:3px}
+.bookmark-search-field.ui-control {border-color:var(--border-material);border-radius:var(--radius-toolbar);height:48px;padding:0;background:var(--surface-control);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.bookmark-search-field.ui-control:not(.is-open):has(.bookmark-search-trigger:enabled):hover {background:var(--surface-folder-hover)}
+.settings-trigger.ui-folder {padding:0;flex:none}
+.settings-trigger svg {flex:none}
+.settings-trigger.ui-folder {transition:background-color var(--motion-standard) var(--ease-state),box-shadow var(--motion-standard) var(--ease-state)}
+.settings-trigger.ui-folder:enabled:hover {background:var(--surface-folder-hover)}
+.add-card {background:var(--surface-control);border:1px solid var(--ui-border);-webkit-backdrop-filter:none;backdrop-filter:none}
+.search input {border:0;background:transparent;color:var(--ui-text);border-radius:var(--radius-action)}
+.search-submit {display:inline-flex;align-items:center;justify-content:center;padding:0;height:40px;width:80px;margin-right:3px}
+.search-submit svg {display:none}
+.search .search-submit:enabled:hover {background:var(--ui-accent-hover);box-shadow:none}
+.search .search-submit:enabled:active {background:var(--ui-accent-pressed)}
+.search-dropdown {left:0;right:0;top:calc(100% + 6px);scrollbar-width:thin;overscroll-behavior:contain}
+.suggestions {padding:3px;max-height:min(360px,45vh);animation:fade var(--motion-fast) var(--ease-enter)}
+.suggestions li {min-height:40px;padding:8px 12px;border-radius:var(--radius-md)}
+.suggestions li {transition:background-color var(--motion-standard) var(--ease-state),color var(--motion-standard) var(--ease-state),box-shadow var(--motion-standard) var(--ease-state)}
+.floating-enter-active .context,.floating-leave-active .context {animation:none;transition:opacity var(--motion-fast) var(--ease-state),transform var(--motion-fast) var(--ease-state)}
+.floating-leave-active {pointer-events:none}
+.floating-enter-from .context,.floating-leave-to .context {opacity:0;transform:translateY(-4px)}
+.suggestions li[aria-selected=true] {background:var(--surface-highlight)}
+.settings-row,.capture-option {min-height:40px}
+.settings input[type=number] {min-width:72px;text-align:right}
+.ui-select {position:relative;min-width:0}
+.ui-select>select {appearance:none;padding-right:40px}
+.ui-select--embedded>select.ui-control {padding-right:12px;border-radius:var(--radius-action)}
+.ui-select--embedded>select.ui-control:enabled {background:transparent;border-color:transparent;cursor:pointer}
+.ui-select--embedded>select.ui-control:enabled:focus {background:var(--surface-input-emphasis);border-color:transparent}
+.ui-select--embedded>select.ui-control:enabled:active {background:var(--surface-input-pressed)}
+.select-chevron {position:absolute;right:12px;top:50%;width:16px;height:16px;transform:translateY(-50%);pointer-events:none;color:var(--ui-text);transition:color var(--motion-fast) var(--ease-state)}
+.ui-select:has(select:focus) .select-chevron {color:var(--ui-text)}
+.ui-select:has(select:disabled) .select-chevron {color:#475569}
+.switch-input {width:44px;height:26px;top:50%;transform:translateY(-50%)}
+.switch-track {width:44px;height:26px;border:1px solid var(--border-strong);border-radius:var(--radius-full);background:var(--surface-input);transition:background-color var(--motion-fast) var(--ease-state),border-color var(--motion-fast) var(--ease-state),box-shadow var(--motion-fast) var(--ease-state)}
+.switch-track::before {content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 1px 3px rgb(12 20 34 / .25);transform:translateX(0);transition:transform var(--motion-fast) var(--ease-state),background-color var(--motion-fast) var(--ease-state),box-shadow var(--motion-fast) var(--ease-state)}
+.switch-input:checked+.switch-track {background:var(--ui-accent)}
+.switch-input:checked+.switch-track::before {transform:translateX(18px)}
+.switch-control:hover .switch-input:checked:enabled+.switch-track {background:var(--ui-accent-hover)}
+.switch-input:enabled:active+.switch-track {background:var(--ui-border)}
+.switch-input:checked:enabled:active+.switch-track {background:var(--ui-accent-pressed)}
+.switch-control:has(.switch-input:disabled),.switch-control:has(.switch-input:disabled) label,.switch-input:disabled {cursor:not-allowed}
+.switch-input:disabled+.switch-track {background:#e2e8f0;border-color:var(--border-strong)}
+.switch-input:disabled+.switch-track::before {background:#94a3b8;box-shadow:none}
+
+.page input[type=checkbox] {accent-color:var(--ui-accent)}
+.settings-content {scrollbar-width:thin}
+.settings legend,.settings h3 {font-weight:600}
+.sync-email {color:var(--text-secondary)}
+.page [role=alert],.ui-error {color:var(--danger);overflow-wrap:anywhere}
+.notice,.page>div[role=alert] {background:var(--surface-empty);color:var(--ui-text)}
+.notice button {min-width:36px;min-height:36px}
+.mail {border:1px solid var(--border-material);color:var(--mail-icon);background:var(--surface-control);border-radius:var(--radius-toolbar);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:background-color var(--motion-standard) var(--ease-state),color var(--motion-fast) var(--ease-state)}
+.mail:hover {background:var(--surface-folder-hover)}
+.mail:active {color:var(--ui-text)}
+.mail svg {width:20px;height:20px;flex:none}
+.badge {background:var(--danger);color:white;font-size:12px;font-weight:600}
+.page :is(button,input,select,textarea,a,[tabindex]):focus {outline:none}
+.page[data-keyboard-focus] :is(button,input,select,textarea,a,[tabindex]):focus-visible:not(:disabled),.page[data-keyboard-focus] .switch-input:focus-visible+.switch-track,.page[data-keyboard-focus] .peer:focus-visible+label {outline:2px solid var(--focus-ring);outline-offset:2px}
+.page[data-keyboard-focus] .folder-tabs .ui-folder:focus-visible {outline-offset:-3px}
+.page[data-keyboard-focus] .bookmark:focus-visible:not(:disabled) {outline-offset:-3px}
+.page :is(button,input,select,textarea):disabled {background:#e2e8f0;color:#475569;cursor:not-allowed;box-shadow:none}
+.ui-control[aria-invalid=true] {border-color:var(--danger)}
+@media(max-width:1023px) {.dial>header {grid-template-columns:minmax(0,1fr);gap:12px}.search {grid-column:1;grid-row:2}.tools {grid-row:1}.dial {padding:24px}}
+@media(max-width:480px) {.dial {padding:16px}.search-submit {width:44px}.search-submit span {display:none}.search-submit svg {display:block;margin:auto}.settings {border-radius:0}}
+/* Increased contrast is a system accessibility preference, not adaptive wallpaper styling. */
+@media(prefers-contrast:more) {
+ :root {--surface-control:rgb(255 255 255 / .96);--surface-floating:rgb(255 255 255 / .96);--surface-input:rgb(255 255 255 / .86);--surface-input-emphasis:#fff;--surface-input-pressed:rgb(255 255 255 / .76);--surface-folder-hover:rgb(255 255 255 / .90);--surface-folder-pressed:rgb(255 255 255 / .84);--text-secondary:var(--ui-text);--ui-border:rgb(23 33 47 / .45);--border-material:rgb(23 33 47 / .45);--focus-ring:#17212f;--border-strong:rgb(23 33 47 / .65)}
+ .ui-glass {border-color:var(--border-material)}
+}
+@supports not (backdrop-filter:blur(1px)) {:root {--surface-control:var(--ui-surface-base);--surface-floating:var(--ui-surface-base);--surface-overlay:var(--ui-surface-base);--surface-input-pressed:var(--ui-surface-base);--surface-highlight:#ffe88c;--surface-highlight-pressed:#ffe066;--surface-control-hover:#eef1f5;--surface-folder-hover:#eef1f5;--surface-folder-pressed:#e2e8f0;--surface-input-emphasis:var(--ui-surface-base);--surface-input:var(--ui-surface-base);--surface-caption:var(--ui-surface-base);--surface-empty:var(--ui-surface-base)}}
+@media(prefers-reduced-transparency:reduce) {:root {--surface-control:var(--ui-surface-base);--surface-floating:var(--ui-surface-base);--surface-overlay:var(--ui-surface-base);--surface-input-pressed:var(--ui-surface-base);--surface-highlight:#ffe88c;--surface-highlight-pressed:#ffe066;--surface-control-hover:#eef1f5;--surface-folder-hover:#eef1f5;--surface-folder-pressed:#e2e8f0;--surface-input-emphasis:var(--ui-surface-base);--surface-input:var(--ui-surface-base);--surface-caption:var(--ui-surface-base);--surface-empty:var(--ui-surface-base)}.page * {-webkit-backdrop-filter:none!important;backdrop-filter:none!important}}
+@media(prefers-reduced-motion:reduce) {.page *,.page *::before,.page *::after {transition:none!important;animation:none!important}}
+@media(forced-colors:active) {
+ .ui-select--embedded>select.ui-control:enabled {background:Canvas;border-color:ButtonText}
+ :root {--surface-highlight:Highlight;--surface-highlight-pressed:Highlight}
+ .ui-hover:enabled:is(:hover,:active),.ui-button:is(.secondary,.danger):enabled:is(:hover,:active),.settings-bottom .ui-button:enabled:is(:hover,:active),.sync-action:enabled:is(:hover,:active),input:is(.file-input,.peer):enabled+label.ui-control:is(:hover,:active) {background:Highlight;color:HighlightText}
+ .bookmark:hover .bookmark-title {background:Highlight;color:HighlightText}
+ .ui-glass {--text-secondary:CanvasText;--danger:LinkText;--success:CanvasText}
+ :is(input,select,textarea).ui-control:enabled:focus {border-color:ButtonText}
+ .ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:is(:hover,:active) {background:Highlight;color:HighlightText}
+ input:is(.file-input,.peer):disabled+label.ui-control {background:Canvas;color:GrayText}
+ :root {--mail-icon:LinkText;--surface-control:Canvas;--surface-control-hover:Canvas;--surface-folder-hover:Canvas;--surface-folder-pressed:Highlight;--surface-input:Canvas;--surface-input-emphasis:Canvas;--surface-input-pressed:Canvas;--ui-text:CanvasText;--text-secondary:CanvasText;--danger:LinkText;--success:CanvasText}
+ .page * {-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important}
+ .ui-glass,.ui-control,.ui-button,.ui-folder,.surface-control,.ui-caption,.switch-track,.surface-empty,.add-card {background:Canvas;color:CanvasText;border-color:ButtonText}
+ .ui-folder[aria-pressed=true],.switch-input:checked+.switch-track,.suggestions li[aria-selected=true] {background:Highlight;color:HighlightText}
+ .page[data-keyboard-focus] :is(button,input,select,textarea,a,[tabindex]):focus-visible:not(:disabled),.page[data-keyboard-focus] .switch-input:focus-visible+.switch-track,.page[data-keyboard-focus] .peer:focus-visible+label {outline:2px solid Highlight}
+ .search .search-submit:enabled:hover,.search .search-submit:enabled:active {background:Highlight;color:HighlightText}
+ .switch-control:hover .switch-input:checked:enabled+.switch-track,.switch-input:checked:enabled:active+.switch-track {background:Highlight}
+ .context button:enabled:is(:hover,:active),.context .keyboard-active {background:Highlight;color:HighlightText}
+ .switch-track::before {background:ButtonText}
+ .switch-input:checked+.switch-track::before {background:HighlightText}
+ .switch-input:disabled+.switch-track {background:Canvas;border-color:GrayText}
+ .switch-input:disabled+.switch-track::before {background:GrayText}
+ .ui-select:has(select:disabled) .select-chevron {color:GrayText}
+ .page :is(button,input,select,textarea):disabled {color:GrayText;background:Canvas}
 }
 
-/* One token system for surfaces; content images and provider branding stay opaque. */
-html,.page,.page * {
-  scrollbar-width:thin;
-  scrollbar-color:color-mix(in srgb,var(--scrollbar-accent,#FFCC00) 55%,transparent) transparent;
-}
-html:hover,.page :hover {
-  scrollbar-color:color-mix(in srgb,var(--scrollbar-accent,#FFCC00) 80%,transparent) transparent;
-}
-@media (forced-colors:active) {
-  html,.page,.page * {scrollbar-color:auto;}
-}
-.page {
-  --ui-font:"Segoe UI",system-ui,-apple-system,sans-serif;
-  --ui-radius:5px;
-  --ui-surface-alpha:.8;
-  --ui-blur:blur(10px);
-  --ui-accent:#FFCC00;
-  --ui-accent-rgb:255 204 0;
-  --ui-accent-contrast:#000000;
-  --ui-surface-base:#ffffff;
-  --ui-surface:rgb(255 255 255 / var(--ui-surface-alpha));
-  --ui-accent-soft:color-mix(in srgb,var(--ui-accent) 38%,var(--ui-surface-base));
-  --ui-text:#111111;
-  --ui-border:rgb(17 17 17 / .18);
-  --ui-control-border:rgb(17 17 17 / .14);
-  --ui-shadow-tile:0 1px 3px rgb(0 0 0 / .14);
-  --ui-shadow-raised:0 4px 12px rgb(0 0 0 / .18);
-  --ui-shadow-popover:0 8px 24px rgb(0 0 0 / .18);
-  --ui-overlay:rgb(0 0 0 / .24);
-  color:var(--ui-text);
-}
-.page-background {opacity:0;transition:filter 250ms ease-in-out,opacity 250ms ease-in-out;}
-.page-background.is-ready {opacity:1;}
-.page-background.is-blurred {filter:var(--ui-blur);}
-.dial.is-blurred {filter:var(--ui-blur);}
-.ui-overlay {background-color:var(--ui-overlay);transition:background-color 250ms ease-in-out,opacity 250ms ease-in-out;}
-.ui-overlay.overlay-clear {background-color:transparent;}
-.ui-glass,.ui-caption {
-  background:var(--ui-surface);
-  color:var(--ui-text);
-  -webkit-backdrop-filter:var(--ui-blur);
-  backdrop-filter:var(--ui-blur);
-}
-.ui-glass {border:1px solid var(--ui-border);border-radius:var(--ui-radius);box-shadow:var(--ui-shadow-popover);}
-.add-card.ui-glass {box-shadow:var(--ui-shadow-tile);}
-.add-card.ui-glass:enabled:hover {box-shadow:var(--ui-shadow-raised);}
-.ui-control,.ui-category,.checkmark,.ui-color {
-  background-color:var(--ui-surface);
-  color:var(--ui-text);
-  border:1px solid var(--ui-control-border);
-  border-radius:var(--ui-radius);
-}
-.ui-button,.ui-category[aria-pressed=true],.peer:checked ~ .checkmark {
-  background-color:rgb(var(--ui-accent-rgb) / var(--ui-surface-alpha));
-  color:var(--ui-accent-contrast);
-  border:1px solid var(--ui-control-border);
-  border-radius:var(--ui-radius);
-}
-.ui-button {color:var(--ui-button-contrast,var(--ui-accent-contrast));}
-.ui-action-label {padding:1px 4px;border-radius:min(4px,var(--ui-radius));}
-.ui-button:not(.danger) .ui-action-label {background:var(--ui-button-underlay,transparent);color:var(--ui-button-contrast,var(--ui-accent-contrast));}
-.ui-category[aria-pressed=true] .ui-action-label {background:var(--ui-category-underlay,transparent);color:var(--ui-accent-contrast);}
-.ui-button:enabled:hover {background-color:var(--ui-accent);}
-.ui-hover {transition:background-color 250ms ease-in-out,color 250ms ease-in-out;}
-.ui-category {transition:background-color 250ms ease-in-out;}
-.ui-hover:not(:disabled):hover,.ui-category:not([aria-pressed=true]):not(:disabled):hover {background-color:var(--ui-accent-soft);}
-.ui-control,.ui-color,.checkmark {transition:border-color 250ms ease-in-out,box-shadow 250ms ease-in-out,background-color 250ms ease-in-out;}
-.ui-control:not(:disabled):not([readonly]):not(:has(input:disabled)):hover,.ui-color:enabled:hover {
-  border-color:color-mix(in srgb,var(--ui-accent) 45%,var(--ui-surface-base));
-  box-shadow:0 0 0 2px rgb(var(--ui-accent-rgb) / .12);
-}
-.settings-row:hover .peer:enabled ~ .checkmark {box-shadow:0 0 0 3px rgb(var(--ui-accent-rgb) / .18);}
-.page input[type=checkbox]:not(.peer) {transition:box-shadow 250ms ease-in-out;}
-.page input[type=checkbox]:not(.peer):enabled:hover {box-shadow:0 0 0 3px rgb(var(--ui-accent-rgb) / .18);}
-.search :is(input,select) {transition:box-shadow 250ms ease-in-out;}
-.search :is(input,select):enabled:hover {box-shadow:inset 0 0 0 1px var(--search-accent);}
-.checkmark::after {border-color:var(--ui-accent-contrast);}
-.peer:checked ~ .checkmark::before {content:'';position:absolute;inset:3px;border-radius:max(0px,calc(var(--ui-radius) - 3px));background:var(--ui-category-underlay,transparent);}
-.peer:disabled ~ .checkmark,.ui-button:disabled,.ui-control:disabled {border-style:dashed;cursor:default;}
-.peer:disabled + label {border-style:dashed;cursor:default;}
-.page button:disabled {
-  background:color-mix(in srgb,var(--ui-text) 10%,var(--ui-surface-base));
-  color:color-mix(in srgb,var(--ui-text) 45%,var(--ui-surface-base));
-  border-color:transparent;
-  border-style:solid;
-  box-shadow:none;
-  opacity:1;
-  cursor:not-allowed;
-}
-.page button:disabled .ui-action-label {background:transparent;color:inherit;}
+.settings .settings-number {width:88px;min-width:88px;flex:none}
 
-.mail svg {filter:drop-shadow(0 1px 2px rgb(0 0 0 / .35));}
-.settings {border-radius:var(--ui-radius) 0 0 var(--ui-radius);font-size:16px;line-height:1.45;}
-.page select {font-family:var(--ui-font);}
-.settings :is(.ui-control,.ui-button,label[for=background]) {font-size:16px;line-height:1.45;}
-.settings label[for=background] {padding-block:8px;}
-.settings-header {background:transparent;}
-.settings :is(fieldset,section) {min-width:0;}
-.settings-form,.settings section[aria-label="Синхронизация"] {font-size:16px;}
-.settings legend,.settings h3,.modal h2 {font-weight:600;}
-.modal h2 {color:var(--ui-text);}
-.page input[type=checkbox] {accent-color:var(--ui-accent);}
-.ui-color {padding:4px;cursor:pointer;}
-.ui-color::-webkit-color-swatch-wrapper {padding:0;}
-.ui-color::-webkit-color-swatch {border:0;border-radius:max(0px,calc(var(--ui-radius) - 4px));}
-.ui-color::-moz-color-swatch {border:0;border-radius:max(0px,calc(var(--ui-radius) - 4px));}
-.ui-control::placeholder {color:var(--ui-text);opacity:1;}
-.ui-glass p {opacity:1;}
-.context {padding:4px 0;font-size:16px;line-height:24px;}
-.context button {display:block;width:100%;min-height:36px;padding:8px 16px;text-align:left;white-space:normal;overflow-wrap:anywhere;font-size:16px;line-height:24px;transition:background-color 250ms ease-in-out;color:var(--ui-text);}
-.context button:enabled:hover,.context .keyboard-active {background-color:var(--ui-accent-soft);}
-.context-divider {height:1px;margin:6px 8px;border:0;background:var(--ui-border);}
-.suggestions {font-size:16px;line-height:1.4;}
-.suggestions li {padding:8px 16px;}
-.suggestions li span {color:var(--ui-text);}
-.page :is(button,input,select,textarea,a,[tabindex]):focus-visible {
-  outline:none;box-shadow:0 0 0 2px rgb(var(--ui-accent-rgb) / .25);
+input.peer:enabled + label.ui-control:hover:not(:active),input.file-input:enabled + label.ui-control:hover:not(:active) {background:var(--surface-input-emphasis)}
+
+.folder-tabs .ui-folder:not([aria-pressed=true]):enabled:active,.settings-trigger.ui-folder:enabled:active,.mail:active,.bookmark-search-field.ui-control:not(.is-open):has(.bookmark-search-trigger:enabled:active) {background:var(--surface-folder-pressed)}
+.folder-tabs .ui-folder[aria-pressed=true]:enabled:active {background:var(--ui-accent-pressed)}
+.bookmark-search-close:enabled:active {background:rgb(23 33 47 / .12)}
+.mail-error {visibility:hidden;opacity:0;pointer-events:none;font-size:14px;border-radius:var(--radius-md);z-index:6;transition:opacity var(--motion-fast) var(--ease-state),visibility var(--motion-fast) var(--ease-state)}
+.mail-control:hover .mail-error,.mail-control:has(.mail:focus-visible) .mail-error {visibility:visible;opacity:1}
+
+@media(forced-colors:active){
+ .folder-tabs .ui-folder:enabled:active,.settings-trigger.ui-folder:enabled:active,.mail:active,.bookmark-search-field.ui-control:not(.is-open):has(.bookmark-search-trigger:enabled:active),.bookmark-search-close:enabled:active {background:Highlight;color:HighlightText}
 }
-.context button:focus-visible {box-shadow:none;background-color:var(--ui-accent-soft);}
-.peer:focus-visible ~ .checkmark,.peer:focus-visible + label {outline:none;box-shadow:0 0 0 2px rgb(var(--ui-accent-rgb) / .25);}
-.settings [role=alert]:not(.sync-notice),.modal [role=alert],.ui-error {background:rgb(255 255 255 / .95);padding:8px;border-radius:var(--ui-radius);}
-.ui-error {color:#8a2020;}
-.settings [data-icon] {background:#fff;border-radius:50%;}
-@supports not (backdrop-filter:blur(10px)) {
-  .ui-glass,.ui-caption {-webkit-backdrop-filter:none;backdrop-filter:none;}
-}
-@media (prefers-reduced-motion:reduce) {
-  .page *,.page *::before,.page *::after {animation:none!important;transition:none!important;}
-}
-@media (forced-colors:active) {
-  .ui-glass,.ui-caption,.ui-control,.ui-category,.ui-button,.checkmark {background:Canvas;color:CanvasText;border-color:ButtonText;box-shadow:none;backdrop-filter:none;}
-  .ui-category[aria-pressed=true],.peer:checked ~ .checkmark,.context .keyboard-active {background:Highlight;color:HighlightText;}
-  .page :is(button,input,select,textarea,a,[tabindex]):focus-visible,.peer:focus-visible ~ .checkmark,.peer:focus-visible + label {outline:2px solid Highlight;box-shadow:none;}
-  .page button:disabled {background:Canvas;color:GrayText;border-color:GrayText;}
-  .page button:disabled .ui-action-label {color:GrayText;}
-  .checkmark::after {border-color:HighlightText;}
-  .peer:checked ~ .checkmark::before {background:Highlight;}
+
+/* Controls inside an existing surface use its material rather than another glass layer. */
+.close,.bookmark-search-close,.info-help>button {border-radius:var(--radius-full)}
+.settings-form>fieldset {border:0;padding-top:0;margin-top:16px}
+.settings-form>fieldset>legend {position:relative;width:100%}
+.settings-form>fieldset>legend::before {content:"";position:absolute;top:-16px;left:0;right:0;height:1px;background:var(--ui-border)}
+@media(forced-colors:active){.settings-form>fieldset>legend::before {background:ButtonText}}
+
+.search-clear {width:32px;height:36px;margin-right:2px;border:0;border-radius:var(--radius-full);color:var(--text-secondary);background:transparent}
+/* Touch targets grow without changing desktop control geometry. */
+@media(pointer:coarse) {
+ .close,.info-help>button {width:44px;height:44px}
+ .bookmark-search-close {width:44px;height:44px;right:1px}
+ .bookmark-search-input {padding-right:48px}
+ .search-clear {width:44px;height:44px}
+ .search-submit {height:44px;margin-right:1px}
+ .search-provider {height:44px;margin-left:1px}
+ .search-provider>select.ui-control {height:44px}
+ .context button,.suggestions li,.switch-control,.ui-button,.ui-file-button {min-height:44px}
+ .ui-control:not(textarea):not(.bookmark-search-field) {min-height:44px;height:44px}
+ .settings button[aria-label="Удалить фон"] {width:44px;height:44px}
 }
