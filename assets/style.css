@@ -35,7 +35,16 @@ html {font-family:var(--ui-font);background:#e9edf2;scrollbar-width:thin;scrollb
 :where(.settings-content,.modal) {scrollbar-gutter:stable}
 /* The modal panel owns scrolling; its fullscreen backdrop must not add a second bar. */
 .modal-screen {overflow:clip}
-.page {color:var(--ui-text);font-size:16px;line-height:1.45;min-height:100dvh}
+.page {color:var(--ui-text);font-size:16px;line-height:1.45;height:100dvh;overflow:hidden}
+.dial {--page-padding:24px;height:100%;min-height:0}
+.bookmark-area {min-height:0}
+.bookmark-toolbar {flex-shrink:0}
+.bookmark-content {min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scroll-padding-block:24px;scrollbar-gutter:stable both-edges;scrollbar-width:thin;scrollbar-color:var(--scrollbar) transparent;padding:8px var(--page-padding);margin:-8px calc(-1 * var(--page-padding))}
+.bookmark-content [data-bookmark-edge-item] {mask-image:linear-gradient(to bottom,transparent,#000 var(--bookmark-edge-top,0px),#000 calc(100% - var(--bookmark-edge-bottom,0px)),transparent);mask-size:calc(100% + 64px) var(--bookmark-viewport-height,100%);mask-position:-32px calc(var(--bookmark-scroll-offset,0px) - var(--bookmark-item-offset,0px));mask-repeat:no-repeat;mask-clip:no-clip}
+@media(forced-colors:active){.bookmark-content [data-bookmark-edge-item] {mask-image:none}}
+.bookmark-content.justify-center {justify-content:safe center}
+.bookmark-content>* {flex-shrink:0}
+.page:has(dialog[open]) .bookmark-content {overflow-y:hidden}
 .page button,.page input,.page select,.page textarea {font-family:var(--ui-font);font-size:16px;line-height:1.45}
 .settings-form {font-size:16px}
 .settings label[for=background] {display:flex;align-items:center;justify-content:center;height:40px}
@@ -178,7 +187,7 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .page :is(button,input,select,textarea):disabled {background:#e2e8f0;color:#475569;cursor:not-allowed;box-shadow:none}
 .ui-control[aria-invalid=true] {border-color:var(--danger)}
 @media(max-width:1023px) {.dial>header {grid-template-columns:minmax(0,1fr);gap:12px}.search {grid-column:1;grid-row:2}.tools {grid-row:1}.dial {padding:24px}}
-@media(max-width:480px) {.dial {padding:16px}.search-submit {width:44px}.search-submit span {display:none}.search-submit svg {display:block;margin:auto}.settings {border-radius:0}}
+@media(max-width:480px) {.dial {--page-padding:16px;padding:16px}.search-submit {width:44px}.search-submit span {display:none}.search-submit svg {display:block;margin:auto}.settings {border-radius:0}}
 /* Increased contrast is a system accessibility preference, not adaptive wallpaper styling. */
 @media(prefers-contrast:more) {
  :root {--surface-control:rgb(255 255 255 / .96);--surface-floating:rgb(255 255 255 / .96);--surface-input:rgb(255 255 255 / .86);--surface-input-emphasis:#fff;--surface-input-pressed:rgb(255 255 255 / .76);--surface-folder-hover:rgb(255 255 255 / .90);--surface-folder-pressed:rgb(255 255 255 / .84);--text-secondary:var(--ui-text);--ui-border:rgb(23 33 47 / .45);--border-material:rgb(23 33 47 / .45);--focus-ring:#17212f;--border-strong:rgb(23 33 47 / .65)}

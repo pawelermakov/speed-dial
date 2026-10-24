@@ -5,6 +5,7 @@ import FolderTabs from './components/FolderTabs.vue';
 import FolderDialog from './components/FolderDialog.vue';
 import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
+import { useBookmarkEdges } from './composables/useBookmarkEdges';
 import { useBookmarkSearch } from './composables/useBookmarkSearch';
 import BookmarkDialog from './components/BookmarkDialog.vue';
 import SearchBar from './components/SearchBar.vue';
@@ -38,6 +39,8 @@ window.addEventListener('keydown',trackKeyboardFocus,true);
 window.addEventListener('pointerdown',trackPointerFocus,true);
 onUnmounted(()=>{window.removeEventListener('keydown',trackKeyboardFocus,true);window.removeEventListener('pointerdown',trackPointerFocus,true);});
 const searchText = ref('');
+const bookmarkContent = ref<HTMLElement>();
+useBookmarkEdges(bookmarkContent);
 const searchControl = ref<InstanceType<typeof SearchBar>>();
 const bookmarkMode = computed(()=>snapshot.value.settings.bookmarkSearch && snapshot.value.settings.searchProvider==='bookmarks');
 watch([searchText,bookmarkMode],()=>{query.value=bookmarkMode.value?searchText.value:'';},{flush:'sync'});
@@ -53,6 +56,7 @@ watch([query, bookmarkMode, searchPending, searchError, results], () => {
 }, { flush: 'sync' });
 onUnmounted(() => clearTimeout(emptySearchTimer));
 function openSearch() { void searchControl.value?.openBookmarks(); }
+watch([()=>snapshot.value.activeId,query],()=>bookmarkContent.value?.scrollTo({top:0,behavior:'instant'}),{flush:'post'});
 function closeSearch() { searchText.value=''; }
 function focusSearchResult() { document.querySelector<HTMLElement>('.bookmark')?.focus(); }
 const capturing = ref(false);
@@ -339,9 +343,9 @@ window.addEventListener('keydown', escape);
 onUnmounted(() => window.removeEventListener('keydown', escape));
 </script>
 <template>
-  <div :data-keyboard-focus="keyboardFocus||undefined" class="page relative font-[family-name:var(--ui-font)] leading-[normal] min-h-screen bg-center bg-cover bg-no-repeat [:where(&)_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-100 [:where(&)_button]:font-[family-name:var(--ui-font)] [:where(&)_input]:font-[family-name:var(--ui-font)] [:where(&)_textarea]:font-[family-name:var(--ui-font)] [:where(&)_button]:text-base [:where(&)_input]:text-base [:where(&)_textarea]:text-base [:where(&)_button]:font-normal [:where(&)_button]:leading-[normal] [:where(&)_input]:leading-[normal] [:where(&)_textarea]:leading-[normal] [:where(&)_button]:[-webkit-tap-highlight-color:transparent] [&_a]:[-webkit-tap-highlight-color:transparent] [:where(&)_input]:[-webkit-tap-highlight-color:transparent] [:where(&)_textarea]:[-webkit-tap-highlight-color:transparent] [&_input::placeholder]:text-[#757575] [&_textarea::placeholder]:text-[#757575] [&_input::placeholder]:opacity-100 [&_textarea::placeholder]:opacity-100 [&_*]:motion-reduce:transition-none [&_*]:motion-reduce:animate-none [&_*::before]:motion-reduce:transition-none [&_*::after]:motion-reduce:transition-none" @contextmenu="showContext">
+  <div :data-keyboard-focus="keyboardFocus||undefined" class="page relative font-[family-name:var(--ui-font)] leading-[normal] bg-center bg-cover bg-no-repeat [:where(&)_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-100 [:where(&)_button]:font-[family-name:var(--ui-font)] [:where(&)_input]:font-[family-name:var(--ui-font)] [:where(&)_textarea]:font-[family-name:var(--ui-font)] [:where(&)_button]:text-base [:where(&)_input]:text-base [:where(&)_textarea]:text-base [:where(&)_button]:font-normal [:where(&)_button]:leading-[normal] [:where(&)_input]:leading-[normal] [:where(&)_textarea]:leading-[normal] [:where(&)_button]:[-webkit-tap-highlight-color:transparent] [&_a]:[-webkit-tap-highlight-color:transparent] [:where(&)_input]:[-webkit-tap-highlight-color:transparent] [:where(&)_textarea]:[-webkit-tap-highlight-color:transparent] [&_input::placeholder]:text-[#757575] [&_textarea::placeholder]:text-[#757575] [&_input::placeholder]:opacity-100 [&_textarea::placeholder]:opacity-100 [&_*]:motion-reduce:transition-none [&_*]:motion-reduce:animate-none [&_*::before]:motion-reduce:transition-none [&_*::after]:motion-reduce:transition-none" @contextmenu="showContext">
     <div aria-hidden="true" class="page-background fixed inset-0 pointer-events-none bg-center bg-cover bg-no-repeat" :class="{ 'is-ready': !!backgroundUrl }" :style="{ backgroundImage: backgroundUrl ? 'url(' + backgroundUrl + ')' : undefined, backgroundColor: backgroundUrl ? '#808590' : undefined }"/>
-    <main class="dial relative flex flex-col p-6 min-h-screen motion-reduce:transition-none [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen, 'is-loaded': !loading }">
+    <main class="dial relative flex flex-col p-6 motion-reduce:transition-none [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen, 'is-loaded': !loading }">
       <header class="relative shrink-0" :class="{'startup-reveal':!loading}">
         <SearchBar ref="searchControl" v-model="searchText" :bookmark-search="snapshot.settings.bookmarkSearch" :movie-search="snapshot.settings.movieSearch" @submit-bookmarks="focusSearchResult" :provider="snapshot.settings.searchProvider" :disabled="disabled" :save-provider="changeSearchProvider" />
         <div class="tools flex items-center gap-2">
@@ -349,16 +353,18 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
           <button class="settings-trigger ui-folder inline-flex size-12 items-center justify-center" aria-label="Настройки" title="Настройки" aria-haspopup="dialog" :aria-expanded="settingsOpen" :aria-controls="settingsOpen?'settings-modal':undefined" :disabled="disabled" @click="openSettings"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><g transform="translate(0 1)"><path d="m9 3-1 3-3 1-2 4 2 2v3l4 3 3-1 3 1 4-3v-3l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></g></svg></button>
         </div>
       </header>
-      <div class="bookmark-area flex flex-col flex-1" :class="{ 'justify-center': snapshot.settings.verticalCenter }">
+      <div class="bookmark-area flex flex-col flex-1">
         <div v-if="!loading && !snapshot.rootId" class="surface-empty startup-reveal text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
         <template v-else-if="!loading">
         <div v-if="snapshot.folders.length || creatingFolder" class="bookmark-toolbar startup-reveal relative flex items-center min-h-12 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
         <FolderTabs :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :revision="revision" :folders="snapshot.folders" :active-id="snapshot.activeId" :disabled="disabled" :creating="creatingFolder" :editing="editingFolder" @select="selectFolder" @context="showFolderContext" @background="event => { if (!disabled && !overlayOpen) { rememberContextTarget(); context = {x:event.clientX,y:event.clientY}; } }" @reorder="reorderFolders" @refresh="refresh" />
         </div>
+        <div ref="bookmarkContent" class="bookmark-content flex flex-col flex-1" :class="{ 'justify-center': snapshot.settings.verticalCenter }">
         <p v-if="searching && searchError" role="alert" class="surface-empty text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
         <EmptyState v-else-if="showEmptySearch" class="bookmark-search-empty my-6" title="Закладки не найдены" description="Попробуйте другое название или адрес сайта." action-label="Очистить поиск" symbol="search" announce :disabled="disabled" @action="closeSearch();searchControl?.focus()" :style="{ width: 'min(440px,' + snapshot.settings.width + '%)' }" />
         <BookmarkGrid :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :folder-id="snapshot.activeId" :revision="revision" :folder-names="Object.fromEntries(snapshot.folders.map(row=>[row.id,row.title]))" :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
           @add="add" @context="showContext" @reorder="reorder" @refresh="refresh" />
+        </div>
         </template>
       </div>
     </main>
