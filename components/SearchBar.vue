@@ -54,7 +54,7 @@ function pointSuggestion(index:number){pointerSelection.value=true;selected.valu
 function leaveSuggestion(index:number){if(pointerSelection.value&&selected.value===index)selected.value=-1;}
 function key(event:KeyboardEvent) {
   if(event.isComposing)return;
-  if(event.key==='Escape'){focused.value=false;selected.value=-1;return;}
+  if(event.key==='Escape' && focused.value){event.preventDefault();event.stopPropagation();focused.value=false;selected.value=-1;return;}
   if(event.key==='Enter'){event.preventDefault();submit(focused.value&&selected.value>=0?items.value[selected.value]:undefined);return;}
   if(items.value.length&&['ArrowDown','ArrowUp'].includes(event.key)){
     event.preventDefault();focused.value=true;pointerSelection.value=false;

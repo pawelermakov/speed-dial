@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SelectChevron from './SelectChevron.vue';
+import { cycleDialogFocus } from '../utils/keyboard';
 import SwitchControl from './SwitchControl.vue';
 import InfoTooltip from './InfoTooltip.vue';
 import PanelHeader from './PanelHeader.vue';
@@ -20,13 +21,6 @@ const unwatchSync=syncStateItem.watch(value=>{syncState.value=value;});
 onMounted(()=>{void syncStateItem.getValue().then(value=>{syncState.value=value;});});
 onUnmounted(unwatchSync);
 const settingsDialog=ref<HTMLDialogElement>();
-function cycleFocus(event:KeyboardEvent){
-  const panel=settingsDialog.value;if(!panel)return;
-  const controls=Array.from(panel.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],[tabindex]')).filter(element=>element.tabIndex>=0&&!element.matches(':disabled')&&!element.closest('[inert]')&&element.getClientRects().length&&getComputedStyle(element).visibility!=='hidden');
-  const first=controls[0],last=controls.at(-1);
-  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
-  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
-}
 onMounted(()=>{settingsDialog.value?.showModal();});
 const props=defineProps<{settings:Settings;busy:boolean;rootId:string|null;operationError:string;hasBackground:boolean;
   updateSettings:(patch:Partial<Settings>)=>Promise<boolean>;changeRoot:(id:string)=>Promise<boolean>;changeBackground:(blob:Blob|null)=>Promise<boolean>}>();
@@ -84,7 +78,7 @@ function file(event:Event){const element=event.target as HTMLInputElement,select
 const switchFields=[{key:'addButton',label:'Показать кнопку «+»'},{key:'bookmarkSearch',label:'Показывать поиск по закладкам'}] as const;
 </script>
 <template>
-  <dialog id="settings-modal" ref="settingsDialog" class="settings-overlay ui-overlay fixed inset-0 z-20 w-full h-full max-w-none max-h-none m-0 border-0 p-0 text-[var(--ui-text)] backdrop:bg-transparent" aria-label="Настройки" aria-modal="true" @keydown.tab="cycleFocus" @cancel.prevent.stop="close" @click.self="close">
+  <dialog id="settings-modal" ref="settingsDialog" class="settings-overlay ui-overlay fixed inset-0 z-20 w-full h-full max-w-none max-h-none m-0 border-0 p-0 text-[var(--ui-text)] backdrop:bg-transparent" aria-label="Настройки" aria-modal="true" @keydown.tab="cycleDialogFocus($event, settingsDialog)" @cancel.prevent.stop="close" @click.self="close">
     <aside class="settings fixed top-0 right-0 h-full w-[min(380px,100vw)] px-4 ui-glass overflow-clip flex flex-col" aria-label="Настройки">
       <PanelHeader title="Настройки" close-label="Закрыть настройки" class="settings-header -mx-4 z-20" @close="close" />
       <div class="settings-content flex-1 min-h-0 overflow-y-auto -mx-4 px-4 py-4">

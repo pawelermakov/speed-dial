@@ -3,10 +3,11 @@ import { watch, nextTick, onMounted, onUnmounted, ref, computed } from 'vue';
 import { BookmarkImages } from '../utils/bookmarkImages';
 import type { Bookmark, Settings } from '../types/models';
 import TileHostname from './TileHostname.vue';
+import { contextKey, gridFocusIndex, plainNavigation } from '../utils/keyboard';
 import { insertedOrder, nearestInsertion } from '../utils/reorder';
 import { tileHostname, tileColor, fitTileColumns } from '../utils/tile';
-const props = defineProps<{ revision?: number; motionEnabled: boolean; folderId?: string | null; tabs: Bookmark[]; settings: Settings; disabled: boolean; searching?: boolean; folderNames?: Record<string,string> }>();
-const emit = defineEmits<{ add: []; context: [event: MouseEvent, bookmark: Bookmark]; reorder: [ids: string[], expected: string[], revision: number]; refresh: [] }>();
+const props = defineProps<{ contextId?: string; revision?: number; motionEnabled: boolean; folderId?: string | null; tabs: Bookmark[]; settings: Settings; disabled: boolean; searching?: boolean; folderNames?: Record<string,string> }>();
+const emit = defineEmits<{ add: []; context: [event: MouseEvent | KeyboardEvent, bookmark: Bookmark]; reorder: [ids: string[], expected: string[], revision: number]; refresh: [] }>();
 const previews = ref<Record<string, string>>({});
 const icons = ref<Record<string, string>>({});
 const failedIcons = ref<Record<string, string>>({});
@@ -112,16 +113,24 @@ function dropGrid(event:DragEvent){
   finish();if(ids&&dragRevision===(props.revision??0))emit('reorder',ids,expected,dragRevision);
 }
 function click(event: MouseEvent) { if (suppressClick) { event.preventDefault(); suppressClick = false; } }
+function key(event: KeyboardEvent, tab: Bookmark) {
+  if (props.disabled) return;
+  if (contextKey(event)) { event.preventDefault(); event.stopPropagation(); emit('context', event, tab); return; }
+  if (!plainNavigation(event) || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)) return;
+  event.preventDefault();
+  const next = gridFocusIndex(props.tabs.findIndex(row => row.id === tab.id), props.tabs.length, columns.value, event.key);
+  grid.value?.querySelectorAll<HTMLElement>('.bookmark')[next]?.focus();
+}
 </script>
 <template>
   <section ref="grid" aria-label="Визуальные закладки" :aria-busy="preparing" class="grid bookmarks grid-cols-[repeat(var(--columns),minmax(0,1fr))] mx-auto" :style="{
-      '--columns': columns, '--gap': settings.space + 'px', width: settings.width + '%', gap: settings.space + 'px', visibility: preparing && !dragId ? 'hidden' : undefined
+      '--columns': columns, '--gap': settings.space + 'px', width: settings.width + '%', gap: settings.space + 'px', visibility: preparing && revealPending && !dragId ? 'hidden' : undefined
     }" @dragover="overGrid" @drop.prevent="dropGrid">
     <a v-for="tab in tabs" :key="tab.id" class="bookmark select-none relative overflow-hidden group block min-w-0 bg-center bg-cover bg-no-repeat text-black [&.dragging]:opacity-40 [&.drop-target]:outline-3 [&.drop-target]:outline-[var(--ui-accent)]"
       :class="{ dragging: dragId === tab.id, 'drop-target': overId === tab.id, 'insert-after': overId === tab.id && after, 'insert-before': overId === tab.id && !after }"
-      :data-bookmark-id="tab.id" :href="tab.url" :title="tab.title + ' — ' + tab.url + (searching && folderNames?.[tab.parentId] ? ' · ' + folderNames[tab.parentId] : '')" :aria-label="tab.title + ' — ' + tab.url + (searching && folderNames?.[tab.parentId] ? ' · ' + folderNames[tab.parentId] : '')" :draggable="!disabled && !searching"
+      :data-bookmark-id="tab.id" aria-haspopup="menu" :aria-expanded="contextId === tab.id" :aria-controls="contextId === tab.id ? 'bookmark-context-menu' : undefined" :href="tab.url" :title="tab.title + ' — ' + tab.url + (searching && folderNames?.[tab.parentId] ? ' · ' + folderNames[tab.parentId] : '')" :aria-label="tab.title + ' — ' + tab.url + (searching && folderNames?.[tab.parentId] ? ' · ' + folderNames[tab.parentId] : '')" :draggable="!disabled && !searching"
       :style="{ backgroundImage: previews[tab.id] ? 'url(' + previews[tab.id] + ')' : undefined, backgroundColor: previews[tab.id] ? undefined : tab.faviconColor ?? tileColor(tileHostname(tab.url)) }"
-      @contextmenu.stop.prevent="emit('context', $event, tab)"
+      @keydown="key($event, tab)" @contextmenu.stop.prevent="emit('context', $event, tab)"
       @dragstart="start($event, tab.id)" @dragend="end" @dragover="over($event, tab.id)" @click="click"
       @drop.stop.prevent="drop($event, tab.id)">
       <TileHostname v-if="!previews[tab.id]" :hostname="tileHostname(tab.url)" />

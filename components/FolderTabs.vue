@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import type { Folder } from '../types/models';
+import { contextKey, plainNavigation } from '../utils/keyboard';
 import { insertedOrder } from '../utils/reorder';
-const props=defineProps<{revision:number;motionEnabled:boolean;folders:Folder[];activeId:string|null;disabled:boolean;hidden:boolean;creating:boolean;editing?:{id:string;title:string}}>();
+const props=defineProps<{contextId?:string;revision:number;motionEnabled:boolean;folders:Folder[];activeId:string|null;disabled:boolean;hidden:boolean;creating:boolean;editing?:{id:string;title:string}}>();
 const emit=defineEmits<{select:[id:string];context:[event:MouseEvent|KeyboardEvent,folder:Folder];reorder:[ids:string[],expected:string[],revision:number];refresh:[];background:[event:MouseEvent]}>();
 const root=computed(()=>props.folders.find(row=>row.virtual));
 const folders=computed(()=>props.folders.filter(row=>!row.virtual));
@@ -38,15 +39,31 @@ function over(event:DragEvent,id:string){if(!source.value||source.value===id)ret
 function drop(event:DragEvent,id:string){event.preventDefault();if(!source.value)return;const rect=(event.currentTarget as HTMLElement).getBoundingClientRect();const next=insertedOrder(expected,source.value,id,event.clientX>rect.left+rect.width/2);clear();if(next&&!props.disabled&&dragRevision===props.revision)emit('reorder',next,expected,dragRevision);}
 function click(event:MouseEvent,id:string){if(suppressed){event.preventDefault();suppressed=false;return;}emit('select',id);}
 function dragEnd(){end();}
+function key(event: KeyboardEvent, folder: Folder) {
+  if (props.disabled) return;
+  if (contextKey(event)) {
+    event.preventDefault(); event.stopPropagation();
+    if (folder.virtual) { const r=(event.currentTarget as HTMLElement).getBoundingClientRect(); emit('background',new MouseEvent('contextmenu',{clientX:r.left,clientY:r.bottom})); }
+    else emit('context', event, folder);
+    return;
+  }
+  if (!plainNavigation(event) || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+  event.preventDefault();
+  const buttons = Array.from(list.value?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+  const index = buttons.indexOf(event.currentTarget as HTMLButtonElement);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length-1 : Math.max(0,Math.min(buttons.length-1,index+(event.key==='ArrowRight'?1:-1)));
+  buttons[next]?.focus();
+}
+
 </script>
 <template>
 <nav @contextmenu.stop.prevent="emit('background',$event)" @dragover.prevent @drop.prevent.stop aria-label="Папки" class="folder-tabs flex items-center gap-2 min-w-0 w-full" :class="{'is-hidden':hidden}" :inert="hidden" :aria-hidden="hidden||undefined">
   <div ref="list" @scroll.passive="updateEdges" :class="{'fade-start':fadeStart,'fade-end':fadeEnd}" class="folder-scroll relative flex items-center gap-2 min-w-0 w-full overflow-x-scroll">
-  <button v-if="root" class="ui-folder folder-root flex items-center gap-1.5 min-w-0 shrink-0 h-12 px-3" :aria-pressed="activeId===root.id" :title="root.title" :aria-label="root.title" :disabled="disabled" @click="emit('select',root.id)">
+  <button v-if="root" @keydown="key($event, root)" :data-folder-id="root.id" aria-haspopup="menu" :aria-expanded="contextId === root.id" :aria-controls="contextId === root.id ? 'bookmark-context-menu' : undefined" class="ui-folder folder-root flex items-center gap-1.5 min-w-0 shrink-0 h-12 px-3" :aria-pressed="activeId===root.id" :title="root.title" :aria-label="root.title" :disabled="disabled" @click="emit('select',root.id)">
     <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3 10V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v1M3 10h18l-2 10H5L3 10Z"/></svg><span class="ui-action-label truncate">{{root.title}}</span>
   </button>
     <template v-for="folder in folders" :key="folder.id">
-      <button class="ui-folder folder-tab relative inline-flex items-center justify-center shrink-0 h-12 px-3 max-w-[min(13rem,100%)]" :class="{dragging:source===folder.id,'drop-target':target===folder.id,'insert-before':target===folder.id&&!after,'insert-after':target===folder.id&&after}" :title="folder.title" :aria-pressed="activeId===folder.id" :disabled="disabled" :draggable="!disabled&&!creating&&!editing" aria-haspopup="menu" @click="click($event,folder.id)" @contextmenu.stop.prevent="emit('context',$event,folder)" @keydown.shift.f10.stop.prevent="emit('context',$event,folder)" @dragstart="start($event,folder.id)" @dragover="over($event,folder.id)" @drop.stop="drop($event,folder.id)" @dragend="dragEnd"><span class="ui-action-label block truncate">{{folder.title}}</span></button>
+      <button class="ui-folder folder-tab relative inline-flex items-center justify-center shrink-0 h-12 px-3 max-w-[min(13rem,100%)]" :class="{dragging:source===folder.id,'drop-target':target===folder.id,'insert-before':target===folder.id&&!after,'insert-after':target===folder.id&&after}" :title="folder.title" :aria-pressed="activeId===folder.id" :disabled="disabled" :draggable="!disabled&&!creating&&!editing" aria-haspopup="menu" @click="click($event,folder.id)" @contextmenu.stop.prevent="emit('context',$event,folder)" @keydown="key($event, folder)" :data-folder-id="folder.id" :aria-expanded="contextId === folder.id" :aria-controls="contextId === folder.id ? 'bookmark-context-menu' : undefined" @dragstart="start($event,folder.id)" @dragover="over($event,folder.id)" @drop.stop="drop($event,folder.id)" @dragend="dragEnd"><span class="ui-action-label block truncate">{{folder.title}}</span></button>
     </template>
   </div>
 </nav>

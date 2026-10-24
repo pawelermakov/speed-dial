@@ -19,6 +19,8 @@ import { parseImport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
 import { cacheBackgroundPreview, clearBackgroundPreview } from './utils/backgroundPreview';
 import { BackgroundResource } from './utils/backgroundResource';
+import { insertedOrder } from './utils/reorder';
+import { contextKey } from './utils/keyboard';
 import type { Bookmark, Folder } from './types/models';
 
 const { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors } = useDial();
@@ -30,7 +32,7 @@ function motionPreferenceChanged(event:MediaQueryListEvent) { reducedMotion.valu
 reducedMotionQuery.addEventListener('change',motionPreferenceChanged);
 onUnmounted(() => reducedMotionQuery.removeEventListener('change',motionPreferenceChanged));
 const keyboardFocus = ref(true);
-function trackKeyboardFocus(event:KeyboardEvent){if(event.key==='Tab')keyboardFocus.value=true;}
+function trackKeyboardFocus(event:KeyboardEvent){if(!event.isComposing && ['Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','F10','ContextMenu'].includes(event.key))keyboardFocus.value=true;}
 function trackPointerFocus(){keyboardFocus.value=false;}
 window.addEventListener('keydown',trackKeyboardFocus,true);
 window.addEventListener('pointerdown',trackPointerFocus,true);
@@ -111,13 +113,16 @@ watch([() => snapshot.value.background, loading], ([blob,isLoading]) => {
 onUnmounted(() => backgroundResource.dispose());
 const fail = (error: unknown) => error instanceof Error ? error.message : String(error);
 function add() { void openBookmark(); }
-function showContext(event: MouseEvent, bookmark?: Bookmark) {
+function showContext(event: MouseEvent | KeyboardEvent, bookmark?: Bookmark) {
   if ((event.target as HTMLElement).closest('input,textarea,button,dialog') || disabled.value || overlayOpen.value) return;
   event.preventDefault();
-  context.value = { x: event.clientX, y: event.clientY, bookmark };
+  rememberContextTarget(event.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement);
+  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  context.value = { x: event instanceof MouseEvent ? event.clientX : bounds.left, y: event instanceof MouseEvent ? event.clientY : bounds.bottom, bookmark };
 }
 function showFolderContext(event: MouseEvent | KeyboardEvent, folder: Folder) {
   if (folder.virtual || disabled.value || overlayOpen.value) return;
+  rememberContextTarget(event.currentTarget as HTMLElement);
   const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
   context.value = { x: event instanceof MouseEvent ? event.clientX : bounds.left, y: event instanceof MouseEvent ? event.clientY : bounds.bottom, folder };
 }
@@ -150,13 +155,28 @@ async function saveBookmark(value: { url: string; title: string; capture: boolea
 async function action(name: string) {
   const selected = context.value?.bookmark;
   const folder = context.value?.folder;
-  context.value = undefined;
+  const moveExpected = contextOrder.value.slice();
+  const moveRevision = revision.value;
+  const returnTarget = contextTarget;
+  closeContext();
   try {
+    if ((selected || folder) && (name === 'move-left' || name === 'move-right')) {
+      const id = (selected || folder)!.id;
+      const direction = name === 'move-left' ? -1 : 1;
+      const neighbor = moveExpected[moveExpected.indexOf(id) + direction];
+      if (!neighbor || (selected && searching.value)) return;
+      const ids = insertedOrder(moveExpected, id, neighbor, direction > 0);
+      if (ids) await run(() => {
+        if (moveRevision !== revision.value) throw new Error('Список изменился; повторите перемещение.');
+        return folder ? repository.reorderFolders(ids, moveExpected) : repository.reorder(ids, moveExpected, selected!.parentId);
+      });
+      return;
+    }
     if (folder && name !== 'folder') {
       if (name === 'edit' || name === 'delete') await folderAction(name === 'edit' ? 'rename' : 'delete', folder.id);
       return;
     }
-    if (name === 'add') add();
+    if (name === 'add') await openBookmark();
     if (name === 'folder') await folderAction('create');
     if (name === 'settings') openSettings();
     if (!selected) return;
@@ -173,6 +193,7 @@ async function action(name: string) {
       } finally { capturing.value = false; }
     }
   } catch (error) { notice.value = fail(error); }
+  finally { if (!overlayOpen.value) restorePageFocus(returnTarget); }
 }
 async function openExport() {
   if (disabled.value) return;
@@ -250,24 +271,66 @@ async function folderAction(name: 'create' | 'rename' | 'delete', id = snapshot.
   if (name === 'delete' && confirm('Удалить реальную папку браузера и ВСЕ её потомки, включая скрытые вложенные папки? Удаление может синхронизироваться на другие устройства.')) await run(() => repository.removeFolder(id));
 }
 async function reorderFolders(ids: string[], expected: string[], dragRevision: number) { await run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorderFolders(ids, expected); }); }
-const dialogReturnTargets=new WeakMap<Element,HTMLElement>();
+type FocusTarget = { element: HTMLElement; selector?: string; id?: string; index: number };
+function focusTarget(element: Element | null): FocusTarget | undefined {
+  if (!(element instanceof HTMLElement) || element === document.body || element.tabIndex < 0) return;
+  const selector = element.matches('.bookmark') ? '.bookmark' : element.matches('[data-folder-id]') ? '[data-folder-id]' : undefined;
+  return {element, selector, id:element.dataset.bookmarkId ?? element.dataset.folderId,
+    index:selector ? Array.from(document.querySelectorAll(selector)).indexOf(element) : 0};
+}
+function restorePageFocus(target?: FocusTarget) {
+  if (overlayOpen.value || context.value) return;
+  const candidates = target?.selector ? Array.from(document.querySelectorAll<HTMLElement>(target.selector)) : [];
+  const same = candidates.find(el => (el.dataset.bookmarkId ?? el.dataset.folderId) === target?.id);
+  const element = same ?? (target?.element.isConnected ? target.element : candidates[Math.min(target?.index ?? 0,candidates.length-1)]);
+  const usable = (el?: HTMLElement | null) => !!el && el.isConnected && !el.closest('[inert],[aria-hidden="true"]') && !el.matches(':disabled') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+  const fallbacks = target?.selector
+    ? ['.add-card:not(:disabled)','[data-bookmark-search-open]:not(:disabled)','.folder-root:not(:disabled)','.settings-trigger:not(:disabled)']
+    : ['.settings-trigger:not(:disabled)'];
+  const fallback = fallbacks.map(selector => document.querySelector<HTMLElement>(selector)).find(el => usable(el));
+  if (usable(element)) element!.focus({preventScroll:true});
+  else if (usable(fallback)) fallback!.focus({preventScroll:true});
+}
+let contextTarget: FocusTarget | undefined;
+function rememberContextTarget(element: Element | null = document.activeElement) { contextTarget = focusTarget(element); }
+function closeContext() { context.value = undefined; restorePageFocus(contextTarget); }
+const contextOrder = computed(() => context.value?.folder ? snapshot.value.folders.filter(row=>!row.virtual).map(row=>row.id) : snapshot.value.tabs.map(row=>row.id));
+function canMove(direction: number) {
+  const id = context.value?.folder?.id ?? context.value?.bookmark?.id;
+  const index = id ? contextOrder.value.indexOf(id) : -1;
+  return !disabled.value && !(context.value?.bookmark && searching.value) && index >= 0 && index + direction >= 0 && index + direction < contextOrder.value.length;
+}
+// Capture focus before Vue removes a node. Restore only if that update lost it;
+// typing, pointer focus and a newly opened overlay always take precedence.
+watch([snapshot, results, disabled], async () => {
+  const previous = focusTarget(document.activeElement);
+  await nextTick();
+  if (!previous || overlayOpen.value || context.value) return;
+  const active = document.activeElement;
+  if (active === document.body || active === previous.element && (!previous.element.isConnected || previous.element.closest('[inert]'))) restorePageFocus(previous);
+}, {flush:'pre'});
+const dialogReturnTargets=new WeakMap<Element,FocusTarget>();
 function beforeDialogEnter(element:Element){
-  if(document.activeElement instanceof HTMLElement)dialogReturnTargets.set(element,document.activeElement);
+  if(document.activeElement instanceof HTMLElement)dialogReturnTargets.set(element,focusTarget(document.activeElement)!);
 }
 function restoreDialogFocus(element:Element){
   const previous=dialogReturnTargets.get(element);dialogReturnTargets.delete(element);
   if(overlayOpen.value||context.value)return;
-  const target=previous?.isConnected&&!previous.matches(':disabled')?previous:document.querySelector<HTMLElement>('.settings-trigger');
-  target?.focus({preventScroll:true});
+  restorePageFocus(previous);
 }
 function beforeDialogLeave(element: Element) { (element as HTMLElement).inert = true; }
 function escape(event: KeyboardEvent) {
+  if (event.isComposing) return;
+  if (contextKey(event) && !overlayOpen.value && !context.value && !disabled.value && !(event.target as HTMLElement).closest('input,textarea,select,[contenteditable],dialog')) {
+    event.preventDefault(); rememberContextTarget(document.activeElement);
+    context.value = {x:24,y:100}; return;
+  }
   if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !disabled.value && snapshot.value.settings.bookmarkSearch && snapshot.value.rootId && !overlayOpen.value && !context.value && !(event.target as HTMLElement).closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),dialog,[role="dialog"]')) {
     event.preventDefault(); openSearch(); return;
   }
   if (event.key !== 'Escape' || disabled.value || event.defaultPrevented || (event.target instanceof Element && event.target.closest('dialog'))) return;
   if (searchOpen.value && !overlayOpen.value && !context.value) { event.preventDefault(); closeSearch(); return; }
-  context.value = undefined;void closeSettings();
+  if(context.value)closeContext();else void closeSettings();
 }
 window.addEventListener('keydown', escape);
 onUnmounted(() => window.removeEventListener('keydown', escape));
@@ -287,7 +350,7 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         <div v-if="!loading && !snapshot.rootId" class="surface-empty startup-reveal text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
         <template v-else-if="!loading">
         <div v-if="snapshot.settings.bookmarkSearch || snapshot.folders.length || creatingFolder" class="bookmark-toolbar startup-reveal relative flex items-center min-h-12 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
-        <FolderTabs :motion-enabled="motionEnabled" :revision="revision" :folders="snapshot.folders" :active-id="snapshot.activeId" :disabled="disabled" :hidden="searchOpen" :creating="creatingFolder" :editing="editingFolder" :class="{'pr-[56px]':snapshot.settings.bookmarkSearch}" @select="selectFolder" @context="showFolderContext" @background="event => { if (!disabled && !overlayOpen) context = {x:event.clientX,y:event.clientY}; }" @reorder="reorderFolders" @refresh="refresh" />
+        <FolderTabs :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :revision="revision" :folders="snapshot.folders" :active-id="snapshot.activeId" :disabled="disabled" :hidden="searchOpen" :creating="creatingFolder" :editing="editingFolder" :class="{'pr-[56px]':snapshot.settings.bookmarkSearch}" @select="selectFolder" @context="showFolderContext" @background="event => { if (!disabled && !overlayOpen) { rememberContextTarget(); context = {x:event.clientX,y:event.clientY}; } }" @reorder="reorderFolders" @refresh="refresh" />
         <BookmarkSearch v-if="snapshot.settings.bookmarkSearch" ref="searchControl" :open="searchOpen" v-model:query="query" :disabled="disabled" @open="openSearch" @close="closeSearch" />
         </div>
         <p v-if="searching && searchError" role="alert" class="surface-empty text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
@@ -296,7 +359,7 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
           <p>Закладки не найдены</p>
           <p class="text-sm text-[var(--text-secondary)]">Попробуйте другое название или адрес сайта.</p>
         </div>
-        <BookmarkGrid :motion-enabled="motionEnabled" :folder-id="snapshot.activeId" :revision="revision" :folder-names="Object.fromEntries(snapshot.folders.map(row=>[row.id,row.title]))" :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
+        <BookmarkGrid :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :folder-id="snapshot.activeId" :revision="revision" :folder-names="Object.fromEntries(snapshot.folders.map(row=>[row.id,row.title]))" :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
           @add="add" @context="showContext" @reorder="reorder" @refresh="refresh" />
         </template>
       </div>
@@ -319,7 +382,7 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
     <ImportExportDialog v-if="transfer" :mode="transfer" :value="exportText" :busy="disabled" :operation-error="importError" @close="transfer = undefined" @import="importData" />
     </Transition>
     <Transition name="floating" :duration="motionEnabled ? 150 : 0" @before-enter="element => { (element as HTMLElement).inert = false; element.removeAttribute('aria-hidden'); }" @before-leave="element => { beforeDialogLeave(element); element.setAttribute('aria-hidden','true'); }">
-      <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" :folder="context.folder" @close="context = undefined" @action="action" />
+      <ContextMenu v-if="context" :x="context.x" :y="context.y" :bookmark="context.bookmark" :folder="context.folder" :can-move-left="canMove(-1)" :can-move-right="canMove(1)" @close="closeContext" @action="action" />
     </Transition>
   </div>
 </template>
