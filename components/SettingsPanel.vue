@@ -84,6 +84,21 @@ const switchFields=[{key:'addButton',label:'Кнопка добавления з
       <div class="settings-content flex-1 min-h-0 overflow-y-auto -mx-4 px-4 py-4">
       <SyncStatus tooltip-target="#settings-modal" />
       <form class="settings-form flex flex-col flex-1 min-w-0 text-sm" @submit.prevent>
+        <fieldset class="mb-5 min-w-0"><legend class="font-bold mb-2">Оформление</legend>
+          <label for="theme-mode" class="block mb-2">Тема</label>
+          <div class="ui-select"><select id="theme-mode" :value="settings.theme" :disabled="busy" :class="ui.input" @change="updateSettings({theme:($event.target as HTMLSelectElement).value as Settings['theme']})">
+            <option value="system">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option>
+          </select><SelectChevron /></div>
+          <div class="mt-4" role="group" aria-labelledby="background-label">
+            <p id="background-label" class="mb-2">Фон</p>
+            <div class="flex justify-between items-center gap-2"><input aria-label="Изменить фон" id="background" :class="ui.fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif" :disabled="busy||reading" @change="file"/><label :class="ui.fileButton" for="background">Выберите файл</label>
+              <button v-if="hasBackground" type="button" class="size-8 shrink-0 inline-flex items-center justify-center rounded-[var(--ui-radius)] ui-hover" aria-label="Удалить фон" title="Удалить фон" :disabled="busy||reading" @click="track(changeBackground(null))">
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>
+              </button>
+            </div>
+            <p v-if="reading" role="status" class="mt-2">Обработка изображения…</p>
+          </div>
+        </fieldset>
         <fieldset class="mb-5 min-w-0"><legend class="font-bold mb-2">Закладки</legend>
           <label for="bookmark-folder" class="block mb-2">Папка закладок</label>
           <div class="ui-select mb-3"><select id="bookmark-folder" :value="selectedFolder" :title="selectedChoice?.path" class="ui-control w-full min-w-0 max-w-full p-2 text-base truncate" :disabled="busy||folderLoading||!!folderError" @change="folderChanged">
@@ -97,14 +112,6 @@ const switchFields=[{key:'addButton',label:'Кнопка добавления з
         <fieldset class="mb-5 min-w-0"><legend class="font-bold mb-2">Сетка</legend>
           <div v-for="field in numberFields" :key="field.key" class="mb-3"><label class="settings-row flex justify-between items-center gap-2">{{field.label}}<input :aria-label="field.label" :value="values[field.key]" class="input settings-number" :class="ui.input" type="number" :min="field.min" :max="field.max" :disabled="busy" :aria-invalid="!!inputErrors[field.key]" :aria-describedby="inputErrors[field.key]?'settings-'+field.key+'-error':undefined" @focus="focused=field.key" @input="input(field.key,$event)" @change="flushField(field.key,true)" @blur="focused=undefined;flushField(field.key,true)"/></label><p v-if="inputErrors[field.key]" :id="'settings-'+field.key+'-error'" role="alert" class="mt-1 text-red-800">{{inputErrors[field.key]}}</p></div>
           <SwitchControl :model-value="settings.verticalCenter" :disabled="busy" class="settings-row" @update:model-value="value => updateSettings({verticalCenter:value})">Центрировать по вертикали</SwitchControl>
-        </fieldset>
-        <fieldset class="mb-5 min-w-0"><legend class="font-bold mb-2">Фон</legend>
-          <div class="flex justify-between items-center gap-2"><input aria-label="Изменить фон" id="background" :class="ui.fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif" :disabled="busy||reading" @change="file"/><label :class="ui.fileButton" for="background">Выберите файл</label>
-            <button v-if="hasBackground" type="button" class="size-8 shrink-0 inline-flex items-center justify-center rounded-[var(--ui-radius)] ui-hover" aria-label="Удалить фон" title="Удалить фон" :disabled="busy||reading" @click="track(changeBackground(null))">
-              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>
-            </button>
-          </div>
-          <p v-if="reading" role="status" class="mt-2">Обработка изображения…</p>
         </fieldset>
         <fieldset class="mb-5 min-w-0"><legend class="font-bold mb-2">Почта
           <InfoTooltip target="#settings-modal" id="mail-settings-info" label="О настройке почты">Укажите адрес электронной почты на mail.ru.</InfoTooltip>

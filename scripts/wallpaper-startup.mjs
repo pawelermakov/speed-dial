@@ -54,7 +54,7 @@ try {
  await expect(page.locator('.page')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
  await expect(page.locator('.page-background')).toHaveCSS('position','fixed');
  await expect(page.locator('.page-background')).toHaveCSS('opacity','1');
- assert.equal(await page.locator('.page-background').evaluate(e=>getComputedStyle(e).transitionProperty),'opacity');
+ assert.equal(await page.locator('.page-background').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
  await page.screenshot({path:resolve(out,'after-load.png')});
  await open();await upload('#9b354a');
  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('speed-dial-background-preview'))).not.toBe(preview);

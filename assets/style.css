@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './themes.css';
 @property --folder-edge-start {syntax:'<length>';inherits:true;initial-value:0px}
 @property --folder-edge-end {syntax:'<length>';inherits:true;initial-value:0px}
 @theme {
@@ -30,7 +31,7 @@
  --ui-shadow-tile:0 2px 6px rgb(12 20 34 / .16);--ui-shadow-raised:0 8px 28px rgb(12 20 34 / .20);--ui-shadow-popover:var(--ui-shadow-raised);
  --shadow-overlay:0 18px 50px rgb(12 20 34 / .24);--ui-overlay:rgb(8 14 25 / .20);
 }
-html {font-family:var(--ui-font);background:#e9edf2;scrollbar-width:thin;scrollbar-color:#94a3b8 transparent;scrollbar-gutter:stable}
+html {font-family:var(--ui-font);background:var(--page-background);color:var(--ui-text);scrollbar-width:thin;scrollbar-color:var(--scrollbar) transparent;scrollbar-gutter:stable}
 /* Reserve scrollbar space before overflow so text and controls keep their width. */
 :where(.settings-content,.modal) {scrollbar-gutter:stable}
 /* The modal panel owns scrolling; its fullscreen backdrop must not add a second bar. */
@@ -52,14 +53,15 @@ html {font-family:var(--ui-font);background:#e9edf2;scrollbar-width:thin;scrollb
 @keyframes startup-reveal {from {opacity:0} to {opacity:1}}
 .startup-reveal {animation:startup-reveal var(--motion-fast) var(--ease-enter) backwards}
 .dial:not(.is-loaded)>header {visibility:hidden}
-.page-background {opacity:0;transition:opacity var(--motion-standard) var(--ease-state)}
+.page-background {opacity:0}
 .page-background.is-ready {opacity:1}
 .dial>header {display:grid;grid-template-columns:1fr minmax(0,700px) 1fr;align-items:start;gap:16px;z-index:10}
 .search {z-index:1;padding:1px;isolation:isolate;grid-column:2;height:48px;max-width:700px;border-radius:var(--radius-toolbar)}
 .tools {justify-self:end}
 .search-surface {border-radius:inherit;z-index:-1}
 .surface-control,.ui-folder {background:var(--surface-control);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-.ui-glass {--text-secondary:var(--ui-text);--danger:#4a0808;--success:#052312;background:linear-gradient(135deg,rgb(255 255 255 / .30),rgb(255 255 255 / .01) 32%,transparent 64%,rgb(255 255 255 / .12)),var(--surface-floating);color:var(--ui-text);border:1px solid rgb(255 255 255 / .60);border-radius:var(--radius-popover);box-shadow:var(--ui-shadow-popover),inset 0 1px 1px rgb(255 255 255 / .85),inset 0 -1px 0 rgb(255 255 255 / .18);-webkit-backdrop-filter:blur(12px) saturate(1.6);backdrop-filter:blur(12px) saturate(1.6)}
+.ui-glass {--text-secondary:var(--glass-secondary);--danger:var(--glass-danger);--success:var(--glass-success);background:var(--glass-gradient),var(--surface-floating);color:var(--ui-text);border:1px solid var(--glass-border);border-radius:var(--radius-popover);box-shadow:var(--ui-shadow-popover),inset 0 1px 1px var(--glass-top),inset 0 -1px 0 var(--glass-bottom);-webkit-backdrop-filter:blur(12px) saturate(1.6);backdrop-filter:blur(12px) saturate(1.6)}
+:is(.modal,.context,.search-dropdown,.info-tooltip,.mail-error).ui-glass {background:var(--glass-gradient),var(--surface-elevated)}
 .surface-control {border:1px solid var(--border-material);box-shadow:var(--ui-shadow-tile)}
 .ui-overlay {background:var(--ui-overlay)}
 /* Keep glass ancestors opaque: fading an ancestor changes the backdrop used by blur. */
@@ -71,7 +73,7 @@ html {font-family:var(--ui-font);background:#e9edf2;scrollbar-width:thin;scrollb
 .settings-panel-enter-from .settings,.settings-panel-leave-to .settings {transform:translateX(100%)}
 :is(.modal-panel-leave-active,.settings-panel-leave-active) {pointer-events:none}
 .modal-screen[open] {display:flex;align-items:safe center;justify-content:center}
-.modal,.settings {border-radius:var(--radius-panel);box-shadow:0 24px 64px rgb(8 14 25 / .20),inset 0 1px 1px rgb(255 255 255 / .85),inset 0 -1px 0 rgb(255 255 255 / .18)}
+.modal,.settings {border-radius:var(--radius-panel);box-shadow:0 24px 64px rgb(8 14 25 / .20),inset 0 1px 1px var(--glass-top),inset 0 -1px 0 var(--glass-bottom)}
 .modal {width:min(360px,calc(100vw - 32px))}
 .modal.bookmark-dialog {width:min(460px,calc(100vw - 32px))}
 .modal.wide {width:min(800px,calc(100vw - 32px))}
@@ -82,7 +84,7 @@ select.ui-control:enabled:active {background:var(--surface-input-pressed)}
 .ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:hover {background:var(--ui-accent-hover)}
 .ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:active {background:var(--ui-accent-pressed)}
 .ui-hover:enabled:active {background:var(--ui-border)}
-input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:#475569;cursor:not-allowed;box-shadow:none}
+input:is(.file-input,.peer):disabled+label.ui-control {background:var(--surface-disabled);color:var(--text-disabled);cursor:not-allowed;box-shadow:none}
 
 .settings {border-radius:var(--radius-panel) 0 0 var(--radius-panel);line-height:1.45}
 .panel-header {padding:20px;padding-right:64px;border:0}
@@ -91,9 +93,9 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .ui-control {background:var(--surface-input);min-height:40px;padding:8px 12px;backdrop-filter:none}
 .ui-control:not(textarea) {height:40px}
 .ui-file-button {border-radius:var(--radius-action)}
-.ui-button {border-radius:var(--radius-action);background:var(--ui-accent);min-height:40px;padding:8px 12px;font-weight:500}
+.ui-button {border-radius:var(--radius-action);background:var(--ui-accent);color:var(--ui-accent-contrast);min-height:40px;padding:8px 12px;font-weight:500}
 .page .ui-button {line-height:1.3}
-.ui-button.secondary,.ui-button.danger,.settings-bottom .ui-button,.sync-action {background:var(--surface-input)}
+.ui-button.secondary,.ui-button.danger,.settings-bottom .ui-button,.sync-action {background:var(--surface-input);color:var(--ui-text)}
 .ui-button.danger,.destructive {color:var(--danger)}
 .ui-folder {padding-inline:16px;border-color:var(--border-material);border-radius:var(--radius-toolbar)}
 .ui-folder[aria-pressed=true] {background:var(--ui-accent);color:var(--ui-accent-contrast)}
@@ -120,9 +122,9 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .folder-tab:focus-visible,.folder-root:focus-visible {outline-offset:-3px}
 .context {border-radius:var(--radius-popover);padding:4px;font-size:16px;line-height:1.45;scrollbar-width:thin;overscroll-behavior:contain;animation-duration:var(--motion-fast)}
 .context button {display:block;width:100%;min-height:36px;padding:6px 12px;border-radius:var(--radius-menu-item);text-align:left;overflow-wrap:anywhere}
-.context button:enabled:hover,.context .keyboard-active {background:var(--surface-floating-emphasis)}
-.context button:enabled:active {background:var(--surface-floating-pressed)}
-.context:has(button:hover) .keyboard-active:not(:hover) {background:transparent}
+.context button:enabled:hover,.context .keyboard-active {background:var(--surface-floating-emphasis);color:var(--highlight-text)}
+.context button:enabled:active {background:var(--surface-floating-pressed);color:var(--highlight-text)}
+.context:has(button:hover) .keyboard-active:not(:hover) {background:transparent;color:var(--ui-text)}
 .page[data-keyboard-focus] .context button:focus-visible:not(:disabled) {outline-offset:-2px}
 .context-divider {height:1px;margin:4px 8px;border:0;background:var(--ui-border)}
 .info-tooltip {border-radius:var(--radius-md);font-size:14px;line-height:1.45;max-height:calc(100dvh - 32px);overflow:auto}
@@ -144,10 +146,11 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .floating-enter-active .context,.floating-leave-active .context {animation:none;transition:opacity var(--motion-fast) var(--ease-state),transform var(--motion-fast) var(--ease-state)}
 .floating-leave-active {pointer-events:none}
 .floating-enter-from .context,.floating-leave-to .context {opacity:0;transform:translateY(-4px)}
-.suggestions li[aria-selected=true] {background:var(--surface-highlight)}
+.suggestions li[aria-selected=true] {--text-secondary:var(--highlight-text);background:var(--surface-highlight);color:var(--highlight-text)}
 .settings-row,.capture-option {min-height:40px}
 .settings input[type=number] {min-width:72px;text-align:center}
 .ui-select {position:relative;min-width:0}
+.ui-select option {background:var(--ui-surface-base);color:var(--ui-text)}
 .ui-select>select {appearance:none;padding-right:40px}
 .ui-select--embedded>select.ui-control {padding-right:12px;border-radius:var(--radius-action)}
 .ui-select--embedded>select.ui-control:enabled {background:transparent;border-color:transparent;cursor:pointer}
@@ -155,7 +158,7 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .ui-select--embedded>select.ui-control:enabled:active {background:var(--surface-input-pressed)}
 .select-chevron {position:absolute;right:12px;top:50%;width:16px;height:16px;transform:translateY(-50%);pointer-events:none;color:var(--ui-text);transition:color var(--motion-fast) var(--ease-state)}
 .ui-select:has(select:focus) .select-chevron {color:var(--ui-text)}
-.ui-select:has(select:disabled) .select-chevron {color:#475569}
+.ui-select:has(select:disabled) .select-chevron {color:var(--text-disabled)}
 .switch-input {width:44px;height:26px;top:50%;transform:translateY(-50%)}
 .switch-track {width:44px;height:26px;border:1px solid var(--border-strong);border-radius:var(--radius-full);background:var(--surface-input);transition:background-color var(--motion-fast) var(--ease-state),border-color var(--motion-fast) var(--ease-state),box-shadow var(--motion-fast) var(--ease-state)}
 .switch-track::before {content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 1px 3px rgb(12 20 34 / .25);transform:translateX(0);transition:transform var(--motion-fast) var(--ease-state),background-color var(--motion-fast) var(--ease-state),box-shadow var(--motion-fast) var(--ease-state)}
@@ -165,8 +168,8 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .switch-input:enabled:active+.switch-track {background:var(--ui-border)}
 .switch-input:checked:enabled:active+.switch-track {background:var(--ui-accent-pressed)}
 .switch-control:has(.switch-input:disabled),.switch-control:has(.switch-input:disabled) label,.switch-input:disabled {cursor:not-allowed}
-.switch-input:disabled+.switch-track {background:#e2e8f0;border-color:var(--border-strong)}
-.switch-input:disabled+.switch-track::before {background:#94a3b8;box-shadow:none}
+.switch-input:disabled+.switch-track {background:var(--surface-disabled);border-color:var(--border-strong)}
+.switch-input:disabled+.switch-track::before {background:var(--scrollbar);box-shadow:none}
 
 .page input[type=checkbox] {accent-color:var(--ui-accent)}
 .settings-content {scrollbar-width:thin}
@@ -179,35 +182,35 @@ input:is(.file-input,.peer):disabled+label.ui-control {background:#e2e8f0;color:
 .mail:hover {background:var(--surface-folder-hover)}
 .mail:active {color:var(--ui-text)}
 .mail svg {width:20px;height:20px;flex:none}
-.badge {background:var(--danger);color:white;font-size:12px;font-weight:600}
+.badge {background:var(--badge-background);color:white;font-size:12px;font-weight:600}
 .page :is(button,input,select,textarea,a,[tabindex]):focus {outline:none}
 .page[data-keyboard-focus] :is(button,input,select,textarea,a,[tabindex]):focus-visible:not(:disabled),.page[data-keyboard-focus] .switch-input:focus-visible+.switch-track,.page[data-keyboard-focus] .peer:focus-visible+label {outline:2px solid var(--focus-ring);outline-offset:2px}
 .page[data-keyboard-focus] .folder-tabs .ui-folder:focus-visible {outline-offset:-3px}
 .page[data-keyboard-focus] .bookmark:focus-visible:not(:disabled) {outline-offset:-3px}
-.page :is(button,input,select,textarea):disabled {background:#e2e8f0;color:#475569;cursor:not-allowed;box-shadow:none}
+.page :is(button,input,select,textarea):disabled {background:var(--surface-disabled);color:var(--text-disabled);cursor:not-allowed;box-shadow:none}
 .ui-control[aria-invalid=true] {border-color:var(--danger)}
 @media(max-width:1023px) {.dial>header {grid-template-columns:minmax(0,1fr);gap:12px}.search {grid-column:1;grid-row:2}.tools {grid-row:1}.dial {padding:24px}}
 @media(max-width:480px) {.dial {--page-padding:16px;padding:16px}.search-submit {width:44px}.search-submit span {display:none}.search-submit svg {display:block;margin:auto}.settings {border-radius:0}}
 /* Increased contrast is a system accessibility preference, not adaptive wallpaper styling. */
 @media(prefers-contrast:more) {
- :root {--surface-control:rgb(255 255 255 / .96);--surface-floating:rgb(255 255 255 / .96);--surface-input:rgb(255 255 255 / .86);--surface-input-emphasis:#fff;--surface-input-pressed:rgb(255 255 255 / .76);--surface-folder-hover:rgb(255 255 255 / .90);--surface-folder-pressed:rgb(255 255 255 / .84);--text-secondary:var(--ui-text);--ui-border:rgb(23 33 47 / .45);--border-material:rgb(23 33 47 / .45);--focus-ring:#17212f;--border-strong:rgb(23 33 47 / .65)}
+ :root[data-theme] {--surface-control:var(--contrast-control);--surface-floating:var(--contrast-control);--surface-elevated:var(--elevated-base);--surface-input:var(--contrast-input);--surface-input-emphasis:var(--ui-surface-base);--surface-input-pressed:var(--contrast-input-pressed);--surface-folder-hover:var(--contrast-folder-hover);--surface-folder-pressed:var(--contrast-folder-pressed);--text-secondary:var(--ui-text);--ui-border:var(--contrast-border);--border-material:var(--contrast-border);--focus-ring:var(--ui-text);--border-strong:var(--contrast-border-strong)}
  .ui-glass {border-color:var(--border-material)}
 }
-@supports not (backdrop-filter:blur(1px)) {:root {--surface-control:var(--ui-surface-base);--surface-floating:var(--ui-surface-base);--surface-overlay:var(--ui-surface-base);--surface-input-pressed:var(--ui-surface-base);--surface-highlight:#ffe88c;--surface-highlight-pressed:#ffe066;--surface-control-hover:#eef1f5;--surface-folder-hover:#eef1f5;--surface-folder-pressed:#e2e8f0;--surface-input-emphasis:var(--ui-surface-base);--surface-input:var(--ui-surface-base);--surface-caption:var(--ui-surface-base);--surface-empty:var(--ui-surface-base)}}
-@media(prefers-reduced-transparency:reduce) {:root {--surface-control:var(--ui-surface-base);--surface-floating:var(--ui-surface-base);--surface-overlay:var(--ui-surface-base);--surface-input-pressed:var(--ui-surface-base);--surface-highlight:#ffe88c;--surface-highlight-pressed:#ffe066;--surface-control-hover:#eef1f5;--surface-folder-hover:#eef1f5;--surface-folder-pressed:#e2e8f0;--surface-input-emphasis:var(--ui-surface-base);--surface-input:var(--ui-surface-base);--surface-caption:var(--ui-surface-base);--surface-empty:var(--ui-surface-base)}.page * {-webkit-backdrop-filter:none!important;backdrop-filter:none!important}}
+@supports not (backdrop-filter:blur(1px)) {:root[data-theme] {--surface-control:var(--ui-surface-base);--surface-floating:var(--ui-surface-base);--surface-elevated:var(--elevated-base);--surface-overlay:var(--ui-surface-base);--surface-input-pressed:var(--ui-surface-base);--surface-highlight:var(--opaque-highlight);--surface-highlight-pressed:var(--opaque-highlight-pressed);--surface-control-hover:var(--opaque-hover);--surface-folder-hover:var(--opaque-hover);--surface-folder-pressed:var(--opaque-pressed);--surface-input-emphasis:var(--ui-surface-base);--surface-input:var(--ui-surface-base);--surface-caption:var(--ui-surface-base);--surface-empty:var(--ui-surface-base)}}
+@media(prefers-reduced-transparency:reduce) {:root[data-theme] {--surface-control:var(--ui-surface-base);--surface-floating:var(--ui-surface-base);--surface-elevated:var(--elevated-base);--surface-overlay:var(--ui-surface-base);--surface-input-pressed:var(--ui-surface-base);--surface-highlight:var(--opaque-highlight);--surface-highlight-pressed:var(--opaque-highlight-pressed);--surface-control-hover:var(--opaque-hover);--surface-folder-hover:var(--opaque-hover);--surface-folder-pressed:var(--opaque-pressed);--surface-input-emphasis:var(--ui-surface-base);--surface-input:var(--ui-surface-base);--surface-caption:var(--ui-surface-base);--surface-empty:var(--ui-surface-base)}.page * {-webkit-backdrop-filter:none!important;backdrop-filter:none!important}}
 @media(prefers-reduced-motion:reduce) {.page *,.page *::before,.page *::after {transition:none!important;animation:none!important}}
 @media(forced-colors:active) {
  .ui-select--embedded>select.ui-control:enabled {background:Canvas;border-color:ButtonText}
- :root {--surface-highlight:Highlight;--surface-highlight-pressed:Highlight}
+ :root[data-theme] {--surface-highlight:Highlight;--surface-highlight-pressed:Highlight}
  .ui-hover:enabled:is(:hover,:active),.ui-button:is(.secondary,.danger):enabled:is(:hover,:active),.settings-bottom .ui-button:enabled:is(:hover,:active),.sync-action:enabled:is(:hover,:active),input:is(.file-input,.peer):enabled+label.ui-control:is(:hover,:active) {background:Highlight;color:HighlightText}
  .bookmark:hover .bookmark-title {background:Highlight;color:HighlightText}
  .ui-glass {--text-secondary:CanvasText;--danger:LinkText;--success:CanvasText}
  :is(input,select,textarea).ui-control:enabled:focus {border-color:ButtonText}
  .ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:is(:hover,:active) {background:Highlight;color:HighlightText}
  input:is(.file-input,.peer):disabled+label.ui-control {background:Canvas;color:GrayText}
- :root {--mail-icon:LinkText;--surface-control:Canvas;--surface-control-hover:Canvas;--surface-folder-hover:Canvas;--surface-folder-pressed:Highlight;--surface-input:Canvas;--surface-input-emphasis:Canvas;--surface-input-pressed:Canvas;--ui-text:CanvasText;--text-secondary:CanvasText;--danger:LinkText;--success:CanvasText}
+ :root[data-theme] {--page-background:Canvas;--highlight-text:HighlightText;--mail-icon:LinkText;--surface-control:Canvas;--surface-control-hover:Canvas;--surface-folder-hover:Canvas;--surface-folder-pressed:Highlight;--surface-input:Canvas;--surface-input-emphasis:Canvas;--surface-input-pressed:Canvas;--ui-text:CanvasText;--text-secondary:CanvasText;--danger:LinkText;--success:CanvasText}
  .page * {-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important}
- .ui-glass,.ui-control,.ui-button,.ui-folder,.surface-control,.ui-caption,.switch-track,.surface-empty,.add-card {background:Canvas;color:CanvasText;border-color:ButtonText}
+ .ui-glass,:is(.modal,.context,.search-dropdown,.info-tooltip,.mail-error).ui-glass,.ui-control,.ui-button,.ui-folder,.surface-control,.ui-caption,.switch-track,.surface-empty,.add-card {background:Canvas;color:CanvasText;border-color:ButtonText}
  .ui-folder[aria-pressed=true],.switch-input:checked+.switch-track,.suggestions li[aria-selected=true] {background:Highlight;color:HighlightText}
  .page[data-keyboard-focus] :is(button,input,select,textarea,a,[tabindex]):focus-visible:not(:disabled),.page[data-keyboard-focus] .switch-input:focus-visible+.switch-track,.page[data-keyboard-focus] .peer:focus-visible+label {outline:2px solid Highlight}
  .search .search-submit:enabled:hover,.search .search-submit:enabled:active {background:Highlight;color:HighlightText}
@@ -257,9 +260,12 @@ input.peer:enabled + label.ui-control:hover:not(:active),input.file-input:enable
  .settings button[aria-label="Удалить фон"] {width:44px;height:44px}
 }
 
+/* A dark halo keeps the light focus ring visible over a bright wallpaper. */
+:root[data-theme=dark] .page[data-keyboard-focus] :is(.ui-control,.ui-button,.ui-folder,.search input,.close,.search-clear,.info-help>button):focus-visible:not(:disabled) {box-shadow:0 0 0 4px var(--focus-halo)}
+
 /* Keep the focus boundary legible against both bright and dark tile images. */
 .page[data-keyboard-focus] .bookmark:focus-visible {outline:2px solid #fff;outline-offset:-4px}
-.page[data-keyboard-focus] .context button:focus-visible {background:var(--surface-floating-emphasis)}
+.page[data-keyboard-focus] .context button:focus-visible {background:var(--surface-floating-emphasis);color:var(--highlight-text)}
 @media(forced-colors:active){.page[data-keyboard-focus] .bookmark:focus-visible {outline-color:Highlight}}
 
 .page[data-keyboard-focus] .bookmark:focus-visible::before {content:"";position:absolute;inset:2px;border:2px solid #fff;border-radius:inherit;box-shadow:0 0 0 2px #17212f,inset 0 0 0 2px #17212f;pointer-events:none;z-index:2}

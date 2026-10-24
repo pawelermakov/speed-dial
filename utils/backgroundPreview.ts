@@ -20,7 +20,7 @@ export function cacheBackgroundPreview(image:HTMLImageElement) {
     }
     if(preview.length>300000)return;
     localStorage.setItem(key,preview);
-    document.documentElement.style.setProperty('--startup-background',`url("${preview}")`);
+    document.documentElement.style.setProperty('--startup-background',`linear-gradient(var(--wallpaper-shade),var(--wallpaper-shade)),url("${preview}")`);
   } catch { /* A full or disabled preview cache must not block the original. */ }
 }
 

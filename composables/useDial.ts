@@ -13,6 +13,7 @@ const rootItem = storage.defineItem<string>('local:rootFolderId');
 export const repository = new Repository(db, settingsItem, browser.bookmarks, rootItem);
 export function useDial() {
   const snapshot = shallowRef<Snapshot>({ tabs: [], folders: [], rootId: null, activeId: null, settings: { ...defaults }, background: null });
+  const settingsReady=ref(false);
   const loading = ref(true), busy = ref(false), notice = ref('');
   const revision = ref(0);
   const settingErrors = ref<Record<string,string>>({});
@@ -21,11 +22,12 @@ export function useDial() {
   const saves = new Set<Promise<unknown>>();
   let settingsVersion = 0, settingsRead = 0, rootVersion = 0, backgroundVersion = 0;
   let backgroundDirty = true;
-  const fieldLabels:Record<keyof Settings,string> = {width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка добавления закладки',bookmarkSearch:'Поиск по закладкам',movieSearch:'Поиск фильмов и сериалов',searchProvider:'Источник поиска',email:'E-mail Mail.ru'};
+  const fieldLabels:Record<keyof Settings,string> = {theme:'Тема',width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка добавления закладки',bookmarkSearch:'Поиск по закладкам',movieSearch:'Поиск фильмов и сериалов',searchProvider:'Источник поиска',email:'E-mail Mail.ru'};
   function publishSettings() {
     const settings = { ...confirmed };
     for (const [key,entry] of pendingFields) Object.assign(settings,{[key]:entry.value});
     snapshot.value = { ...snapshot.value, settings };
+    settingsReady.value=true;
   }
   function track<T>(promise:Promise<T>):Promise<T> { saves.add(promise);void promise.finally(()=>saves.delete(promise)).catch(()=>{});return promise; }
   async function flushSettings() { while(saves.size) await Promise.allSettled([...saves]); await syncRequest('flush'); }
@@ -139,5 +141,5 @@ export function useDial() {
   });
   onUnmounted(() => { unwatchRoot();unwatchSettings?.(); disposed = true; generation++; clearTimeout(timer); events.forEach(event => event?.removeListener(bookmarkEvent)); browser.tabs?.onUpdated?.removeListener(tabUpdated); channel.close(); });
   const announce = () => channel.postMessage({type:'updated'});
-  return { snapshot, loading, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors };
+  return { snapshot, loading, settingsReady, busy, notice, run, refresh, announce, revision, changeSearchProvider, updateSettings, changeRoot, changeBackground, flushSettings, settingErrors };
 }
