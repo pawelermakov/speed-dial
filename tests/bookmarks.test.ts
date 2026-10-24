@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { folderChoices, defaultFolderId, type BookmarkNode } from '../services/bookmarks';
 
 describe('bookmark source folders', () => {
+  it('excludes Firefox separators from folder choices', () => {
+    expect(folderChoices([{id:'root',title:'',children:[
+      {id:'separator',parentId:'root',title:'',type:'separator'},
+      {id:'folder',parentId:'root',title:'Folder',type:'folder'},
+    ]}]).map(row=>row.id)).toEqual(['folder']);
+  });
   it('uses types and account metadata, never titles or fixed Chrome IDs', () => {
     const tree = [{id:'technical',title:'',children:[
       {id:'local-other',parentId:'technical',title:'Other',folderType:'other',syncing:false},

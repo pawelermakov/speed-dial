@@ -73,7 +73,7 @@ try {
 
 
 }
-if(process.argv.includes('--firefox-only')) {
+if(!process.argv.includes('--chrome-only')) {
  const driver=await launchFirefox();
  try {
   await driver.command('WebDriver:Navigate',{url:firefoxUrl});

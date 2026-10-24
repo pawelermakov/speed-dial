@@ -4,13 +4,14 @@ import { SettingsSync } from './settingsSync';
 import type { Settings } from '../types/models';
 
 export function startSettingsSync() {
-  if (import.meta.env.BROWSER === 'firefox') return;
+  const firefox = import.meta.env.BROWSER === 'firefox';
   const coordinator = new SettingsSync({
     local: browser.storage.local,
     sync: browser.storage.sync,
     tree: () => browser.bookmarks.getTree(),
     lock: withDataLock,
     async account() {
+      if (firefox) return null; // Firefox exposes no browser-account identity API.
       try {
         if (!await browser.permissions.contains({ permissions: ['identity.email'] })) return null;
         const info = await browser.identity.getProfileUserInfo({ accountStatus: 'SYNC' });
@@ -44,6 +45,6 @@ export function startSettingsSync() {
   });
   const events = [browser.bookmarks.onCreated, browser.bookmarks.onRemoved, browser.bookmarks.onChanged, browser.bookmarks.onMoved, browser.bookmarks.onImportEnded];
   for (const event of events) event?.addListener((id?:unknown) => { void ready.then(() => coordinator.bookmarksChanged(typeof id==='string'?id:undefined)).catch(() => {}); });
-  browser.identity?.onSignInChanged?.addListener(() => { void coordinator.accountChanged().catch(() => {}); });
+  if (!firefox) browser.identity?.onSignInChanged?.addListener(() => { void coordinator.accountChanged().catch(() => {}); });
   browser.tabs.onActivated.addListener(() => { void ready.then(() => coordinator.retry()).catch(() => {}); });
 }

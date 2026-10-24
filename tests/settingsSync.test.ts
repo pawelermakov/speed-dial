@@ -227,3 +227,42 @@ describe('account boundaries',()=>{
     expect(settings(f.local).width).toBe(95);expect(f.sync.set).not.toHaveBeenCalled();
   });
 });
+
+function firefoxTree():BookmarkNode[] {
+ return [{id:'root________',title:'',children:[{id:'unfiled_____',parentId:'root________',title:'Other bookmarks',children:[{id:'workFolder01',parentId:'unfiled_____',title:'Work',children:[]}]}]}];
+}
+describe('native Firefox folder synchronization',()=>{
+ it('identifies roots without Chrome fields and uses native GUIDs',()=>{
+  const locator=locateFolder(firefoxTree(),'workFolder01')!;
+  expect(locator).toEqual({version:1,anchor:{folderType:'other',browser:'firefox'},path:['Work'],guid:'workFolder01'});
+  expect(validLocator(locator)).toBe(true);expect(resolveFolder(firefoxTree(),locator)).toBe('workFolder01');
+  for(const id of ['menu________','toolbar_____','unfiled_____','mobile______']){
+   const nodes=[{id:'root________',title:'',children:[{id,parentId:'root________',title:'Localized root',children:[]}]}];
+   const root=locateFolder(nodes,id)!;expect(validLocator(root)).toBe(true);expect(resolveFolder(nodes,root)).toBe(id);
+  }
+ });
+ it('follows the GUID after native renames and never guesses same-named folders',()=>{
+  const locator=locateFolder(firefoxTree(),'workFolder01')!,other=firefoxTree();
+  other[0]!.children![0]!.children![0]!.id='fakeFolder01';expect(resolveFolder(other,locator)).toBeNull();
+  other[0]!.children![0]!.children!.push({id:'workFolder01',parentId:'unfiled_____',title:'Renamed',children:[]});
+  expect(resolveFolder(other,locator)).toBe('workFolder01');
+ });
+ it('rejects malformed, cross-platform and unanchored GUIDs',()=>{
+  const locator=locateFolder(firefoxTree(),'workFolder01')!;
+  for(const bad of [{...locator,guid:'bad'},{...locator,anchor:{...locator.anchor,syncing:true}},{...locator,anchor:{folderType:'other'}},{...locator,profile:'private'}])expect(validLocator(bad)).toBe(false);
+  expect(resolveFolder(tree(),locator)).toBeNull();
+  const nodes=firefoxTree();nodes[0]!.children![0]!.unmodifiable='managed';expect(resolveFolder(nodes,locator)).toBeNull();
+ });
+ it('waits for bookmarks delivery then restores the exact folder without echoing data',async()=>{
+  const locator=locateFolder(firefoxTree(),'workFolder01')!;
+  const f=fixture({rootFolderId:'unfiled_____'},{[folderKey]:locator},null);f.bookmarks.value=firefoxTree();f.bookmarks.value[0]!.children![0]!.children![0]!.id='fakeFolder01';
+  await f.c.initialize();expect(f.local.values.rootFolderId).toBe('unfiled_____');expect(f.local.values.settingsSyncState).toMatchObject({folder:expect.stringContaining('Firefox')});
+  f.bookmarks.value=firefoxTree();await f.c.bookmarksChanged('workFolder01');await f.c.flush();expect(f.local.values.rootFolderId).toBe('workFolder01');expect(f.sync.set).not.toHaveBeenCalled();
+ });
+ it('uses the same confirmation and per-field writes without browser account identity',async()=>{
+  const f=fixture({settings:{value:{...defaults,width:70,space:12}},rootFolderId:'workFolder01'},{[syncPrefix+'width']:95},null);f.bookmarks.value=firefoxTree();
+  await f.c.initialize();expect(f.local.values.settingsSyncState).toMatchObject({confirm:true});expect(f.sync.set).not.toHaveBeenCalled();
+  await f.c.confirmLocal(true);await f.c.flush();expect(f.sync.values[syncPrefix+'width']).toBe(95);expect(f.sync.values[syncPrefix+'space']).toBe(12);expect(f.sync.values[folderKey]).toEqual(locateFolder(firefoxTree(),'workFolder01'));
+  f.bookmarks.value[0]!.children![0]!.children![0]!.title='Renamed';await f.c.bookmarksChanged('workFolder01');await f.c.flush();expect(f.sync.values[folderKey]).toMatchObject({guid:'workFolder01',path:['Renamed']});
+ });
+});

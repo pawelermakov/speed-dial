@@ -6,6 +6,7 @@ import {launchFirefox,firefoxUrl} from './firefox-driver.mjs';
 const out=resolve('.browser-test/settings-autosave');await mkdir(out,{recursive:true});
 const image=await readFile('public/images/icon128.png');
 const ext=resolve('.output/chrome-mv3');
+if(!process.argv.includes('--firefox-only')) {
 const context=await chromium.launchPersistentContext(resolve('.browser-test/settings-autosave-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
 try{
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const url=worker.url().replace('background.js','newtab.html');
@@ -58,6 +59,7 @@ try{
  assert.deepEqual(await page.evaluate(()=>window.mutations),[]);
  console.log('PASS Chrome settings: autosave, invalid input, close flush, two tabs, provider patch, failure rollback/persistent alert, stable background across folders/sources, zero bookmark writes, Sync states, responsive panels, reload, pending edits cannot overwrite import/reset');
 }finally{await context.close();}
+}
 if(!process.argv.includes('--chrome-only')) {
 const driver=await launchFirefox();try{
  await driver.command('WebDriver:Navigate',{url:firefoxUrl});await driver.until('return !!document.querySelector(".page")&&!document.querySelector("button[aria-label=Настройки]").disabled;');
@@ -65,7 +67,7 @@ const driver=await launchFirefox();try{
  assert.equal(await driver.exec('return Array.from(document.querySelectorAll(".settings button")).some(e=>e.textContent.trim()==="Сохранить");'),false);
  await driver.exec('const input=document.querySelector("input[aria-label=\\"Ширина (%)\\"]");input.value="75";input.dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("button[aria-label=\\"Закрыть настройки\\"]").click();');
  await driver.until('return !document.querySelector(".settings");');assert.equal(await driver.exec('return (await browser.storage.local.get("settings")).settings.value.width;'),75);
- await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');await driver.until('return !!document.querySelector("[data-icon=circle-minus]");');
+ await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');await driver.until('return !!document.querySelector("[data-icon=circle-help]");');
  await driver.until('return document.querySelector(".settings").getBoundingClientRect().right<=innerWidth+1 && document.getAnimations().every(animation=>animation.playState!=="running");');
  await driver.exec('await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);');
  await driver.exec('const input=document.querySelector("#background");const data=new DataTransfer();data.items.add(new File([Uint8Array.from(arguments[0])],"background.png",{type:"image/png"}));input.files=data.files;input.dispatchEvent(new Event("change",{bubbles:true}));',Array.from(image));
@@ -74,9 +76,9 @@ const driver=await launchFirefox();try{
  const ids=await driver.exec('const root=(await browser.storage.local.get("rootFolderId")).rootFolderId;const a=await browser.bookmarks.create({parentId:root,title:"Firefox A"}),b=await browser.bookmarks.create({parentId:root,title:"Firefox B"});return[a.id,b.id];');
  await driver.exec('document.querySelector("button[aria-label=\\"Закрыть настройки\\"]").click();');await driver.until('return !document.querySelector(".settings");');
  for(const id of ids){await driver.until('return !!document.querySelector("nav button[aria-pressed]");');await driver.exec('const name=arguments[0];Array.from(document.querySelectorAll("nav button")).find(e=>e.textContent.trim()===name).click();',id===ids[0]?'Firefox A':'Firefox B');await driver.until('return Array.from(document.querySelectorAll("nav button[aria-pressed=true]")).some(e=>e.textContent.trim()==="'+(id===ids[0]?'Firefox A':'Firefox B')+'");');assert.equal(await driver.exec('return document.querySelector(".page-background").style.backgroundImage;'),background);}
- await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');await driver.until('return !!document.querySelector("[data-icon=circle-minus]");');
+ await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');await driver.until('return !!document.querySelector("[data-icon=circle-help]");');
  const screenshot=await driver.command('WebDriver:TakeScreenshot',{full:false});await writeFile(resolve(out,'settings-firefox.png'),Buffer.from(screenshot,'base64'));
- console.log('PASS Firefox settings: autosave close flush, unsupported Sync, real background upload, stable folder background');
+ console.log('PASS Firefox settings: autosave close flush, unavailable account status and native Sync, real background upload, stable folder background');
 }finally{await driver.close();}
 
 }

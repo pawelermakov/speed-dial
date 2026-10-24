@@ -13,6 +13,7 @@ const hosts={'suggest.yandex.ru':'yandex','suggestqueries.google.com':'google','
 const fixtures=Object.fromEntries(await Promise.all(providers.map(async id=>[id,JSON.parse(await readFile(`tests/fixtures/search-providers/${id}.json`,'utf8'))])));
 const results=[];
 const extension=resolve('.output/chrome-mv3');
+if(!process.argv.includes('--firefox-only')) {
 const ctx=await chromium.launchPersistentContext(resolve('.browser-test','provider-ui-'+crypto.randomUUID()),{channel:'chromium',headless:!headed,args:['--disable-extensions-except='+extension,'--load-extension='+extension,...(headed?['--start-minimized']:[])]});
 try{
  const worker=ctx.serviceWorkers()[0]??await ctx.waitForEvent('serviceworker');const url=worker.url().replace('background.js','newtab.html');
@@ -70,6 +71,7 @@ try{
    expect(errors).toEqual([]);console.log('PASS Chrome provider UI: flat select, persistence, own requests, keyboard/raw button, direct links, stale cancellation, failures, 15 responsive screenshots');
  }
 }finally{await ctx.close();}
+}
 if(!process.argv.includes('--chrome-only')) {
 const driver=await launchFirefox();try{
  await driver.command('WebDriver:Navigate',{url:firefoxUrl});await driver.until('return !!document.querySelector(".search select")&&!document.querySelector(".search select").disabled;');
@@ -77,12 +79,12 @@ const driver=await launchFirefox();try{
  assert.deepEqual(await driver.exec('return Array.from(document.querySelectorAll(".search select option"),x=>x.textContent);'),names);
  for(const id of providers){
    await driver.exec('const input=document.querySelector(".search input");input.value="";input.dispatchEvent(new Event("input",{bubbles:true}));const select=document.querySelector(".search select");select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}));',id);
-   await driver.until('return !document.querySelector(".search select").disabled;');
+   await driver.until('return !document.querySelector(".search select").disabled && ((await browser.storage.local.get("settings")).settings?.value.searchProvider??"yandex")===document.querySelector(".search select").value;');
    await driver.exec('const input=document.querySelector(".search input");input.focus();input.value=arguments[0];input.dispatchEvent(new Event("input",{bubbles:true}));',queries[id]);
    await driver.until('return !!document.querySelector(".suggestions li,.search [role=status]");',12000);
    const labels=await driver.exec('return Array.from(document.querySelectorAll(".suggestions li"),x=>x.textContent);');
    if(live){results.push({browser:'firefox',provider:id,status:labels.length?'PASS':'BLOCKED',labels});console.log(results.at(-1));}
-   else{assert.ok(labels.length>0);await driver.exec('document.querySelector(".search input").dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowDown",bubbles:true,cancelable:true}));');assert.equal(await driver.exec('return document.querySelector(".search input").value;'),queries[id]);assert.equal(await driver.exec('return document.querySelectorAll(".suggestions [aria-selected=true]").length;'),1);assert.equal(await driver.exec('return (await browser.storage.local.get("settings")).settings?.value.searchProvider??"yandex";'),id);}
+   else{assert.ok(labels.length>0, id+": "+await driver.exec('return document.querySelector(".search [role=status]")?.textContent+"; calls="+window.providerCalls+"; provider="+document.querySelector(".search select").value;'));await driver.exec('document.querySelector(".search input").dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowDown",bubbles:true,cancelable:true}));');assert.equal(await driver.exec('return document.querySelector(".search input").value;'),queries[id]);assert.equal(await driver.exec('return document.querySelectorAll(".suggestions [aria-selected=true]").length;'),1);assert.equal(await driver.exec('return (await browser.storage.local.get("settings")).settings?.value.searchProvider??"yandex";'),id);}
  }
  if(!live)console.log('PASS Firefox provider UI: flat select, persistence, real-fixture parsers, keyboard keeps raw query');
 }finally{await driver.close();}

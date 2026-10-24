@@ -63,12 +63,19 @@ watch([() => props.tabs, () => props.folderId], async ([tabs,folderId], previous
   }
 }, { immediate: true });
 let observer: ResizeObserver | undefined;
+let resizeFrame = 0;
 onMounted(() => {
   gridWidth.value = grid.value!.getBoundingClientRect().width;
-  observer = new ResizeObserver(entries => { gridWidth.value = entries[0]!.contentRect.width; });
+  observer = new ResizeObserver(entries => {
+    const width = entries[0]!.contentRect.width;
+    cancelAnimationFrame(resizeFrame);
+    // Updating columns changes grid height. Defer beyond this observer delivery
+    // to avoid a second layout notification in the same frame.
+    resizeFrame = requestAnimationFrame(() => { gridWidth.value = width; });
+  });
   observer.observe(grid.value!);
 });
-onUnmounted(() => { disposed = true; generation++; cancelReveal(); clearTimeout(clickResetTimer); observer?.disconnect(); images.dispose(); });
+onUnmounted(() => { disposed = true; generation++; cancelReveal(); clearTimeout(clickResetTimer); cancelAnimationFrame(resizeFrame); observer?.disconnect(); images.dispose(); });
 function start(event: DragEvent, id: string) {
   if (props.disabled || props.searching) { event.preventDefault(); return; }
   cancelReveal();

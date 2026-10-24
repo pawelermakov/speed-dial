@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { mkdir, cp, readFile, writeFile } from 'node:fs/promises';
 import { createHash, createPublicKey } from 'node:crypto';
+import { launchFirefox, firefoxUrl } from './firefox-driver.mjs';
 
 const output=resolve('.browser-test/sync');
 await mkdir(output,{recursive:true});
 const run=crypto.randomUUID();
+if(!process.argv.includes('--firefox-only')) {
 const source=resolve('.output/chrome-mv3');
 const manifest=JSON.parse(await readFile(resolve(source,'manifest.json'),'utf8'));
 const firefox=JSON.parse(await readFile('.output/firefox-mv2/manifest.json','utf8'));
@@ -125,3 +127,60 @@ try{
  await writeFile(resolve(output,'id-check.json'),JSON.stringify({id:expectedId,directories:copies.map(copy=>copy.directory),firefoxKey:false,realGoogleDelivery:'NOT TESTED'},null,2));
  console.log('SKIP real signed-in Google accounts/devices and real cloud delivery: controlled isolated fixtures only');
 }finally{await Promise.all(copies.map(copy=>copy.context.close()));}
+
+}
+if(!process.argv.includes('--chrome-only')) {
+ let a,b;
+ const open=async d=>{await d.exec('document.querySelector(".settings-trigger").click();return true;');await d.until('return !!document.querySelector(".settings")');};
+ const close=async d=>{await d.exec('document.querySelector(".settings .close").click();return true;');await d.until('return !document.querySelector(".settings")');};
+ const start=async profile=>{const d=await launchFirefox(profile);await d.command('WebDriver:Navigate',{url:firefoxUrl});await d.until('return !!document.querySelector(".settings-trigger") && !document.querySelector(".settings-trigger").disabled');return d;};
+ const cloud=d=>d.exec('return await browser.storage.sync.get(null);');
+ const deliver=async(from,to)=>to.exec('await browser.storage.sync.set(arguments[0]);return true;',await cloud(from));
+ const edit=async(d,label,value)=>d.exec('const el=Array.from(document.querySelectorAll(".settings input")).find(e=>e.getAttribute("aria-label")===arguments[0]);el.value=arguments[1];el.dispatchEvent(new Event("input",{bubbles:true}));el.blur();return true;',label,value);
+ try {
+  a=await start();b=await start();assert.deepEqual(await cloud(a),{});assert.deepEqual(await cloud(b),{});
+  await open(a);await a.until('return document.querySelector(".sync-account [role=status]").textContent.trim()==="Статус недоступен"');
+  assert.equal(await a.exec('return document.querySelector(".sync-email").textContent.trim();'),'Проверьте настройки Firefox');
+  await edit(a,'Ширина (%)','75');await close(a);await a.until('return (await browser.storage.sync.get("settings.v1.width"))["settings.v1.width"]===75');
+  await open(b);await edit(b,'Расстояние (px)','12');await close(b);await b.until('return (await browser.storage.sync.get("settings.v1.space"))["settings.v1.space"]===12');
+  await deliver(a,b);await b.until('return (await browser.storage.local.get("settings")).settings.value.width===75');await deliver(b,a);await a.until('return (await browser.storage.local.get("settings")).settings.value.space===12');
+  const profile=a.profile;await a.close();a=undefined;a=await start(profile);await open(a);await a.until('return !!Array.from(document.querySelectorAll(".sync-action")).find(e=>e.textContent.trim()==="Перенести локальные")');
+  await a.exec('Array.from(document.querySelectorAll(".sync-action")).find(e=>e.textContent.trim()==="Перенести локальные").click();return true;');
+  await a.until('return Object.keys(await browser.storage.sync.get(null)).filter(k=>k.startsWith("settings.v1.")).length===8');await close(a);
+  console.log('PASS Firefox Sync: stable add-on identity, sparse native storage writes, controlled delivery, shared status layout and local-settings confirmation after restart');
+  const guid=await a.exec('const {rootFolderId}=await browser.storage.local.get("rootFolderId");return (await browser.bookmarks.create({parentId:rootFolderId,title:"Sync Work"})).id;');
+  await open(a);await a.until('return Array.from(document.querySelector("#bookmark-folder").options).some(e=>e.value==="'+guid+'")');
+  await a.exec('const el=document.querySelector("#bookmark-folder");el.value=arguments[0];el.dispatchEvent(new Event("change",{bubbles:true}));return true;',guid);await close(a);
+  await a.until('return (await browser.storage.sync.get("selectedFolder.v1"))["selectedFolder.v1"]?.guid==="'+guid+'"');
+  await b.exec('const {rootFolderId}=await browser.storage.local.get("rootFolderId");await browser.bookmarks.create({parentId:rootFolderId,title:"Sync Work"});return true;');
+  await deliver(a,b);await b.until('return (await browser.storage.local.get("settingsSyncState")).settingsSyncState.folder.includes("Ожидаем папку из Firefox")');
+  assert.notEqual(await b.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),guid);
+  await b.command('Marionette:SetContext',{value:'chrome'});
+  // Only the isolated fixture uses privileged Places access to reproduce the
+  // GUID preserved by native bookmark Sync on another device. The app uses WebExtensions only.
+  await b.exec('const {PlacesUtils}=ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");await PlacesUtils.bookmarks.insert({guid:arguments[0],parentGuid:PlacesUtils.bookmarks.unfiledGuid,title:"Sync Work",type:PlacesUtils.bookmarks.TYPE_FOLDER});return true;',guid);
+  await b.command('Marionette:SetContext',{value:'content'});await b.until('return (await browser.storage.local.get("rootFolderId")).rootFolderId==="'+guid+'"');
+  await a.exec('await browser.bookmarks.update(arguments[0],{title:"Renamed Sync Work"});return true;',guid);await a.until('return (await browser.storage.sync.get("selectedFolder.v1"))["selectedFolder.v1"].path.at(-1)==="Renamed Sync Work"');
+  await deliver(a,b);assert.equal(await b.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),guid);
+  console.log('PASS Firefox folder Sync: native GUID, delayed bookmark delivery, same-named local folder ignored, rename keeps the selected source');
+  await open(a);
+  await a.exec('const bg=await browser.runtime.getBackgroundPage();const area=bg.browser.storage.sync,original=area.set;window.restoreSyncSet=()=>{area.set=original;};area.set=async()=>{throw new Error("QUOTA_BYTES private-fixture");};return true;');
+  await edit(a,'Ширина (%)','80');await a.until('return !!(await browser.storage.local.get("settingsSyncState")).settingsSyncState.error');
+  assert.equal(await a.exec('return (await browser.storage.local.get("settings")).settings.value.width;'),80);
+  await a.until('return !!document.querySelector(".sync-notice [role=alert],.sync-notice[role=alert]")');
+  await a.exec('window.restoreSyncSet();Array.from(document.querySelectorAll(".sync-action")).find(e=>e.textContent.trim()==="Повторить").click();return true;');
+  await a.until('return !(await browser.storage.local.get("settingsSyncState")).settingsSyncState.error && (await browser.storage.sync.get("settings.v1.width"))["settings.v1.width"]===80');
+  assert(!JSON.stringify(await cloud(a)).includes('private-fixture'));
+  for(const width of [360,1280]) {
+   await a.command('WebDriver:SetWindowRect',{width,height:900});
+   await a.exec('await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);const help=document.querySelector(".settings .info-help button");help.blur();help.focus();help.click();return true;');
+   await a.until('return getComputedStyle(document.querySelector("#sync-info")).opacity==="1"');
+   assert(await a.exec('const tip=document.querySelector("#sync-info").getBoundingClientRect(),panel=document.querySelector(".settings");return tip.left>=0 && tip.right<=innerWidth+1 && tip.top>=0 && tip.bottom<=innerHeight+1 && panel.scrollWidth<=panel.clientWidth;'));
+   assert(await a.exec('return getComputedStyle(document.querySelector(".sync-account [role=status]")).color===getComputedStyle(document.querySelector(".settings")).color;'));
+   // Firefox WebDriver snapshots omit backdrop-filter (Mozilla bug 1657997).
+   const screenshot=await a.command('WebDriver:TakeScreenshot',{full:false});await writeFile(resolve(output,`firefox-panel-${width}.png`),Buffer.from(screenshot,'base64'));
+   await a.exec('document.activeElement.blur();return true;');
+  }
+  console.log('PASS Firefox Sync: real storage failure retains local edits, shared retry action recovers, neutral account status and help; real Mozilla cloud delivery requires two signed-in devices');
+ } finally {await Promise.all([a?.close(),b?.close()]);}
+}

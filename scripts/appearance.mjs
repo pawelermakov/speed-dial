@@ -5,6 +5,7 @@ import {resolve} from 'node:path';
 import {launchFirefox,firefoxUrl} from './firefox-driver.mjs';
 const out=resolve('.browser-test/design-system');await mkdir(out,{recursive:true});
 const ext=resolve('.output/chrome-mv3');
+if(!process.argv.includes('--firefox-only')) {
 const ctx=await chromium.launchPersistentContext(resolve('.browser-test/ds-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext],viewport:{width:1280,height:720}});
 try {
  const worker=ctx.serviceWorkers()[0]??await ctx.waitForEvent('serviceworker');
@@ -34,6 +35,7 @@ try {
  await page.emulateMedia({forcedColors:'active',reducedMotion:'reduce'});await page.keyboard.press('Tab');await gear.focus();assert.notEqual(await gear.evaluate(e=>getComputedStyle(e).outlineStyle),'none');
  assert.deepEqual(errors,[]);console.log('PASS Chromium design system: 30 folders, 320/360/1280/1920, 4 backgrounds, surfaces, layers, menus/dialogs, 200% zoom, forced colors/reduced motion');
 } finally {await ctx.close();}
+}
 if(!process.argv.includes('--chrome-only')) {
 const ff=await launchFirefox();try {
  await ff.command('WebDriver:Navigate',{url:firefoxUrl});await ff.until('return !!document.querySelector(".settings-trigger") && !document.querySelector(".settings-trigger").disabled');

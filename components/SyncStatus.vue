@@ -12,14 +12,14 @@ const state=ref<SyncState|null>(null);
 const stateItem=storage.defineItem<SyncState>('local:settingsSyncState');
 const unwatch=stateItem.watch(value=>{state.value=value;});
 let generation=0;
-const labels={enabled:'Включена',disabled:'Выключена',unknown:'Не удалось определить',unsupported:'Статус недоступен'};
+const labels={enabled:'Включена',disabled:'Выключена',unknown:'Не удалось определить',unavailable:'Статус недоступен'};
 const info=computed(()=>({
   enabled:'Chrome синхронизирует настройки и выбранную папку. Фон и изображения хранятся на этом устройстве.',
   disabled:'Включите в Chrome синхронизацию «Расширения» и «Закладки».',
   unknown:'Проверьте синхронизацию в настройках Chrome.',
-  unsupported:'В Firefox настройки сохраняются только на этом устройстве.',
+  unavailable:'Firefox передаёт настройки и выбранную папку через Firefox Sync. В настройках браузера включите «Дополнения» и «Закладки». Доставка выполняется по расписанию браузера. Статус аккаунта недоступен расширению. Фон и изображения остаются на этом устройстве.',
 })[status.value]);
-const icons={enabled:'circle-check',disabled:'circle-x',unknown:'circle-help',unsupported:'circle-minus'};
+const icons={enabled:'circle-check',disabled:'circle-x',unknown:'circle-help',unavailable:'circle-help'};
 async function check(){
   const current=++generation;checking.value=true;
   const next=await syncStatus();
@@ -41,18 +41,17 @@ onUnmounted(()=>{generation++;unwatch();});
     <div class="sync-account grid gap-0">
       <p role="status" class="flex items-center gap-1.5 font-medium" :class="status==='enabled'?'text-[var(--success)]':status==='disabled'?'text-[var(--danger)]':'text-[var(--ui-text)]'">
       <svg :data-icon="icons[status]" class="size-5 shrink-0" :class="status==='enabled'?'text-[var(--success)]':status==='disabled'?'text-[var(--danger)]':'text-[var(--text-secondary)]'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"/><path v-if="status==='enabled'" d="m8 12 3 3 5-6"/><path v-else-if="status==='disabled'" d="m9 9 6 6m0-6-6 6"/><path v-else-if="status==='unsupported'" d="M8 12h8"/><path v-else d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1-1.5 2m0 3h.01"/>
+        <circle cx="12" cy="12" r="9"/><path v-if="status==='enabled'" d="m8 12 3 3 5-6"/><path v-else-if="status==='disabled'" d="m9 9 6 6m0-6-6 6"/><path v-else d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1-1.5 2m0 3h.01"/>
       </svg><span>{{labels[status]}}</span>
       </p>
-      <p v-if="status!=='unsupported'" class="sync-email min-w-0 truncate pl-[26px] text-sm leading-5 font-normal text-[var(--text-secondary)]" :tabindex="email?0:undefined" :title="email||undefined">{{email||'Аккаунт недоступен'}}</p>
+      <p class="sync-email min-w-0 truncate pl-[26px] text-sm leading-5 font-normal text-[var(--text-secondary)]" :tabindex="email?0:undefined" :title="email||undefined">{{email||(status==='unavailable'?'Проверьте настройки Firefox':'Аккаунт недоступен')}}</p>
     </div>
-    <p v-if="status==='unsupported'" class="mt-2">Настройки сохраняются локально.</p>
-    <div v-if="state?.error&&status!=='unsupported'" role="alert" class="sync-notice ui-caption mt-2">
+    <div v-if="state?.error" role="alert" class="sync-notice ui-caption mt-2">
       <p>{{state.error}}</p>
       <button type="button" class="sync-action mt-3" :class="ui.button" :aria-busy="checking" :disabled="checking" @click="check"><span class="ui-action-label">Повторить</span></button>
     </div>
-    <div v-if="state?.confirm&&status!=='unsupported'" class="sync-notice ui-caption mt-3">
-      <p>В облаке нет части настроек. Перенести их с этого устройства или использовать значения по умолчанию? Существующие облачные значения сохранятся.</p>
+    <div v-if="state?.confirm" class="sync-notice ui-caption mt-3">
+      <p>Сохранить настройки этого устройства для синхронизации или использовать значения по умолчанию? Уже сохранённые значения останутся без изменений.</p>
       <div class="grid gap-2 mt-3"><button type="button" class="sync-action" :class="ui.button" @click="confirm(true)"><span class="ui-action-label">Перенести локальные</span></button><button type="button" class="sync-action" :class="ui.button" @click="confirm(false)"><span class="ui-action-label">По умолчанию</span></button></div>
     </div>
   </section>

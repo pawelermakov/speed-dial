@@ -46,7 +46,7 @@ export async function firefoxSmoke(siteUrl, results) {
   await click('Work');await driver.until('return document.querySelectorAll(".bookmark").length===1;');
   await driver.exec('await browser.bookmarks.update(arguments[0],{title:"External Firefox"});',id);
   await driver.until('return document.querySelector(".bookmark")?.textContent.includes("External Firefox");');
-  await driver.exec('document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));'); await click('Изменить');
+  await driver.exec('document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));'); await click('Изменить закладку');
   await driver.until('return !!document.querySelector("#bookmark-title");');
   await driver.exec('const input=document.querySelector("#bookmark-title");input.value="Edited Firefox";input.dispatchEvent(new Event("input",{bubbles:true}));'); await click('Сохранить');
   await driver.until('return !document.querySelector("dialog") && document.querySelector(".bookmark")?.textContent.includes("Edited Firefox");');
@@ -60,6 +60,6 @@ export async function firefoxSmoke(siteUrl, results) {
   assert.ok((await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].id;',rootId))===rootId);
   await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',rootId);
   await driver.until('return document.querySelector(".notice")?.textContent.includes("Другие закладки");');
-  results.push('firefox: unsupported Sync, safe reset and fallback after source deletion');
+  results.push('firefox: unavailable account status and native Sync, safe reset and fallback after source deletion');
  } finally { await driver.close(); }
 }

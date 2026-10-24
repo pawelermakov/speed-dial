@@ -1,6 +1,7 @@
 import net from 'node:net';
 import { spawn } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { openSync, closeSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { firefox } from '@playwright/test';
@@ -20,8 +21,15 @@ export async function launchFirefox(profile) {
     'user_pref("browser.startup.homepage_override.mstone", "ignore");',
     'user_pref("extensions.webextensions.uuids", "{\\"speed-dial-x@pawelermakov.github.io\\":\\"53423a26-924b-4dc4-aab1-e465830d9785\\"}");',
   ].join('\n'));
-  const child = spawn(firefox.executablePath(), ['--headless', '--no-remote', '--profile', profile,
-    '--marionette', '--remote-allow-system-access'], { windowsHide: true, stdio: 'ignore' });
+  const logPath = resolve(profile, 'firefox.log');
+  const log = openSync(logPath, 'w');
+  let child;
+  try {
+    child = spawn(firefox.executablePath(), ['--headless', '--no-remote', '--profile', profile,
+      '--marionette', '--remote-allow-system-access'], { windowsHide: true, stdio: ['ignore', log, log] });
+  } finally { closeSync(log); }
+  let launchError;
+  child.once('error', error => { launchError = error; });
   let socket;
   for (let n = 0; n < 100; n++) {
     try {
@@ -33,7 +41,7 @@ export async function launchFirefox(profile) {
       break;
     } catch { await new Promise(resolve => setTimeout(resolve, 100)); }
   }
-  if (!socket) { child.kill(); throw new Error('Firefox Marionette did not start.'); }
+  if (!socket) { child.kill(); throw new Error(`Firefox Marionette did not start. ${launchError?.message ?? ''} Log: ${logPath}`); }
   let buffer = Buffer.alloc(0), sequence = 0;
   const waiters = new Map();
   socket.on('data', chunk => {
@@ -86,8 +94,18 @@ export async function launchFirefox(profile) {
   }
   try {
     await command('WebDriver:NewSession', {});
+    // A session/visible browser window can exist even when Windows blocks all tab processes.
+    // Check content access before installing the extension, so this is a launch failure.
+    await command('WebDriver:GetCurrentURL');
     await command('WebDriver:SetTimeouts', { pageLoad: 15000, script: 30000, implicit: 0 });
     await command('Addon:Install', { path: resolve('.output/firefox-mv2'), temporary: true });
     return { command, exec, until, close, profile };
-  } catch (error) { await close(); throw error; }
+  } catch (error) {
+    await close();
+    const output = await readFile(logPath, 'utf8').catch(() => '');
+    if (process.platform === 'win32' && /Failed to launch (?:tab|utility) subprocess.*SpawnTarget/.test(output)) {
+      throw new Error(`Windows blocked Firefox child processes (SpawnTarget). Run browser tests from a regular terminal or outside the coding-agent sandbox; keep Firefox sandboxing enabled. Log: ${logPath}`, { cause: error });
+    }
+    throw new Error(`${error.message}\nFirefox log: ${logPath}`, { cause: error });
+  }
 }

@@ -5,6 +5,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {launchFirefox,firefoxUrl} from './firefox-driver.mjs';
 const out=resolve('.browser-test/folders');await mkdir(out,{recursive:true});
 const ext=resolve('.output/chrome-mv3');
+if(!process.argv.includes('--firefox-only')) {
 const context=await chromium.launchPersistentContext(resolve(out,crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
 try{
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));let accept=false;page.on('dialog',dialog=>accept?dialog.accept():dialog.dismiss());
@@ -113,6 +114,7 @@ try{
  await page.getByRole('dialog').getByRole('button',{name:'Закрыть',exact:true}).click();
  assert.deepEqual(errors,[]);console.log('PASS Chrome folders: persistent root/name/icon, folder modal create/rename/cancel/delete protection, real tile/folder DnD, mixed slots, ignored self/cross-folder drops, native events, responsive scrolling and search layout');
 }finally{await context.close();}
+}
 if(!process.argv.includes('--chrome-only')){
  const driver=await launchFirefox();try{
   await driver.command('WebDriver:Navigate',{url:firefoxUrl});await driver.until('return !!document.querySelector(".folder-root");');

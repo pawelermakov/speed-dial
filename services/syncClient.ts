@@ -1,7 +1,6 @@
 import { browser } from 'wxt/browser';
 const outgoing=new Set<Promise<void>>();
 export async function syncRequest(action: string, value?: unknown): Promise<void> {
-  if (import.meta.env.BROWSER === 'firefox') return;
   if(action==='flush')await Promise.allSettled([...outgoing]);
   const task=send(action,value);
   if(action==='patch'||action==='folder'){

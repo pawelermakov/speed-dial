@@ -18,6 +18,21 @@ afterEach(async () => { await db.delete(); });
 async function setup() { const node = await api.create({parentId:'other',title:'Speed Dial'}); await repo.selectRoot(node.id); }
 const add = (url = 'https://example.com/') => repo.add({ url, title: 'Свой заголовок' });
 describe('browser bookmarks source', () => {
+  it('ignores native Firefox separators with data URLs and preserves their slots when sorting', async () => {
+    await setup();const root=repo.rootId!;
+    const a=await add('https://a.example/');
+    const separator=await api.create({parentId:root,title:'',url:'data:'});
+    api.nodes.get(separator.id)!.type='separator';
+    const b=await add('https://b.example/');
+    expect((await repo.load()).tabs.map(row=>row.id)).toEqual([a,b]);
+    expect((await repo.load()).folders.map(row=>row.id)).toEqual([root]);
+    expect(await repo.search('data:')).toEqual([]);
+    expect((await repo.exportData()).entries).toHaveLength(2);
+    await expect(repo.bookmark(separator.id)).rejects.toThrow('Закладка недоступна');
+    await expect(repo.parent(separator.id)).rejects.toThrow('Папка');
+    await repo.reorder([b,a], [a,b], root);
+    expect((await api.getChildren(root)).map(row=>row.id)).toEqual([b,separator.id,a]);
+  });
   it('an older folder read cannot reset the latest requested folder',async()=>{
     await setup();const a=await api.create({parentId:repo.rootId!,title:'A'}),b=await api.create({parentId:repo.rootId!,title:'B'});
     const original=api.getChildren.bind(api);let release!:(value:Awaited<ReturnType<typeof api.getChildren>>)=>void;

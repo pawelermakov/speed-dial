@@ -7,6 +7,7 @@ import { launchFirefox, firefoxUrl } from './firefox-driver.mjs';
 
 await mkdir('.browser-test/text-tiles', { recursive: true });
 const extension = resolve('.output/chrome-mv3');
+if(!process.argv.includes('--firefox-only')) {
 const context = await chromium.launchPersistentContext(resolve('.browser-test', 'text-' + randomUUID()), {
   channel: 'chromium', headless: true, viewport: { width: 1280, height: 800 },
   args: ['--disable-extensions-except=' + extension, '--load-extension=' + extension],
@@ -157,13 +158,15 @@ try {
   console.log('PASS real ya.ru / YouTube ICO colors, color resolution, reload stability');
   console.log('PASS text tiles: favicon-only, corrupt/valid thumbnail, safe labels, stable colors, 9 responsive screenshots');
 } finally { await context.close(); }
+}
 
 if (!process.argv.includes('--chrome-only')) {
 const driver = await launchFirefox();
 try {
   await driver.command('WebDriver:Navigate', { url: firefoxUrl });
-  await driver.until('return !!document.querySelector(".page");');
+  await driver.until('return !!document.querySelector(".page") && !document.querySelector(".settings-trigger").disabled;');
   await driver.exec('const tree=await browser.bookmarks.getTree(); const parent=tree[0].children.find(row=>!row.unmodifiable&&!row.url); const root=await browser.bookmarks.create({parentId:parent.id,title:"Speed Dial"}); await browser.bookmarks.create({parentId:root.id,title:"Custom Firefox",url:"https://www.example.com/path"}); await browser.storage.local.set({rootFolderId:root.id});');
+  await driver.until('return document.querySelector(".folder-root")?.textContent.trim()==="Speed Dial";');
   await driver.command('WebDriver:Refresh');
   await driver.until('return !!document.querySelector(".tile-hostname");');
   assert.equal(await driver.exec('return document.querySelector(".tile-hostname").textContent.trim();'), 'example.com');

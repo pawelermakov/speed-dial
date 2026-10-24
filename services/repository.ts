@@ -3,7 +3,7 @@ import type { DialDatabase } from './database';
 import type { SettingsPort } from './settings';
 import { defaults, type Bookmark, type Settings, type Snapshot, type ImportData, type SearchProviderId } from '../types/models';
 import { normalizeUrl, validateSettings } from './validation';
-import { folderChoices, defaultFolderId, type BookmarksPort, type RootPort, type BookmarkNode } from './bookmarks';
+import { isBookmark, isFolder, folderChoices, defaultFolderId, type BookmarksPort, type RootPort, type BookmarkNode } from './bookmarks';
 let localQueue:Promise<unknown>=Promise.resolve();
 export async function withDataLock<T>(operation: () => Promise<T>): Promise<T> {
   if(navigator.locks)return navigator.locks.request('speed-dial-data', operation);
@@ -56,12 +56,12 @@ export class Repository {
     if (id === root.id) return root;
     if (!id) throw new Error('Папка не выбрана.');
     const node = await this.node(id);
-    if (node.url || node.unmodifiable || node.folderType || node.parentId !== root.id) throw new Error('Папка была удалена или перемещена.');
+    if (!isFolder(node) || node.unmodifiable || node.folderType || node.parentId !== root.id) throw new Error('Папка была удалена или перемещена.');
     return node;
   }
   async bookmark(id: string) {
     const node = await this.node(id);
-    if (!node.url || node.unmodifiable || !node.parentId) throw new Error('Закладка недоступна.');
+    if (!isBookmark(node) || node.unmodifiable || !node.parentId) throw new Error('Закладка недоступна.');
     await this.parent(node.parentId);
     return node;
   }
@@ -73,7 +73,7 @@ export class Repository {
     const root = tree[0];
     if (!root || root.unmodifiable) throw new Error('Папка закладок недоступна.');
     const children = root.children ?? [];
-    const rows = children.flatMap(node => node.url ? [node] : (node.children ?? []).filter(child => child.url));
+    const rows = children.flatMap(node => isBookmark(node) ? [node] : (node.children ?? []).filter(isBookmark));
     return Promise.all(rows.filter(node => (node.title + '\n' + node.url).toLocaleLowerCase().includes(text)).map(async node => {
       const url = node.url!;
       const cache = await this.images.get(node.id, url);
@@ -101,12 +101,12 @@ export class Repository {
     let tabs: Bookmark[] = [], folders: Snapshot['folders'] = [];
     if (rootId) {
       const children = await this.bookmarks.getChildren(rootId);
-      const childFolders = children.filter(node => !node.url && !node.unmodifiable);
+      const childFolders = children.filter(node => isFolder(node) && !node.unmodifiable);
       const rootTitle = choices.find(choice => choice.id === rootId)!.title;
       folders = [{ id: rootId, title: rootTitle, index: -1, virtual: true }, ...childFolders.map(node => ({ id: node.id, title: node.title === rootTitle ? rootTitle + ' (папка)' : node.title, index: node.index ?? 0 }))];
       if (!activeId || (folders.length ? !folders.some(node => node.id === activeId) : activeId !== rootId)) activeId = folders[0]?.id ?? rootId;
       const nodes = activeId === rootId ? children : await this.bookmarks.getChildren(activeId);
-      tabs = await Promise.all(nodes.filter(node => node.url).map(async node => {
+      tabs = await Promise.all(nodes.filter(isBookmark).map(async node => {
         const url = node.url!;
         const cache = await this.images.get(node.id, url);
         return { id: node.id, parentId: node.parentId!, url, title: node.title || url, index: node.index ?? 0, thumbnail: cache?.thumbnail ?? null, favicon: cache?.favicon ?? null, faviconColor: cache?.faviconColor ?? undefined, thumbnailUpdatedAt: cache?.thumbnailUpdatedAt, faviconUpdatedAt: cache?.faviconUpdatedAt };
@@ -212,7 +212,7 @@ export class Repository {
   private async sortChildren(parentId: string, ids: string[], folders: boolean, expected?: string[]) {
     const sourceRoot = this.rootId;
     const original = await this.bookmarks.getChildren(parentId);
-    const nodes = original.filter(node => folders ? !node.url && !node.unmodifiable : !!node.url);
+    const nodes = original.filter(node => folders ? isFolder(node) && !node.unmodifiable : isBookmark(node));
     const order = nodes.map(node => node.id);
     if (new Set(ids).size !== ids.length || ids.length !== order.length || order.some(id => !ids.includes(id)) ||
       (expected && expected.join() !== order.join())) throw new Error('Список изменился; повторите перетаскивание.');
@@ -258,7 +258,7 @@ export class Repository {
   async exportData(): Promise<ImportData> {
     const root = await this.rootNode(); const children = await this.bookmarks.getChildren(root.id);
     const row = (node: BookmarkNode) => ({ title: node.title, url: node.url! });
-    const entries = await Promise.all(children.map(async node => node.url ? row(node) : { title: node.title, children: (await this.bookmarks.getChildren(node.id)).filter(child => child.url).map(row) }));
+    const entries = await Promise.all(children.filter(node => isBookmark(node) || isFolder(node)).map(async node => isBookmark(node) ? row(node) : { title: node.title, children: (await this.bookmarks.getChildren(node.id)).filter(isBookmark).map(row) }));
     const snapshot = await this.load(); return { entries, settings: snapshot.settings, background: snapshot.background };
   }
   async importData(data: ImportData) {

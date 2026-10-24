@@ -1,7 +1,7 @@
 import { defaults, type Settings } from '../types/models';
 import { validateSettings } from './validation';
 import { folderKey, settingKeys, syncPatch, syncPrefix, validSetting } from './settingsSchema';
-import { locateFolder, resolveFolder, validLocator } from './folderLocator';
+import { locateFolder, resolveFolder, validLocator, portableFolder } from './folderLocator';
 import type { BookmarkNode } from './bookmarks';
 import { folderChoices } from './bookmarks';
 
@@ -190,7 +190,7 @@ export class SettingsSync {
         if(generation!==this.folderEpoch||epoch!==this.epoch)return;
         if(typeof local.rootFolderId==='string'&&equal(locateFolder(tree,local.rootFolderId),value))this.selectedId=local.rootFolderId;
       }
-      await this.publish({ folder: value.anchor.syncing === true ? 'Ожидаем папку из Chrome. Если она недоступна, выберите папку вручную.' : 'Выберите папку вручную: локальная папка не переносится между устройствами.' });
+      await this.publish({ folder: portableFolder(value) ? `Ожидаем папку из ${value.anchor.browser === 'firefox' ? 'Firefox' : 'Chrome'}. Если она недоступна, выберите папку вручную.` : 'Выберите папку вручную: локальная папка не переносится между устройствами.' });
       return;
     }
     await this.ports.lock(async () => {
@@ -225,7 +225,7 @@ export class SettingsSync {
     await this.ports.local.set({[selectedSourceKey]:{id,locator}});
     if(generation!==this.folderEpoch||epoch!==this.epoch)return;
     this.enqueue({ [folderKey]: locator });
-    await this.publish({ folder: locator.anchor.syncing === true ? '' : 'Локальная папка: на другом устройстве потребуется ручной выбор.' });
+    await this.publish({ folder: portableFolder(locator) ? '' : 'Локальная папка: на другом устройстве потребуется ручной выбор.' });
   }
   bookmarksChanged(changedId?:string) { const receivedEpoch=this.epoch;return this.serial(async () => {
     if(receivedEpoch!==this.epoch)return;
