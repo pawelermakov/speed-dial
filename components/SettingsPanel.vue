@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { weatherCities, weatherProviders } from '../utils/weather';
 import SelectChevron from './SelectChevron.vue';
 import { cycleDialogFocus } from '../utils/keyboard';
 import SwitchControl from './SwitchControl.vue';
@@ -117,6 +118,15 @@ const switchFields=[{key:'addButton',label:'Кнопка добавления з
           <InfoTooltip target="#settings-modal" id="mail-settings-info" label="О настройке почты">Укажите адрес электронной почты на mail.ru.</InfoTooltip>
         </legend>
           <div class="settings-email"><input aria-label="E-mail Mail.ru" :value="values.email" class="input" :class="ui.input" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" :disabled="busy" :aria-invalid="!!inputErrors.email" :aria-describedby="inputErrors.email?'settings-email-error':undefined" @focus="focused='email'" @input="input('email',$event)" @change="flushField('email',true)" @blur="focused=undefined;flushField('email',true)"/></div><p v-if="inputErrors.email" id="settings-email-error" role="alert" class="mt-1 text-red-800">{{inputErrors.email}}</p>
+        </fieldset>
+        <fieldset class="mb-5 min-w-0 weather-settings"><legend class="font-bold mb-2">Погода</legend>
+          <SwitchControl :model-value="settings.weatherEnabled" :disabled="busy" class="settings-row" @update:model-value="value => updateSettings({weatherEnabled:value})">Показывать виджет погоды</SwitchControl>
+          <div v-if="settings.weatherEnabled" class="mt-3">
+            <label for="weather-city" class="block mb-2">Город</label>
+            <div class="ui-select mb-3"><select id="weather-city" :value="settings.weatherCity" :disabled="busy" :class="ui.input" @change="updateSettings({weatherCity:($event.target as HTMLSelectElement).value as Settings['weatherCity']})"><option v-for="city in weatherCities" :key="city.id" :value="city.id">{{city.label}}</option></select><SelectChevron /></div>
+            <label for="weather-provider" class="block mb-2">Сервис погоды</label>
+            <div class="ui-select"><select id="weather-provider" :value="settings.weatherProvider" :disabled="busy" :class="ui.input" @change="updateSettings({weatherProvider:($event.target as HTMLSelectElement).value as Settings['weatherProvider']})"><option v-for="provider in weatherProviders" :key="provider.id" :value="provider.id">{{provider.label}}</option></select><SelectChevron /></div>
+          </div>
         </fieldset>
         <p v-if="error||operationError" role="alert" class="mb-3 text-red-800 break-words">{{error||operationError}}</p>
         <fieldset class="settings-bottom mt-auto min-w-0"><legend class="font-bold mb-2">Данные</legend>

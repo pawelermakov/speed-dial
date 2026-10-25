@@ -1,3 +1,4 @@
+import { weatherCities, weatherProviders } from '../utils/weather';
 import { defaults, themeModes, type ThemeMode, searchProviderIds, isMovieProvider, type Settings, type SearchProviderId } from '../types/models';
 export function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(label + ': ожидается объект.');
@@ -41,6 +42,8 @@ export function validateSettings(input: unknown): Settings {
   if(Object.keys(data).some(key=>!Object.hasOwn(defaults,key)))throw new Error('Неизвестный параметр настроек.');
   if(data.theme!==undefined&&!themeModes.includes(data.theme as ThemeMode))throw new Error('Некорректная тема.');
   if(data.searchProvider!==undefined&&!searchProviderIds.includes(data.searchProvider as SearchProviderId))throw new Error('Некорректный источник поиска.');
+  if(data.weatherCity!==undefined&&data.weatherCity!==''&&!weatherCities.some(row=>row.id===data.weatherCity))throw new Error('Некорректный город для погоды.');
+  if(data.weatherProvider!==undefined&&!weatherProviders.some(row=>row.id===data.weatherProvider))throw new Error('Некорректный сервис погоды.');
   const bookmarkSearch=boolean(data.bookmarkSearch,defaults.bookmarkSearch),movieSearch=boolean(data.movieSearch,defaults.movieSearch);
   const number = (key: 'width' | 'countColumns' | 'space', min: number, max: number) => {
     const value = data[key] === undefined || data[key] === '' ? defaults[key] : Number(data[key]);
@@ -52,6 +55,7 @@ export function validateSettings(input: unknown): Settings {
   if (typeof email !== 'string' || email.length > 254 || (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())))
     throw new Error('Некорректный E-mail.');
   return {
+    weatherEnabled:boolean(data.weatherEnabled,defaults.weatherEnabled),weatherCity:(data.weatherCity||defaults.weatherCity) as Settings['weatherCity'],weatherProvider:(data.weatherProvider??defaults.weatherProvider) as Settings['weatherProvider'],
     theme: themeModes.includes(data.theme as ThemeMode) ? data.theme as ThemeMode : 'system',
     width: number('width', 50, 100), countColumns: number('countColumns', 2, 12), space: number('space', 0, 48),
     verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch, movieSearch, email: email.trim(),

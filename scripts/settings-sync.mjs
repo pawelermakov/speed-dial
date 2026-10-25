@@ -146,7 +146,7 @@ if(!process.argv.includes('--chrome-only')) {
   await deliver(a,b);await b.until('return (await browser.storage.local.get("settings")).settings.value.width===75');await deliver(b,a);await a.until('return (await browser.storage.local.get("settings")).settings.value.space===12');
   const profile=a.profile;await a.close();a=undefined;a=await start(profile);await open(a);await a.until('return !!Array.from(document.querySelectorAll(".sync-action")).find(e=>e.textContent.trim()==="Перенести локальные")');
   await a.exec('Array.from(document.querySelectorAll(".sync-action")).find(e=>e.textContent.trim()==="Перенести локальные").click();return true;');
-  await a.until('return Object.keys(await browser.storage.sync.get(null)).filter(k=>k.startsWith("settings.v1.")).length===8');await close(a);
+  await a.until('const values=(await browser.storage.local.get("settings")).settings.value,cloud=await browser.storage.sync.get(null);return Object.entries(values).every(([key,value])=>cloud["settings.v1."+key]===value);');await close(a);
   console.log('PASS Firefox Sync: stable add-on identity, sparse native storage writes, controlled delivery, shared status layout and local-settings confirmation after restart');
   const guid=await a.exec('const {rootFolderId}=await browser.storage.local.get("rootFolderId");return (await browser.bookmarks.create({parentId:rootFolderId,title:"Sync Work"})).id;');
   await open(a);await a.until('return Array.from(document.querySelector("#bookmark-folder").options).some(e=>e.value==="'+guid+'")');

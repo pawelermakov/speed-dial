@@ -284,3 +284,10 @@ describe('native Firefox folder synchronization',()=>{
   f.bookmarks.value[0]!.children![0]!.children![0]!.title='Renamed';await f.c.bookmarksChanged('workFolder01');await f.c.flush();expect(f.sync.values[folderKey]).toMatchObject({guid:'workFolder01',path:['Renamed']});
  });
 });
+
+
+it('applies remote weather settings without uploading them again',async()=>{
+ const f=fixture(localSettings());await f.c.initialize();f.sync.set.mockClear();
+ await f.c.remote({[syncPrefix+'weatherEnabled']:{newValue:true},[syncPrefix+'weatherCity']:{newValue:'saint-petersburg'},[syncPrefix+'weatherProvider']:{newValue:'gismeteo'}});await f.c.flush();
+ expect(settings(f.local)).toMatchObject({weatherEnabled:true,weatherCity:'saint-petersburg',weatherProvider:'gismeteo'});expect(f.sync.set).not.toHaveBeenCalled();
+});
