@@ -9,6 +9,7 @@ const node=(id:string,title:string,children:BookmarkNode[]=[]):BookmarkNode=>({i
 function tree():BookmarkNode[]{return[{id:'0',title:'',children:[{...node('other','Other',[node('a','Speed Dial',[node('b','Избранное')])]),parentId:'0',folderType:'other'}]}];}
 class Area implements StorageArea {
   constructor(public values:Record<string,unknown>={}){}
+  remove=vi.fn(async(keys:string|string[])=>{for(const key of typeof keys==='string'?[keys]:keys)delete this.values[key];});
   get=vi.fn(async()=>structuredClone(this.values));
   set=vi.fn(async(values:Record<string,unknown>)=>{Object.assign(this.values,structuredClone(values));});
 }
@@ -290,4 +291,16 @@ it('applies remote weather settings without uploading them again',async()=>{
  const f=fixture(localSettings());await f.c.initialize();f.sync.set.mockClear();
  await f.c.remote({[syncPrefix+'weatherEnabled']:{newValue:true},[syncPrefix+'weatherCity']:{newValue:'saint-petersburg'},[syncPrefix+'weatherProvider']:{newValue:'gismeteo'}});await f.c.flush();
  expect(settings(f.local)).toMatchObject({weatherEnabled:true,weatherCity:'saint-petersburg',weatherProvider:'gismeteo'});expect(f.sync.set).not.toHaveBeenCalled();
+});
+
+it('applies independent mail choices including explicit opt-out without echo',async()=>{
+ const f=fixture(localSettings({mailruEnabled:true}));await f.c.initialize();f.sync.set.mockClear();
+ await f.c.remote({[syncPrefix+'mailruEnabled']:{newValue:false},[syncPrefix+'gmailEnabled']:{newValue:true},[syncPrefix+'yandexMailEnabled']:{newValue:true}});await f.c.flush();
+ expect(settings(f.local)).toMatchObject({mailruEnabled:false,gmailEnabled:true,yandexMailEnabled:true});expect(f.sync.set).not.toHaveBeenCalled();
+ await f.c.remote({[syncPrefix+'mailruEnabled']:{newValue:null}});await f.c.flush();expect(settings(f.local).mailruEnabled).toBe(false);
+});
+
+it('retires saved mail addresses while retaining unrelated local preferences',async()=>{
+ const f=fixture(localSettings({email:'retired@mail.ru',mailruEnabled:true,width:75,theme:'dark'}),{[syncPrefix+'email']:'retired@mail.ru'});await f.c.initialize();
+ expect(settings(f.local)).toMatchObject({mailruEnabled:true,width:75,theme:'dark'});expect(settings(f.local)).not.toHaveProperty('email');expect(f.sync.values).not.toHaveProperty(syncPrefix+'email');expect(f.sync.set).not.toHaveBeenCalled();
 });

@@ -22,7 +22,7 @@ export function useDial() {
   const saves = new Set<Promise<unknown>>();
   let settingsVersion = 0, settingsRead = 0, rootVersion = 0, backgroundVersion = 0;
   let backgroundDirty = true;
-  const fieldLabels:Record<keyof Settings,string> = {weatherEnabled:'Виджет погоды',weatherCity:'Город',weatherProvider:'Сервис погоды',theme:'Тема',width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка добавления закладки',bookmarkSearch:'Поиск по закладкам',movieSearch:'Поиск фильмов и сериалов',searchProvider:'Источник поиска',email:'E-mail Mail.ru'};
+  const fieldLabels:Record<keyof Settings,string> = {mailruEnabled:'Mail.ru',gmailEnabled:'Gmail',yandexMailEnabled:'Яндекс Почта',weatherEnabled:'Виджет погоды',weatherCity:'Город',weatherProvider:'Сервис погоды',theme:'Тема',width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка добавления закладки',bookmarkSearch:'Поиск по закладкам',movieSearch:'Поиск фильмов и сериалов',searchProvider:'Источник поиска'};
   function publishSettings() {
     const settings = { ...confirmed };
     for (const [key,entry] of pendingFields) Object.assign(settings,{[key]:entry.value});

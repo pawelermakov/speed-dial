@@ -21,3 +21,9 @@ export function syncPatch(values: Record<string, unknown>): Partial<Settings> {
   }
   return patch;
 }
+
+// Trusted local snapshots may retain retired fields; imports stay strictly validated.
+export function storedSettings(input:unknown):Settings {
+ const source=input&&typeof input==='object'&&!Array.isArray(input)?input as Record<string,unknown>:{};
+ return validateSettings(Object.fromEntries(settingKeys.filter(key=>validSetting(key,source[key])).map(key=>[key,source[key]])));
+}

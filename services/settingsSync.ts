@@ -1,6 +1,5 @@
 import { defaults, type Settings } from '../types/models';
-import { validateSettings } from './validation';
-import { folderKey, settingKeys, syncPatch, syncPrefix, validSetting } from './settingsSchema';
+import { folderKey, settingKeys, syncPatch, syncPrefix, validSetting, storedSettings } from './settingsSchema';
 import { locateFolder, resolveFolder, validLocator, portableFolder } from './folderLocator';
 import type { BookmarkNode } from './bookmarks';
 import { folderChoices } from './bookmarks';
@@ -8,6 +7,7 @@ import { folderChoices } from './bookmarks';
 export interface StorageArea {
   get(keys?: string[] | null): Promise<Record<string, unknown>>;
   set(values: Record<string, unknown>): Promise<void>;
+  remove?(keys:string|string[]):Promise<void>;
 }
 export interface SyncState { error: string; folder: string; confirm: boolean }
 export const syncStateKey = 'settingsSyncState';
@@ -57,7 +57,7 @@ export class SettingsSync {
   }
   private async snapshot(): Promise<Settings> {
     const local = await this.ports.local.get(['settings']);
-    try { return validateSettings((local.settings as { value?: unknown } | undefined)?.value); }
+    try { return storedSettings((local.settings as { value?: unknown } | undefined)?.value); }
     catch { return { ...defaults }; }
   }
   private async apply(patch: Partial<Settings>) {
@@ -95,6 +95,11 @@ export class SettingsSync {
     this.accountId = await this.ports.account();
     if(epoch!==this.epoch)return;
     try {
+      await this.ports.lock(async()=>{if(epoch!==this.epoch)return;const saved=await this.ports.local.get(['settings']);if(epoch!==this.epoch)return;if(saved.settings){const raw=(saved.settings as {value?:unknown}).value,next=storedSettings(raw);if(!equal(raw,next))await this.ports.local.set({settings:{value:next}});}});
+      if(epoch!==this.epoch)return;
+      // Retire the manually entered Mail.ru address from browser Sync as well.
+      await this.ports.sync.remove?.(syncPrefix+'email');
+      if(epoch!==this.epoch)return;
       this.cloud = await this.ports.sync.get(null);
       if(epoch!==this.epoch)return;
       const remote = syncPatch(this.cloud);

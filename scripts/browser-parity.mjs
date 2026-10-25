@@ -68,13 +68,14 @@ async function check(name, driver) {
 
  await exec(`window.parityFetch=window.fetch;window.mailCalls=[];window.fetch=(url,options)=>{
   if(String(url).startsWith('https://portal.mail.ru/NaviData?')){mailCalls.push({url:String(url),credentials:options.credentials});return Promise.resolve(new Response(JSON.stringify({data:{mail_cnt:123}}),{headers:{'Content-Type':'application/json'}}));}return parityFetch(url,options);
- };await api.storage.local.set({settings:{value:{...${JSON.stringify(exported.settings)},email:'parity@mail.ru'}}});`);
+ };await api.storage.local.set({settings:{value:{...${JSON.stringify(exported.settings)},mailruEnabled:true}}});`);
  await until('return document.querySelector(".mail .badge")?.textContent==="99+";');
- assert.equal(await exec('return mailCalls.length===1&&mailCalls[0].credentials==="include"&&new URL(mailCalls[0].url).searchParams.get("Login")==="parity@mail.ru";'),true);
+ assert.equal(await exec('return mailCalls.length===1&&mailCalls[0].credentials==="include"&&!new URL(mailCalls[0].url).searchParams.has("Login");'),true);
  assert.equal(await exec('return document.querySelector(".mail").href;'),'https://e.mail.ru/messages/inbox/');
+ await exec('const {settings}=await api.storage.local.get("settings");await api.storage.local.set({settings:{value:{...settings.value,mailruEnabled:false}}});');await until('return !document.querySelector(".mail");');
  await exec(`window.fetch=(url,options)=>String(url).startsWith('https://portal.mail.ru/NaviData?')?Promise.resolve(new Response(JSON.stringify({status:'noauth'}))):parityFetch(url,options);
- const {settings}=await api.storage.local.get('settings');await api.storage.local.set({settings:{value:{...settings.value,email:'other@mail.ru'}}});`);
- await until('return document.querySelector(".mail-error")?.textContent.includes("Нет авторизации");');
+ const {settings}=await api.storage.local.get('settings');await api.storage.local.set({settings:{value:{...settings.value,mailruEnabled:true}}});`);
+ await until('return document.querySelector(".mail-error")?.textContent.includes("Войдите в Mail.ru");');
  assert.equal(await exec('return !!document.querySelector(".mail .badge");'),false);
  assert.deepEqual(await exec('return parityErrors;'),[]);
  console.log('PASS '+name+': Mail.ru credentialed request, count, badge, account change and noauth error (controlled responses)');

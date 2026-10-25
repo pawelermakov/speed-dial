@@ -1,7 +1,6 @@
 import { storage } from 'wxt/utils/storage';
 import { syncRequest } from './syncClient';
-import { settingKeys } from './settingsSchema';
-import { validateSettings } from './validation';
+import { settingKeys, storedSettings } from './settingsSchema';
 import { defaults } from '../types/models';
 import type { Settings } from '../types/models';
 export interface SettingsEnvelope { value: Settings }
@@ -12,12 +11,12 @@ export interface SettingsPort {
 }
 const localItem = storage.defineItem<SettingsEnvelope>('local:settings');
 export const settingsItem: SettingsPort = {
-  getValue: () => localItem.getValue(),
-  watch: callback => localItem.watch(callback),
+  getValue: async () => {const value=await localItem.getValue();return value?{value:storedSettings(value.value)}:null;},
+  watch: callback => localItem.watch(value=>callback(value?{value:storedSettings(value.value)}:null)),
   async setValue(envelope, replace=false) {
     const previous = await localItem.getValue();
     let before:Settings;
-    try{before=validateSettings(previous?.value);}catch{before={...defaults};}
+    try{before=storedSettings(previous?.value);}catch{before={...defaults};}
     await localItem.setValue(envelope);
     const patch = Object.fromEntries(settingKeys.filter(key => replace||before[key] !== envelope.value[key]).map(key => [key, envelope.value[key]]));
     // Do not wait under the repository data lock: remote application uses that

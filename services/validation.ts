@@ -51,14 +51,12 @@ export function validateSettings(input: unknown): Settings {
       !Number.isInteger(value) || value < min || value > max) throw new Error(key + ': допустимо целое число ' + min + '–' + max + '.');
     return value;
   };
-  const email = data.email ?? '';
-  if (typeof email !== 'string' || email.length > 254 || (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())))
-    throw new Error('Некорректный E-mail.');
   return {
+    mailruEnabled:boolean(data.mailruEnabled,false),gmailEnabled:boolean(data.gmailEnabled,false),yandexMailEnabled:boolean(data.yandexMailEnabled,false),
     weatherEnabled:boolean(data.weatherEnabled,defaults.weatherEnabled),weatherCity:(data.weatherCity||defaults.weatherCity) as Settings['weatherCity'],weatherProvider:(data.weatherProvider??defaults.weatherProvider) as Settings['weatherProvider'],
     theme: themeModes.includes(data.theme as ThemeMode) ? data.theme as ThemeMode : 'system',
     width: number('width', 50, 100), countColumns: number('countColumns', 2, 12), space: number('space', 0, 48),
-    verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch, movieSearch, email: email.trim(),
+    verticalCenter: boolean(data.verticalCenter, false), addButton: boolean(data.addButton, false), bookmarkSearch, movieSearch,
     searchProvider: ((!bookmarkSearch && data.searchProvider === 'bookmarks') || (!movieSearch && isMovieProvider(data.searchProvider))) ? 'yandex' : searchProviderIds.includes(data.searchProvider as SearchProviderId) ? data.searchProvider as SearchProviderId : 'yandex',
   };
 }

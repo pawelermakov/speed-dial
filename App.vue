@@ -12,7 +12,7 @@ import BookmarkDialog from './components/BookmarkDialog.vue';
 import SearchBar from './components/SearchBar.vue';
 import EmptyState from './components/EmptyState.vue';
 import ConfirmDialog from './components/ConfirmDialog.vue';
-import MailIndicator from './components/MailIndicator.vue';
+import MailIndicators from './components/MailIndicators.vue';
 import WeatherWidget from './components/WeatherWidget.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import ContextMenu from './components/ContextMenu.vue';
@@ -101,7 +101,6 @@ async function openBookmark(bookmark?: Bookmark) {
 }
 
 const mailRevision = ref(0);
-watch(()=>snapshot.value.settings.email,()=>mailRevision.value++);
 const dataOpen = ref(false);
 const dataDialog=ref<InstanceType<typeof DataManagementDialog>>();
 const confirmation = shallowRef<{title:string;message:string;perform:()=>Promise<boolean>;actionLabel:string;destructive:boolean}>();
@@ -383,11 +382,11 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
   <div :data-keyboard-focus="keyboardFocus||undefined" class="page relative font-[family-name:var(--ui-font)] leading-[normal] bg-center bg-cover bg-no-repeat [:where(&)_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-100 [:where(&)_button]:font-[family-name:var(--ui-font)] [:where(&)_input]:font-[family-name:var(--ui-font)] [:where(&)_textarea]:font-[family-name:var(--ui-font)] [:where(&)_button]:text-base [:where(&)_input]:text-base [:where(&)_textarea]:text-base [:where(&)_button]:font-normal [:where(&)_button]:leading-[normal] [:where(&)_input]:leading-[normal] [:where(&)_textarea]:leading-[normal] [:where(&)_button]:[-webkit-tap-highlight-color:transparent] [&_a]:[-webkit-tap-highlight-color:transparent] [:where(&)_input]:[-webkit-tap-highlight-color:transparent] [:where(&)_textarea]:[-webkit-tap-highlight-color:transparent] [&_input::placeholder]:opacity-100 [&_textarea::placeholder]:opacity-100 [&_*]:motion-reduce:transition-none [&_*]:motion-reduce:animate-none [&_*::before]:motion-reduce:transition-none [&_*::after]:motion-reduce:transition-none" @contextmenu="showContext">
     <div aria-hidden="true" class="page-background fixed inset-0 pointer-events-none bg-center bg-cover bg-no-repeat" :class="{ 'is-ready': !!backgroundUrl }" :style="{ backgroundImage: backgroundUrl ? 'linear-gradient(var(--wallpaper-shade),var(--wallpaper-shade)),url(' + backgroundUrl + ')' : undefined, backgroundColor: backgroundUrl ? '#808590' : undefined }"/>
     <main class="dial relative flex flex-col p-6 motion-reduce:transition-none [&.pushed]:pointer-events-none" :class="{ pushed: settingsOpen, 'is-loaded': !loading }">
-      <header class="relative shrink-0" :class="{'startup-reveal':!loading,'has-weather':snapshot.settings.weatherEnabled}">
+      <header class="relative shrink-0" :class="{'startup-reveal':!loading,'has-weather':snapshot.settings.weatherEnabled,'has-mail-services':snapshot.settings.gmailEnabled||snapshot.settings.yandexMailEnabled}">
         <SearchBar ref="searchControl" v-model="searchText" :bookmark-search="snapshot.settings.bookmarkSearch" :movie-search="snapshot.settings.movieSearch" @submit-bookmarks="focusSearchResult" :provider="snapshot.settings.searchProvider" :disabled="disabled" :save-provider="changeSearchProvider" />
         <div class="tools flex items-center gap-2">
           <WeatherWidget v-if="snapshot.settings.weatherEnabled" :city="snapshot.settings.weatherCity" :provider="snapshot.settings.weatherProvider" />
-          <MailIndicator :key="mailRevision" :email="snapshot.settings.email" />
+          <MailIndicators :key="mailRevision" :settings="snapshot.settings" />
           <button class="settings-trigger ui-folder inline-flex size-12 items-center justify-center" aria-label="Настройки" title="Настройки" aria-haspopup="dialog" :aria-expanded="settingsOpen" :aria-controls="settingsOpen?'settings-modal':undefined" :disabled="disabled" @click="openSettings"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><g transform="translate(0 1)"><path d="m9 3-1 3-3 1-2 4 2 2v3l4 3 3-1 3 1 4-3v-3l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></g></svg></button>
         </div>
       </header>

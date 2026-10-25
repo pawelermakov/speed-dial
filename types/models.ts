@@ -6,7 +6,7 @@ export type SearchProviderId = typeof searchProviderIds[number];
 export interface SearchSuggestion { id: string; label: string; subtitle?: string; targetUrl?: string }
 export const themeModes = ['system', 'light', 'dark'] as const;
 export type ThemeMode = typeof themeModes[number];
-export interface Settings { weatherEnabled:boolean; weatherCity:WeatherCityId; weatherProvider:WeatherProvider; theme: ThemeMode; width: number; countColumns: number; space: number; verticalCenter: boolean; addButton: boolean; bookmarkSearch: boolean; movieSearch: boolean; searchProvider: SearchProviderId; email: string }
+export interface Settings { mailruEnabled:boolean; gmailEnabled:boolean; yandexMailEnabled:boolean; weatherEnabled:boolean; weatherCity:WeatherCityId; weatherProvider:WeatherProvider; theme: ThemeMode; width: number; countColumns: number; space: number; verticalCenter: boolean; addButton: boolean; bookmarkSearch: boolean; movieSearch: boolean; searchProvider: SearchProviderId }
 export interface Bookmark { id: string; parentId: string; url: string; title: string; index: number; favicon: Blob | null; thumbnail: Blob | null; thumbnailUpdatedAt?: number; faviconUpdatedAt?: number; faviconColor?: string }
 export interface Folder { id: string; title: string; index: number; virtual?: boolean }
 export interface FolderChoice { id: string; title: string; path: string; syncing?: boolean; standard: boolean; folderType?: string; writableChildren: boolean }
@@ -20,4 +20,4 @@ export interface PreparedExport { data:ImportData; warnings:string[] }
 export interface ImportReport { bookmarks: number; folders: number; images: number; settings?:true; background?:true; skipped?:number; warnings: string[]; error?: string }
 export interface CaptureRequest { type: 'capture'; requestId: string; url: string }
 export interface CaptureResponse { requestId: string; title?: string; favicon?: string; thumbnail?: string; error?: string }
-export const defaults: Settings = { weatherEnabled:false, weatherCity:'moscow', weatherProvider:'yandex', theme: 'system', width: 100, countColumns: 6, space: 24, verticalCenter: false, addButton: false, bookmarkSearch: true, movieSearch: false, searchProvider: 'yandex', email: '' };
+export const defaults: Settings = { mailruEnabled:false, gmailEnabled:false, yandexMailEnabled:false, weatherEnabled:false, weatherCity:'moscow', weatherProvider:'yandex', theme: 'system', width: 100, countColumns: 6, space: 24, verticalCenter: false, addButton: false, bookmarkSearch: true, movieSearch: false, searchProvider: 'yandex' };

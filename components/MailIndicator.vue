@@ -1,31 +1,27 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue';
-import { unreadMail } from '../services/network';
-const props = defineProps<{ email: string }>();
-const count = ref(0);
-const error = ref('');
-let request: AbortController | undefined;
-watch(() => props.email, async email => {
-  request?.abort(); count.value = 0; error.value = '';
-  if (!email) return;
-  const controller = new AbortController(); request = controller;
-  try {
-    const value = await unreadMail(email, controller.signal);
-    if (request === controller) count.value = value;
-  } catch (cause) {
-    if (request === controller && !controller.signal.aborted)
-      error.value = 'Mail.ru: ' + (cause instanceof Error ? cause.message : String(cause));
-  }
-}, { immediate: true });
-onUnmounted(() => request?.abort());
+import { ref, watch, onUnmounted, computed } from 'vue';
+import { unreadProvider, MailError } from '../services/network';
+import { mailTooltip, type mailProviders, type MailStatus } from '../services/mail';
+const props=defineProps<{provider:typeof mailProviders[number]}>();
+const count=ref<number|null>(null),status=ref<MailStatus>('loading');
+const tooltip=computed(()=>mailTooltip(props.provider.name,status.value));
+let request:AbortController|undefined;
+watch(()=>props.provider.id,async id=>{
+ request?.abort();request=undefined;count.value=null;
+ status.value='loading';const controller=new AbortController();request=controller;
+ try{const value=await unreadProvider(id,controller.signal);if(request===controller&&!controller.signal.aborted){count.value=value;status.value='ready';}}
+ catch(cause){if(request===controller&&!controller.signal.aborted)status.value=cause instanceof MailError?cause.kind:'error';}
+},{immediate:true});
+onUnmounted(()=>{request?.abort();request=undefined;});
 </script>
 <template>
-  <span v-if="email" class="mail-control relative inline-flex size-12 shrink-0">
-  <a class="mail relative flex size-12 items-center justify-center" href="https://e.mail.ru/messages/inbox/"
-    aria-label="Открыть почту Mail.ru" :title="error || 'Mail.ru: непрочитанных ' + count">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
-    <span v-if="count > 0" class="badge absolute -top-1 -right-1 min-h-5 min-w-5 flex items-center justify-center rounded-full bg-[#dc3545] text-white text-xs font-semibold px-1 text-center">{{ count>99?'99+':count }}</span>
-  </a>
-  <span v-if="error" class="mail-error absolute right-0 top-full mt-2 w-[220px] max-w-[calc(100vw-32px)] ui-glass ui-error p-3" role="status">{{ error }}</span>
-  </span>
+ <span class="mail-control relative inline-flex size-12 shrink-0" :data-provider="provider.id" :data-status="status">
+ <a class="mail relative flex size-12 items-center justify-center" :href="provider.href" :aria-label="'Открыть '+provider.name+(status==='ready'&&count!==null?', непрочитанных: '+count:' — '+tooltip)" :title="tooltip">
+  <svg v-if="provider.id==='mailru'" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff9e00" d="M12 2a10 10 0 1 0 5.8 18.1l-1.3-1.8A7.8 7.8 0 1 1 19.8 12v1.5a1.2 1.2 0 0 1-2.4 0V7.8h-2.2v.7a5 5 0 1 0 .7 7.6 3.4 3.4 0 0 0 6.1-2.6V12A10 10 0 0 0 12 2Zm0 7.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2Z"/></svg>
+  <svg v-else-if="provider.id==='gmail'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linejoin="round" aria-hidden="true"><path stroke="#4285f4" d="M3 19V6"/><path stroke="#34a853" d="M21 19V6"/><path stroke="#ea4335" d="m3 6 9 7 9-7"/><path stroke="#c5221f" d="M3 6v5"/><path stroke="#fbbc04" d="M21 6v5"/></svg>
+  <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="3" fill="#fc3f1d"/><path d="m3 6 9 7 9-7" stroke="white" stroke-width="2" stroke-linejoin="round"/></svg>
+  <span v-if="count!==null&&count>0" class="badge absolute -top-1 -right-1 min-h-5 min-w-5 flex items-center justify-center rounded-full text-xs font-semibold px-1 text-center">{{count>99?'99+':count}}</span>
+ </a>
+ <span v-if="status==='error'||status==='unauthenticated'||status==='unsupported'" class="mail-error absolute right-0 top-full mt-2 w-[220px] max-w-[calc(100vw-32px)] ui-glass p-3" :class="{'ui-error':status==='error'}" role="tooltip">{{tooltip}}</span>
+ </span>
 </template>

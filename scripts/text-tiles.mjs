@@ -62,7 +62,7 @@ try {
       tx.oncomplete = resolve; tx.onerror = reject;
     });
     db.close();
-    await chrome.storage.local.set({ rootFolderId: root.id, settings: { value: { width: 100, countColumns: 6, space: 24, verticalCenter: false, addButton: true, email: '' } } });
+    await chrome.storage.local.set({ rootFolderId: root.id, settings: { value: { width: 100, countColumns: 6, space: 24, verticalCenter: false, addButton: true } } });
   }, image);
   await page.reload();
   await expect(page.locator('.tile-hostname')).toHaveCount(4);

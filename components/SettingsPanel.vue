@@ -27,8 +27,8 @@ const props=defineProps<{settings:Settings;busy:boolean;rootId:string|null;opera
   updateSettings:(patch:Partial<Settings>)=>Promise<boolean>;changeRoot:(id:string)=>Promise<boolean>;changeBackground:(blob:Blob|null)=>Promise<boolean>}>();
 const emit=defineEmits<{close:[];manage:[];error:[message:string]}>();
 const numberFields=[{key:'width',label:'Ширина (%)',min:50,max:100},{key:'countColumns',label:'Количество столбцов',min:2,max:12},{key:'space',label:'Расстояние (px)',min:0,max:48}] as const;
-type BufferedKey='width'|'countColumns'|'space'|'email';
-const values=reactive({width:String(props.settings.width),countColumns:String(props.settings.countColumns),space:String(props.settings.space),email:props.settings.email});
+type BufferedKey='width'|'countColumns'|'space';
+const values=reactive({width:String(props.settings.width),countColumns:String(props.settings.countColumns),space:String(props.settings.space)});
 const inputErrors=reactive<Partial<Record<BufferedKey,string>>>({});
 const pending=new Map<BufferedKey,string|number>(),timers=new Map<BufferedKey,ReturnType<typeof setTimeout>>();
 const focused=ref<BufferedKey>();
@@ -40,11 +40,11 @@ watch(()=>props.settings,settings=>{for(const key of Object.keys(values) as Buff
 function input(key:BufferedKey,event:Event){
   const element=event.target as HTMLInputElement;values[key]=element.value;
   try{
-    if((key!=='email'&&!element.value.trim())||!element.validity.valid)throw new Error('Введите допустимое значение.');
+    if(!element.value.trim()||!element.validity.valid)throw new Error('Введите допустимое значение.');
     const next=validateSettings({...props.settings,[key]:element.value});
     pending.set(key,next[key]);delete inputErrors[key];clearTimeout(timers.get(key));
     timers.set(key,setTimeout(()=>{void flushField(key);},275));
-  }catch{const field=numberFields.find(field=>field.key===key);inputErrors[key]=key==='email'?'Введите корректный E-mail или очистите поле.':`Введите целое число от ${field?.min} до ${field?.max}.`;}
+  }catch{const field=numberFields.find(field=>field.key===key);inputErrors[key]=`Введите целое число от ${field?.min} до ${field?.max}.`;}
 }
 async function flushField(key:BufferedKey,force=false){
   clearTimeout(timers.get(key));timers.delete(key);
@@ -115,9 +115,11 @@ const switchFields=[{key:'addButton',label:'Кнопка добавления з
           <SwitchControl :model-value="settings.verticalCenter" :disabled="busy" class="settings-row" @update:model-value="value => updateSettings({verticalCenter:value})">Центрировать по вертикали</SwitchControl>
         </fieldset>
         <fieldset class="mb-5 min-w-0"><legend class="font-bold mb-2">Почта
-          <InfoTooltip target="#settings-modal" id="mail-settings-info" label="О настройке почты">Укажите адрес электронной почты на mail.ru.</InfoTooltip>
+          <InfoTooltip target="#settings-modal" id="mail-settings-info" label="О настройке почты">Для счётчиков войдите в почту в этом профиле браузера. Gmail использует первый аккаунт; Яндекс — текущий аккаунт.</InfoTooltip>
         </legend>
-          <div class="settings-email"><input aria-label="E-mail Mail.ru" :value="values.email" class="input" :class="ui.input" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" :disabled="busy" :aria-invalid="!!inputErrors.email" :aria-describedby="inputErrors.email?'settings-email-error':undefined" @focus="focused='email'" @input="input('email',$event)" @change="flushField('email',true)" @blur="focused=undefined;flushField('email',true)"/></div><p v-if="inputErrors.email" id="settings-email-error" role="alert" class="mt-1 text-red-800">{{inputErrors.email}}</p>
+          <SwitchControl :model-value="settings.mailruEnabled" :disabled="busy" class="settings-row" @update:model-value="value => updateSettings({mailruEnabled:value})">Показывать Mail.ru</SwitchControl>
+          <SwitchControl :model-value="settings.gmailEnabled" :disabled="busy" class="settings-row" @update:model-value="value => updateSettings({gmailEnabled:value})">Показывать Gmail</SwitchControl>
+          <SwitchControl :model-value="settings.yandexMailEnabled" :disabled="busy" class="settings-row" @update:model-value="value => updateSettings({yandexMailEnabled:value})">Показывать Яндекс Почту</SwitchControl>
         </fieldset>
         <fieldset class="mb-5 min-w-0 weather-settings"><legend class="font-bold mb-2">Погода</legend>
           <SwitchControl :model-value="settings.weatherEnabled" :disabled="busy" class="settings-row" @update:model-value="value => updateSettings({weatherEnabled:value})">Показывать виджет погоды</SwitchControl>
