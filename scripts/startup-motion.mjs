@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {resolve} from 'node:path';
 import {mkdir} from 'node:fs/promises';
 const ext=resolve('.output/chrome-mv3'),out=resolve('.browser-test/startup-motion');await mkdir(out,{recursive:true});
-const context=await chromium.launchPersistentContext(resolve('.browser-test/startup-'+crypto.randomUUID()),{channel:'chromium',headless:true,deviceScaleFactor:process.argv.includes('--fractional-scale')?1.25:1,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/startup-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,deviceScaleFactor:process.argv.includes('--fractional-scale')?1.25:1,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));

@@ -6,7 +6,7 @@ import {launchFirefox,firefoxUrl} from './firefox-driver.mjs';
 const out=resolve('.browser-test/design-system');await mkdir(out,{recursive:true});
 const ext=resolve('.output/chrome-mv3');
 if(!process.argv.includes('--firefox-only')) {
-const ctx=await chromium.launchPersistentContext(resolve('.browser-test/ds-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext],viewport:{width:1280,height:720}});
+const ctx=await chromium.launchPersistentContext(resolve('.browser-test/ds-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext],viewport:{width:1280,height:720}});
 try {
  const worker=ctx.serviceWorkers()[0]??await ctx.waitForEvent('serviceworker');
  const url=worker.url().replace('background.js','newtab.html');const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(url);

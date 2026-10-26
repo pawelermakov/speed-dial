@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdir,readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 const out=resolve('.browser-test/bookmark-audit');await mkdir(out,{recursive:true});
-const extension=resolve('.output/chrome-mv3');const context=await chromium.launchPersistentContext(resolve('.browser-test/bookmark-states-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const extension=resolve('.output/chrome-mv3');const context=await chromium.launchPersistentContext(resolve('.browser-test/bookmark-states-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(worker.url().replace('background.js','newtab.html'));await expect(page.getByRole('button',{name:'Настройки',exact:true})).toBeEnabled();
  const favicon=Array.from(await readFile('tests/fixtures/favicons/ya.ru.ico'));

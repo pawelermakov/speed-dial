@@ -1,3 +1,4 @@
+import { formatMessage } from '../services/i18n';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ref, shallowRef, nextTick } from 'vue';
 import { useBookmarkSearch } from '../composables/useBookmarkSearch';
@@ -15,7 +16,7 @@ it('rejects stale results, refreshes on browser snapshots and clears query/error
   finish([{id:'old'} as Bookmark]);await nextTick();
   expect(dial.results.value[0]?.id).toBe('new');
   search.mockRejectedValueOnce(new Error('offline'));snapshot.value={...initial};await nextTick();
-  expect(dial.results.value).toEqual([]);expect(dial.error.value).toContain('offline');
+  expect(dial.results.value).toEqual([]);expect(formatMessage(dial.error.value)).toContain('offline');
   dial.query.value=' ';expect(dial.error.value).toBe('');expect(dial.pending.value).toBe(false);
   expect(snapshot.value.activeId).toBe('work');
 });
@@ -31,6 +32,6 @@ it('invalidates results immediately on browser changes independently of the norm
   const dial=useBookmarkSearch({search} as unknown as Repository,shallowRef(initial),revision);
   dial.query.value='query';await nextTick();expect(dial.results.value).toHaveLength(1);
   search.mockRejectedValueOnce(new Error('API unavailable'));revision.value++;
-  expect(dial.results.value).toEqual([]);await nextTick();expect(dial.error.value).toContain('API unavailable');
+  expect(dial.results.value).toEqual([]);await nextTick();expect(formatMessage(dial.error.value)).toContain('API unavailable');
   revision.value++;await nextTick();expect(dial.error.value).toBe('');expect(dial.results.value).toHaveLength(1);
 });

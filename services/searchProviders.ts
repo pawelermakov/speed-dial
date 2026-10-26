@@ -1,9 +1,10 @@
+import { t, message, LocalizedError } from './i18n';
 import type { SearchProviderId, SearchSuggestion } from '../types/models';
 import { kinopoiskQuery } from './kinopoiskQuery';
 
 export const searchProviders: ReadonlyArray<{ id: SearchProviderId; label: string }> = [
-  { id:'yandex', label:'Яндекс' }, { id:'google', label:'Google' }, { id:'bookmarks', label:'Закладки' },
-  { id:'kinopoisk', label:'Кинопоиск' }, { id:'imdb', label:'IMDb' }, { id:'myshows', label:'MyShows' },
+  { id:'yandex', get label(){return t('search.providers.yandex');} }, { id:'google', label:'Google' }, { id:'bookmarks', get label(){return t('bookmarks.title');} },
+  { id:'kinopoisk', get label(){return t('search.providers.kinopoisk');} }, { id:'imdb', label:'IMDb' }, { id:'myshows', label:'MyShows' },
 ];
 export const maxSearchQuery = 256;
 const maxResponseBytes = 256 * 1024;
@@ -15,12 +16,12 @@ function text(value: unknown): string | undefined {
 const id = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? String(value) : undefined;
 const year = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 1800 && value <= 3000 ? String(value) : undefined;
 function unique(rows: SearchSuggestion[]): SearchSuggestion[] { return [...new Map(rows.map(row => [row.id,row])).values()].slice(0,8); }
-function invalid(): never { throw new Error('Неизвестный формат подсказок.'); }
+function invalid(): never { throw new LocalizedError(message('search.errors.unknown_suggestion_format')); }
 
 export function searchUrl(provider: SearchProviderId, query: string): string {
   const q = query.trim();
   switch (provider) {
-    case 'bookmarks': throw new Error('Поиск по закладкам выполняется локально.');
+    case 'bookmarks': throw new LocalizedError(message('search.bookmarks.local_only'));
     case 'yandex': return 'https://www.yandex.ru/yandsearch?' + new URLSearchParams({text:q});
     case 'google': return 'https://www.google.com/search?' + new URLSearchParams({q});
     case 'kinopoisk': return 'https://www.kinopoisk.ru/new-search/?' + new URLSearchParams({text:q});
@@ -40,7 +41,7 @@ export function parseImdbSuggestions(value: unknown): SearchSuggestion[] {
     const row=object(value), label=text(row?.l), key=row?.id;
     if (!label || typeof key !== 'string' || !/^(tt|nm)\d{5,12}$/.test(key)) return [];
     const person=key.startsWith('nm');
-    const kind=person ? 'человек' : row?.qid === 'movie' ? 'фильм' : row?.qid === 'tvSeries' || row?.qid === 'tvMiniSeries' ? 'сериал' : undefined;
+    const kind=person ? t('search.result_types.person') : row?.qid === 'movie' ? t('search.result_types.movie') : row?.qid === 'tvSeries' || row?.qid === 'tvMiniSeries' ? t('search.result_types.series') : undefined;
     return [{id:key,label,subtitle:[year(row?.y),kind].filter(Boolean).join(' · ') || undefined,
       targetUrl:'https://www.imdb.com/' + (person?'name/':'title/') + key + '/'}];
   }));
@@ -50,7 +51,7 @@ export function parseMyShowsSuggestions(value: unknown): SearchSuggestion[] {
   if (!root || root.jsonrpc !== '2.0' || root.error || !Array.isArray(root.result)) return invalid();
   return unique(root.result.flatMap(value => {
     const row=object(value), key=id(row?.id), label=text(row?.title) ?? text(row?.titleOriginal);
-    return key && label ? [{id:key,label,subtitle:[year(row?.year),'сериал'].filter(Boolean).join(' · '),targetUrl:'https://myshows.me/view/'+key+'/'}] : [];
+    return key && label ? [{id:key,label,subtitle:[year(row?.year),t('search.result_types.series')].filter(Boolean).join(' · '),targetUrl:'https://myshows.me/view/'+key+'/'}] : [];
   }));
 }
 export function parseKinopoiskSuggestions(value: unknown): SearchSuggestion[] {
@@ -61,13 +62,13 @@ export function parseKinopoiskSuggestions(value: unknown): SearchSuggestion[] {
     const row=object(value), key=id(row?.id), title=object(row?.title), label=text(title?.russian) ?? text(title?.original);
     const film=row?.__typename === 'Film', series=['TvSeries','TvShow','MiniSeries'].includes(String(row?.__typename));
     if (!key || !label || (!film && !series)) return [];
-    return [{id:key,label,subtitle:[year(row?.productionYear) ?? year(object(row?.releaseYears)?.start),film?'фильм':'сериал'].filter(Boolean).join(' · '),
+    return [{id:key,label,subtitle:[year(row?.productionYear) ?? year(object(row?.releaseYears)?.start),film?t('search.result_types.movie'):t('search.result_types.series')].filter(Boolean).join(' · '),
       targetUrl:'https://www.kinopoisk.ru/'+(film?'film/':'series/')+key+'/'}];
   }));
 }
 
 export function suggestionRequest(provider: SearchProviderId, query: string): {url:string; init?:RequestInit} {
-  if(provider==='bookmarks')throw new Error('Поиск по закладкам выполняется локально.');
+  if(provider==='bookmarks')throw new LocalizedError(message('search.bookmarks.local_only'));
   const q=query.trim();
   switch (provider) {
     case 'yandex': return {url:'https://suggest.yandex.ru/suggest-sl?'+new URLSearchParams({part:q})};
@@ -80,7 +81,7 @@ export function suggestionRequest(provider: SearchProviderId, query: string): {u
 export async function providerSuggestions(provider: SearchProviderId, query: string, signal: AbortSignal): Promise<SearchSuggestion[]> {
   const q=query.trim();
   if (!q || provider === 'bookmarks') return [];
-  if (q.length > maxSearchQuery) throw new Error('Слишком длинный запрос для подсказок.');
+  if (q.length > maxSearchQuery) throw new LocalizedError(message('search.errors.query_too_long'));
   if (provider === 'kinopoisk') {
     const { prepareKinopoiskNetwork } = await import('./kinopoiskNetwork');
     await prepareKinopoiskNetwork();
@@ -103,12 +104,12 @@ async function readSuggestionResponse(request:ReturnType<typeof suggestionReques
   const response=await fetch(request.url,{...request.init,credentials:'omit',redirect:'error',signal});
   if (!response.ok) throw new Error('HTTP '+response.status);
   const mime=response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
-  if (!mime || !['application/json','text/json','text/javascript','application/javascript'].includes(mime)) throw new Error('Ожидался JSON-ответ.');
-  if (Number(response.headers.get('content-length')) > maxResponseBytes) throw new Error('Слишком большой ответ.');
+  if (!mime || !['application/json','text/json','text/javascript','application/javascript'].includes(mime)) throw new LocalizedError(message('search.errors.json_expected'));
+  if (Number(response.headers.get('content-length')) > maxResponseBytes) throw new LocalizedError(message('search.errors.response_too_large'));
   const reader=response.body?.getReader();
-  if (!reader) throw new Error('Пустой ответ сервиса.');
+  if (!reader) throw new LocalizedError(message('search.errors.empty_response'));
   const chunks:Uint8Array[]=[];let size=0;
-  try { while (true) { const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>maxResponseBytes)throw new Error('Слишком большой ответ.');chunks.push(value); } }
+  try { while (true) { const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>maxResponseBytes)throw new LocalizedError(message('search.errors.response_too_large'));chunks.push(value); } }
   finally { await reader.cancel().catch(()=>{});reader.releaseLock(); }
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
   return JSON.parse(new TextDecoder().decode(bytes));

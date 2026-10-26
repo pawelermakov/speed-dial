@@ -2,7 +2,7 @@ import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
-const extension=resolve('.output/chrome-mv3');const context=await chromium.launchPersistentContext(resolve('.browser-test/drag-regression-'+crypto.randomUUID()),{channel:'chromium',headless:true,viewport:{width:1280,height:800},args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const extension=resolve('.output/chrome-mv3');const context=await chromium.launchPersistentContext(resolve('.browser-test/drag-regression-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,viewport:{width:1280,height:800},args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 const watchdog=setTimeout(()=>{console.error('Drag regression timed out');void context.close()},30000);
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();await page.goto(worker.url().replace('background.js','newtab.html'));await expect(page.locator('.folder-root')).toBeVisible();const bytes=Array.from(await readFile('public/images/icon128.png'));

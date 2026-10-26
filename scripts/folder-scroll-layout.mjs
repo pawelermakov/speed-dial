@@ -2,7 +2,7 @@ import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {resolve} from 'node:path';
 const extension=resolve('.output/chrome-mv3');
-const context=await chromium.launchPersistentContext(resolve('.browser-test/scroll-layout-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/scroll-layout-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();await page.goto(worker.url().replace('background.js','newtab.html'));await expect(page.getByRole('button',{name:'Настройки',exact:true})).toBeEnabled();
  const root=await page.evaluate(async()=>{const {rootFolderId}=await chrome.storage.local.get('rootFolderId');await chrome.bookmarks.create({parentId:rootFolderId,title:'Layout fixture',url:'https://layout.example/'});return rootFolderId});await expect(page.locator('.bookmark')).toHaveCount(1);

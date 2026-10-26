@@ -1,3 +1,4 @@
+import { formatMessage } from '../services/i18n';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocked = vi.hoisted(() => {
   const event = () => ({ addListener: vi.fn(), removeListener: vi.fn() });
@@ -62,7 +63,7 @@ describe('capture ownership and queue', () => {
   it('refuses a foreign active tab before capture', async () => {
     mocked.tabs.query.mockResolvedValue([{ id: 99 }]);
     const result = await createCaptureQueue()(request(), 1, new AbortController().signal);
-    expect(result.error).toContain('Активная вкладка');
+    expect(formatMessage(result.error)).toContain('Активная вкладка');
     expect(mocked.tabs.captureVisibleTab).not.toHaveBeenCalled();
     expect(mocked.tabs.remove).toHaveBeenCalledExactlyOnceWith(10);
     expect(mocked.tabs.update).not.toHaveBeenCalled();
@@ -70,7 +71,7 @@ describe('capture ownership and queue', () => {
   it('discards a screenshot if tab changed during capture', async () => {
     mocked.tabs.captureVisibleTab.mockImplementation(async () => { active = 99; return 'data:image/jpeg;base64,YQ=='; });
     const result = await createCaptureQueue()(request(), 1, new AbortController().signal);
-    expect(result.error).toContain('снимок отброшен');
+    expect(formatMessage(result.error)).toContain('снимок отброшен');
     expect(result.thumbnail).toBeUndefined();
     expect(mocked.tabs.remove).toHaveBeenCalledExactlyOnceWith(10);
   });
@@ -83,13 +84,13 @@ describe('capture ownership and queue', () => {
     await vi.advanceTimersByTimeAsync(200);
     controller.abort(new Error('timeout'));
     const result = await secondTask;
-    expect(result.error).toContain('Захват отменён');
+    expect(formatMessage(result.error)).toContain('Захват отменён');
     expect(mocked.tabs.captureVisibleTab).not.toHaveBeenCalled();
     vi.useRealTimers();
   }, 25000);
   it('rejects dangerous URL without creating a tab', async () => {
     const result = await createCaptureQueue()({ ...request(), url: 'javascript:x' }, 1, new AbortController().signal);
-    expect(result.error).toContain('HTTP/HTTPS');
+    expect(formatMessage(result.error)).toContain('HTTP/HTTPS');
     expect(mocked.tabs.create).not.toHaveBeenCalled();
   });
   it('does not create tabs for a cancelled queued request', async () => {

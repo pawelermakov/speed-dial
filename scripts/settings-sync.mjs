@@ -18,7 +18,7 @@ const expectedId=[...createHash('sha256').update(Buffer.from(manifest.key,'base6
 const copies=await Promise.all(['a','b'].map(async name=>{
  const directory=resolve(output,`unpacked-${name}-${run}`);
  await cp(source,directory,{recursive:true});
- const context=await chromium.launchPersistentContext(resolve(output,`profile-${name}-${run}`),{channel:'chromium',headless:true,args:['--disable-extensions-except='+directory,'--load-extension='+directory]});
+ const context=await chromium.launchPersistentContext(resolve(output,`profile-${name}-${run}`),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+directory,'--load-extension='+directory]});
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');
  const id=await worker.evaluate(()=>chrome.runtime.id);
  assert.equal(id,expectedId);

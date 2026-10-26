@@ -4,7 +4,7 @@ import {resolve} from 'node:path';
 import {mkdir} from 'node:fs/promises';
 const out=resolve('.browser-test/apple-guidelines');await mkdir(out,{recursive:true});
 const extension=resolve('.output/chrome-mv3');
-const context=await chromium.launchPersistentContext(resolve(out,crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const context=await chromium.launchPersistentContext(resolve(out,crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 const luminance=rgb=>rgb.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));

@@ -5,7 +5,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 const out=resolve('.browser-test/style-audit');await mkdir(out,{recursive:true});
 const extension=resolve('.output/chrome-mv3');
-const context=await chromium.launchPersistentContext(resolve('.browser-test/style-audit-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension],viewport:{width:1280,height:800}});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/style-audit-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension],viewport:{width:1280,height:800}});
 const results=[];
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');

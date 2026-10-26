@@ -1,6 +1,7 @@
 // Classic, render-blocking script: restore theme and wallpaper before the first paint.
 (() => {
   const root=document.documentElement;
+  try{const lang=localStorage.getItem('speed-dial-language');root.lang=['ru','en','es'].includes(lang)?lang:(['ru','en','es'].includes(navigator.language.split('-')[0])?navigator.language.split('-')[0]:'en');}catch{root.lang='en';}
   let mode='system';
   try {
     const saved=localStorage.getItem('speed-dial-theme');

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, formatMessage, joinMessages, message, LocalizedError, errorMessage, type MessageText } from './services/i18n';
 import { ref, shallowRef, computed, watch, nextTick, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
 import FolderTabs from './components/FolderTabs.vue';
@@ -66,7 +67,7 @@ function closeSearch() { searchText.value=''; }
 function focusSearchResult() { document.querySelector<HTMLElement>('.bookmark')?.focus(); }
 const capturing = ref(false);
 const savingBookmark = ref(false);
-const folderDialogError=ref('');
+const folderDialogError=ref<MessageText>('');
 const creatingFolder = ref(false);
 const editingFolder = shallowRef<{ id: string; title: string }>();
 
@@ -85,8 +86,8 @@ async function closeSettings(){
 function openSettings() { settingsGeneration++;settingsOpen.value = true; }
 const bookmarkDialog = ref(false);
 const editing = shallowRef<Bookmark>();
-const dialogError = ref('');
-const folderError = ref('');
+const dialogError = ref<MessageText>('');
+const folderError = ref<MessageText>('');
 const dialogFolders = ref<Folder[]>([]);
 async function openBookmark(bookmark?: Bookmark) {
   if (disabled.value) return;
@@ -103,18 +104,18 @@ async function openBookmark(bookmark?: Bookmark) {
 const mailRevision = ref(0);
 const dataOpen = ref(false);
 const dataDialog=ref<InstanceType<typeof DataManagementDialog>>();
-const confirmation = shallowRef<{title:string;message:string;perform:()=>Promise<boolean>;actionLabel:string;destructive:boolean}>();
-const confirmationBusy=ref(false),confirmationError=ref('');
-function askConfirmation(title:string,message:string,perform:()=>Promise<boolean>,actionLabel='Удалить',destructive=true) {
+const confirmation = shallowRef<{title:MessageText;message:MessageText;perform:()=>Promise<boolean>;actionLabel:MessageText;destructive:boolean}>();
+const confirmationBusy=ref(false),confirmationError=ref<MessageText>('');
+function askConfirmation(title:MessageText,description:MessageText,perform:()=>Promise<boolean>,actionLabel:MessageText=message('common.delete'),destructive=true) {
   if(confirmation.value||disabled.value)return;
-  confirmationError.value='';confirmation.value={title,message,perform,actionLabel,destructive};
+  confirmationError.value='';confirmation.value={title,message:description,perform,actionLabel,destructive};
 }
 function closeConfirmation(){if(!confirmationBusy.value)confirmation.value=undefined;}
 async function confirmAction(){
   const current=confirmation.value;if(!current||confirmationBusy.value)return;
   confirmationBusy.value=true;confirmationError.value='';
-  try {if(await current.perform())confirmation.value=undefined;else confirmationError.value=notice.value||'Не удалось выполнить действие. Попробуйте ещё раз.';}
-  catch(error){confirmationError.value=error instanceof Error?error.message:String(error);}
+  try {if(await current.perform())confirmation.value=undefined;else confirmationError.value=notice.value||message('errors.action_failed');}
+  catch(error){confirmationError.value=errorMessage(error);}
   finally{confirmationBusy.value=false;}
 }
 const overlayOpen = computed(() => !!confirmation.value || settingsOpen.value || openingData.value || bookmarkDialog.value || dataOpen.value || creatingFolder.value || !!editingFolder.value);
@@ -135,10 +136,10 @@ const backgroundResource=new BackgroundResource(async url=>{
 watch([() => snapshot.value.background, loading], ([blob,isLoading]) => {
   if(!blob && isLoading)return;
   if(!blob)clearBackgroundPreview();
-  void backgroundResource.replace(blob).catch(error=>{notice.value='Не удалось показать фон. '+String(error);});
+  void backgroundResource.replace(blob).catch(error=>{notice.value=message('background.errors.display_failed', {error: errorMessage(error)});});
 });
 onUnmounted(() => backgroundResource.dispose());
-const fail = (error: unknown) => error instanceof Error ? error.message : String(error);
+const fail = (error: unknown) => errorMessage(error);
 function add() { void openBookmark(); }
 function showContext(event: MouseEvent | KeyboardEvent, bookmark?: Bookmark) {
   if ((event.target as HTMLElement).closest('input,textarea,button,dialog') || disabled.value || overlayOpen.value) return;
@@ -173,7 +174,7 @@ async function saveBookmark(value: { url: string; title: string; capture: boolea
     if (capture) {
       capturing.value = true;
       try { await updateImages(idResult.id, url); }
-      catch (error) { notice.value = 'Закладка сохранена. ' + fail(error); }
+      catch (error) { notice.value = message('bookmarks.notices.saved_with_warning', {error: fail(error)}); }
       finally { capturing.value = false; }
     }
   } catch (error) { dialogError.value = fail(error); }
@@ -194,7 +195,7 @@ async function action(name: string) {
       if (!neighbor || (selected && searching.value)) return;
       const ids = insertedOrder(moveExpected, id, neighbor, direction > 0);
       if (ids) await run(() => {
-        if (moveRevision !== revision.value) throw new Error('Список изменился; повторите перемещение.');
+        if (moveRevision !== revision.value) throw new LocalizedError(message('bookmarks.errors.list_changed_before_move'));
         return folder ? repository.reorderFolders(ids, moveExpected) : repository.reorder(ids, moveExpected, selected!.parentId);
       });
       return;
@@ -209,13 +210,13 @@ async function action(name: string) {
     if (!selected) return;
     if (name === 'open') await browser.tabs.create({ url: selected.url });
     if (name === 'edit') await openBookmark(selected);
-    if (name === 'delete') askConfirmation('Удалить закладку?', 'Закладка «'+selected.title+'» будет удалена из браузера. Удаление может синхронизироваться на другие устройства.',()=>run(() => repository.remove(selected.id)));
+    if (name === 'delete') askConfirmation(message('bookmarks.delete.title'), message('bookmarks.delete.description', {bookmark_name: selected.title}),()=>run(() => repository.remove(selected.id)));
     if (name === 'thumbnail') {
-      notice.value = 'Сайт временно откроется для обновления эскиза…';
+      notice.value = message('thumbnails.status.opening_website');
       capturing.value = true;
       try {
         await updateImages(selected.id, selected.url);
-        notice.value = 'Изображения обновлены.';
+        notice.value = message('thumbnails.status.updated');
       } finally { capturing.value = false; }
     }
   } catch (error) { notice.value = fail(error); }
@@ -224,7 +225,7 @@ async function action(name: string) {
 const dataChoices=()=>repository.choices();
 async function prepareBackup():Promise<PreparedExport>{
   await flushSettings();
-  const warnings:string[]=[];
+  const warnings:MessageText[]=[];
   const data=await withDataLock(()=>repository.exportData(message=>warnings.push(message)));
   return {data,warnings};
 }
@@ -235,17 +236,17 @@ async function exportBackup(selection:BackupSelection,prepared:PreparedExport){
 }
 async function importBackup(data:ImportData,id:string,expected:Settings,selection:BackupSelection):Promise<ImportReport>{
   let report:ImportReport|undefined;
-  if(!await run(async()=>{report=await repository.importData(data,id,expected,selection);},true))throw new Error(notice.value||'Не удалось начать импорт.');
+  if(!await run(async()=>{report=await repository.importData(data,id,expected,selection);},true))throw new LocalizedError(notice.value||message('backup.import.errors.start_failed'));
   mailRevision.value++;return report!;
 }
 async function resetData(){
-  if(!await run(()=>repository.reset(),true))throw new Error(notice.value||'Не удалось завершить сброс.');
+  if(!await run(()=>repository.reset(),true))throw new LocalizedError(notice.value||message('backup.reset.errors.finish_failed'));
 }
-function reorder(ids: string[], expected: string[], dragRevision: number) { const parent = snapshot.value.activeId; if (!searching.value) void run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorder(ids, expected, parent); }); }
+function reorder(ids: string[], expected: string[], dragRevision: number) { const parent = snapshot.value.activeId; if (!searching.value) void run(() => { if (dragRevision !== revision.value) throw new LocalizedError(message('bookmarks.errors.list_changed_before_drop')); return repository.reorder(ids, expected, parent); }); }
 async function updateImages(id: string, url: string) {
   const ticket = await repository.autoNameTicket(id);
   const expected = await repository.bookmark(id);
-  if (expected.url !== url) throw new Error('Адрес закладки изменён.');
+  if (expected.url !== url) throw new LocalizedError(message('bookmarks.errors.url_changed'));
   const results = await Promise.allSettled([
     requestThumbnail(url).then(async result => {
       await repository.cache(id, url, 'thumbnail', result.thumbnail, expected);
@@ -291,10 +292,10 @@ async function folderAction(name: 'create' | 'rename' | 'delete', id = snapshot.
   }
   if (name === 'delete') {
     const folder=await repository.folder(id);
-    askConfirmation('Удалить папку?', 'Папка «'+folder.title+'» и всё её содержимое, включая скрытые вложенные папки, будут удалены из браузера. Удаление может синхронизироваться на другие устройства.',()=>run(() => repository.removeFolder(id)));
+    askConfirmation(message('folders.delete.title'), message('folders.delete.description', {folder_name: folder.title}),()=>run(() => repository.removeFolder(id)));
   }
 }
-async function reorderFolders(ids: string[], expected: string[], dragRevision: number) { await run(() => { if (dragRevision !== revision.value) throw new Error('Список изменился; повторите перетаскивание.'); return repository.reorderFolders(ids, expected); }); }
+async function reorderFolders(ids: string[], expected: string[], dragRevision: number) { await run(() => { if (dragRevision !== revision.value) throw new LocalizedError(message('bookmarks.errors.list_changed_before_drop')); return repository.reorderFolders(ids, expected); }); }
 type FocusTarget = { element: HTMLElement; selector?: string; id?: string; index: number };
 function focusTarget(element: Element | null): FocusTarget | undefined {
   if (!(element instanceof HTMLElement) || element === document.body || element.tabIndex < 0) return;
@@ -387,30 +388,30 @@ onUnmounted(() => window.removeEventListener('keydown', escape));
         <div class="tools flex items-center gap-2">
           <WeatherWidget v-if="snapshot.settings.weatherEnabled" :city="snapshot.settings.weatherCity" :provider="snapshot.settings.weatherProvider" />
           <MailIndicators :key="mailRevision" :settings="snapshot.settings" />
-          <button class="settings-trigger ui-folder inline-flex size-12 items-center justify-center" aria-label="Настройки" title="Настройки" aria-haspopup="dialog" :aria-expanded="settingsOpen" :aria-controls="settingsOpen?'settings-modal':undefined" :disabled="disabled" @click="openSettings"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><g transform="translate(0 1)"><path d="m9 3-1 3-3 1-2 4 2 2v3l4 3 3-1 3 1 4-3v-3l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></g></svg></button>
+          <button class="settings-trigger ui-folder inline-flex size-12 items-center justify-center" :aria-label="t('settings.title')" :title="t('settings.title')" aria-haspopup="dialog" :aria-expanded="settingsOpen" :aria-controls="settingsOpen?'settings-modal':undefined" :disabled="disabled" @click="openSettings"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><g transform="translate(0 1)"><path d="m9 3-1 3-3 1-2 4 2 2v3l4 3 3-1 3 1 4-3v-3l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></g></svg></button>
         </div>
       </header>
       <div class="bookmark-area flex flex-col flex-1">
-        <div v-if="!loading && !snapshot.rootId" class="surface-empty startup-reveal text-center my-8"><p>Выберите папку закладок в настройках.</p><button class="mt-3" :disabled="disabled" @click="openSettings">Открыть настройки</button></div>
+        <div v-if="!loading && !snapshot.rootId" class="surface-empty startup-reveal text-center my-8"><p>{{ t('bookmarks.source.choose_in_settings') }}</p><button class="mt-3" :disabled="disabled" @click="openSettings">{{ t('settings.open') }}</button></div>
         <template v-else-if="!loading">
         <div v-if="snapshot.folders.length || creatingFolder" class="bookmark-toolbar startup-reveal relative flex items-center min-h-12 my-4 mx-auto" :style="{ width: snapshot.settings.width + '%' }">
         <FolderTabs :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :revision="revision" :folders="snapshot.folders" :active-id="snapshot.activeId" :disabled="disabled" :creating="creatingFolder" :editing="editingFolder" @select="selectFolder" @context="showFolderContext" @background="event => { if (!disabled && !overlayOpen) { rememberContextTarget(); context = {x:event.clientX,y:event.clientY}; } }" @reorder="reorderFolders" @refresh="refresh" />
         </div>
         <div ref="bookmarkContent" class="bookmark-content flex flex-col flex-1" :class="{ 'justify-center': snapshot.settings.verticalCenter }">
-        <p v-if="searching && searchError" role="alert" class="surface-empty text-center my-4">{{ searchError }} <button @click.stop="revision++">Повторить</button></p>
-        <EmptyState v-else-if="showEmptySearch" class="bookmark-search-empty my-6" title="Закладки не найдены" description="Попробуйте другое название или адрес сайта." action-label="Очистить поиск" symbol="search" announce :disabled="disabled" @action="closeSearch();searchControl?.focus()" :style="{ width: 'min(440px,' + snapshot.settings.width + '%)' }" />
+        <p v-if="searching && searchError" role="alert" class="surface-empty text-center my-4">{{ formatMessage(searchError) }} <button @click.stop="revision++">{{ t('common.retry') }}</button></p>
+        <EmptyState v-else-if="showEmptySearch" class="bookmark-search-empty my-6" :title="t('search.bookmarks.empty.title')" :description="t('search.bookmarks.empty.description')" :action-label="t('search.clear')" symbol="search" announce :disabled="disabled" @action="closeSearch();searchControl?.focus()" :style="{ width: 'min(440px,' + snapshot.settings.width + '%)' }" />
         <BookmarkGrid :context-id="context ? contextTarget?.id : undefined" :motion-enabled="motionEnabled" :folder-id="snapshot.activeId" :revision="revision" :folder-names="Object.fromEntries(snapshot.folders.map(row=>[row.id,row.title]))" :tabs="searching ? results : snapshot.tabs" :searching="searching" :settings="snapshot.settings" :disabled="disabled"
           @add="add" @context="showContext" @reorder="reorder" @refresh="refresh" />
         </div>
         </template>
       </div>
     </main>
-    <div v-if="!settingsOpen && Object.keys(settingErrors).length" role="alert" class="fixed bottom-4 left-4 right-4 p-4 rounded-[var(--ui-radius)] shadow-[var(--ui-shadow-popover)] z-50 break-words">{{Object.values(settingErrors).join(' ')}}</div>
+    <div v-if="!settingsOpen && Object.keys(settingErrors).length" role="alert" class="fixed bottom-4 left-4 right-4 p-4 rounded-[var(--ui-radius)] shadow-[var(--ui-shadow-popover)] z-50 break-words">{{formatMessage(joinMessages(Object.values(settingErrors)))}}</div>
     <div v-if="notice && !settingsOpen" role="status" class="notice fixed bottom-4 left-4 right-4 p-4 rounded-[var(--ui-radius)] shadow-[var(--ui-shadow-popover)] flex justify-between items-start gap-3 z-50 [overflow-wrap:anywhere]">
-      <span>{{ notice }}</span><button class="ui-hover rounded-full" aria-label="Закрыть уведомление" @click="notice = ''">×</button>
+      <span>{{ formatMessage(notice) }}</span><button class="ui-hover rounded-full" :aria-label="t('notifications.dismiss')" @click="notice = ''">×</button>
     </div>
     <Transition name="settings-panel" :duration="motionEnabled ? 250 : 0" @before-leave="beforeDialogLeave" @after-leave="afterSettingsLeave" @before-enter="beforeDialogEnter">
-    <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="Object.values(settingErrors).join(' ')" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
+    <SettingsPanel v-if="settingsOpen" ref="settingsPanel" :settings="snapshot.settings" :root-id="snapshot.rootId" :operation-error="formatMessage(joinMessages(Object.values(settingErrors)))" :busy="disabled" :has-background="!!snapshot.background" :update-settings="updateSettings" :change-root="changeRoot" :change-background="changeBackground" @close="closeSettings"
       @manage="openDataManagement" @error="notice=$event" />
     </Transition>
     <Transition name="modal-panel" :duration="motionEnabled ? 250 : 0" @before-enter="beforeDialogEnter" @before-leave="beforeDialogLeave" @after-leave="restoreDialogFocus">

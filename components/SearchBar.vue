@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMessage, t } from '../services/i18n';
 import { watch, ref, onUnmounted, computed, nextTick, onMounted } from 'vue';
 import { isMovieProvider } from '../types/models';
 import type { SearchProviderId, SearchSuggestion } from '../types/models';
@@ -34,10 +35,8 @@ watch(selected,async index=>{
   else if(item.offsetTop+item.offsetHeight>list.scrollTop+list.clientHeight)list.scrollTop=item.offsetTop+item.offsetHeight-list.clientHeight;
 });
 const {items,error,loaded}=useProviderSuggestions(query,provider);
-const inputLabel=computed(()=>({
-  yandex:'Поиск в Яндексе', google:'Поиск в Google', kinopoisk:'Поиск на Кинопоиске',
-  imdb:'Поиск на IMDb', myshows:'Поиск на MyShows', bookmarks:'Поиск по закладкам',
-})[provider.value]);
+const inputLabel=computed(()=>t(`search.${provider.value}.label`));
+const inputPlaceholder=computed(()=>t(`search.${provider.value}.placeholder`));
 let saveGeneration=0;
 watch([()=>props.provider,()=>props.bookmarkSearch,()=>props.movieSearch],([value,bookmarks,movies])=>{provider.value=(value==='bookmarks'&&!bookmarks)||(!movies&&isMovieProvider(value))?'yandex':value;});
 watch(()=>props.disabled,value=>{if(value){focused.value=false;selected.value=-1;}});
@@ -86,25 +85,25 @@ function key(event:KeyboardEvent) {
   <form ref="form" class="search flex relative mx-auto w-full items-center" @submit.prevent="submit()">
     <span aria-hidden="true" class="search-surface surface-control absolute inset-0 pointer-events-none"/>
     <div class="search-provider ui-select ui-select--embedded relative min-w-0 shrink-0">
-    <select aria-label="Где искать" :value="provider" :disabled="disabled" class="ui-control h-full w-full" @change="changeProvider">
+    <select :aria-label="t('search.provider.label')" :value="provider" :disabled="disabled" class="ui-control h-full w-full" @change="changeProvider">
       <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.label }}</option>
     </select>
     </div>
-    <input ref="searchInput" v-model="query" :disabled="disabled" class="min-w-0 flex-1 h-full px-3" name="text" :placeholder="inputLabel+'…'"
+    <input ref="searchInput" v-model="query" :disabled="disabled" class="min-w-0 flex-1 h-full px-3" name="text" :placeholder="inputPlaceholder"
       :aria-label="inputLabel" autocomplete="off" :role="local?'searchbox':'combobox'" :aria-expanded="local?undefined:focused && items.length > 0"
       :aria-controls="focused && items.length ? 'suggestions' : undefined" :aria-autocomplete="local?undefined:'list'" :aria-activedescendant="focused && selected >= 0 ? 'suggestion-' + selected : undefined"
       @input="focused = true" @focus="focused = true" @blur="focused = false" @keydown="key" />
-    <button v-if="query" type="button" class="search-clear ui-hover shrink-0 inline-flex items-center justify-center" aria-label="Очистить поисковый запрос" :disabled="disabled" @click="clearQuery">
+    <button v-if="query" type="button" class="search-clear ui-hover shrink-0 inline-flex items-center justify-center" :aria-label="t('search.query.clear')" :disabled="disabled" @click="clearQuery">
       <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg>
     </button>
-    <button class="search-submit ui-button shrink-0" aria-label="Найти" :disabled="disabled||!query.trim()"><span>Найти</span><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg></button>
-    <ul ref="suggestions" v-if="!local && focused && items.length" id="suggestions" :style="dropdownStyle" class="suggestions search-dropdown absolute text-base z-5 ui-glass overflow-y-auto" role="listbox" aria-label="Поисковые подсказки">
+    <button class="search-submit ui-button shrink-0" :aria-label="t('search.submit')" :disabled="disabled||!query.trim()"><span>{{ t('search.submit') }}</span><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg></button>
+    <ul ref="suggestions" v-if="!local && focused && items.length" id="suggestions" :style="dropdownStyle" class="suggestions search-dropdown absolute text-base z-5 ui-glass overflow-y-auto" role="listbox" :aria-label="t('search.suggestions.label')">
       <li v-for="(item,index) in items" :id="'suggestion-'+index" :key="item.id" role="option" :aria-selected="index===selected" :title="[item.label,item.subtitle].filter(Boolean).join(' · ')"
         class="cursor-pointer"
         @pointermove="pointSuggestion(index)" @pointerleave="leaveSuggestion(index)" @mousedown.left.prevent="submit(item)">
         <span class="block truncate">{{ item.label }}</span><span v-if="item.subtitle" class="block truncate text-sm text-[var(--text-secondary)]">{{ item.subtitle }}</span>
       </li>
     </ul>
-    <span v-if="!local && focused && loaded && query.trim() && !items.length" role="status" :style="dropdownStyle" class="search-dropdown absolute z-5 ui-glass px-4 py-2 text-sm overflow-y-auto">{{ error || 'Нет подсказок' }}</span>
+    <span v-if="!local && focused && loaded && query.trim() && !items.length" role="status" :style="dropdownStyle" class="search-dropdown absolute z-5 ui-glass px-4 py-2 text-sm overflow-y-auto">{{ formatMessage(error) || t('search.suggestions.empty') }}</span>
   </form>
 </template>

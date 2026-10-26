@@ -1,3 +1,4 @@
+import { formatMessage } from '../services/i18n';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ mounted: [] as Array<()=>Promise<void>>, unmounted: [] as Array<()=>void>, listeners: new Set<()=>void>(), background: vi.fn(), load: vi.fn(), initialize: vi.fn(), close: vi.fn(), watch: vi.fn(() => () => {}), post: vi.fn() }));
 vi.mock('vue', async () => { const actual = await vi.importActual<typeof import('vue')>('vue'); return { ...actual, onMounted: (callback: ()=>Promise<void>) => state.mounted.push(callback), onUnmounted: (callback: ()=>void) => state.unmounted.push(callback) }; });
@@ -51,7 +52,7 @@ describe('browser event refresh lifecycle', () => {
    repository.saveBackground=vi.fn().mockRejectedValue(new Error('disk full'));
    expect(await dial.changeBackground(new Blob(['new image']))).toBe(false);
    expect(dial.snapshot.value.background).toBe(initial.background);
-   expect(dial.settingErrors.value.background).toContain('Фон');
+   expect(formatMessage(dial.settingErrors.value.background)).toContain('Фон');
  });
  it('does not let an earlier failed field write undo a later edit or unrelated fields',async()=>{
    const dial=useDial();await state.mounted[0]!();
@@ -68,7 +69,7 @@ describe('browser event refresh lifecycle', () => {
    repository.patchSettings=vi.fn().mockRejectedValue(new Error('storage failed'));
    expect(await dial.updateSettings({width:80})).toBe(false);
    expect(dial.snapshot.value.settings.width).toBe(100);
-   expect(dial.settingErrors.value.width).toContain('Ширина');
+   expect(formatMessage(dial.settingErrors.value.width)).toContain('Ширина');
    state.load.mockClear();await dial.refresh();expect(state.load).toHaveBeenCalledWith(false);
  });
  it('saves the search provider without reloading assets or disabling the page', async () => {

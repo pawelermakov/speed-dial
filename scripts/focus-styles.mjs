@@ -2,7 +2,7 @@
 import {chromium,expect} from '@playwright/test';
 import {resolve} from 'node:path';
 const extension=resolve('.output/chrome-mv3');
-const context=await chromium.launchPersistentContext(resolve('.browser-test/focus-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/focus-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');
  const page=await context.newPage();

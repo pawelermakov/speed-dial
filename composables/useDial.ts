@@ -1,5 +1,6 @@
+import { setLanguage, language, message, LocalizedError, errorMessage, type MessageText } from '../services/i18n';
 import { isMovieProvider } from '../types/models';
-import { ref, shallowRef, onMounted, onUnmounted } from 'vue';
+import { ref, shallowRef, watch, onMounted, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
 import { storage } from 'wxt/utils/storage';
 import { db } from '../services/database';
@@ -14,18 +15,19 @@ export const repository = new Repository(db, settingsItem, browser.bookmarks, ro
 export function useDial() {
   const snapshot = shallowRef<Snapshot>({ tabs: [], folders: [], rootId: null, activeId: null, settings: { ...defaults }, background: null });
   const settingsReady=ref(false);
-  const loading = ref(true), busy = ref(false), notice = ref('');
+  const loading = ref(true), busy = ref(false), notice = ref<MessageText>('');
   const revision = ref(0);
-  const settingErrors = ref<Record<string,string>>({});
+  const settingErrors = ref<Record<string,MessageText>>({});
   let confirmed: Settings = { ...defaults };
   const pendingFields = new Map<keyof Settings, { version:number; value:Settings[keyof Settings] }>();
   const saves = new Set<Promise<unknown>>();
   let settingsVersion = 0, settingsRead = 0, rootVersion = 0, backgroundVersion = 0;
   let backgroundDirty = true;
-  const fieldLabels:Record<keyof Settings,string> = {mailruEnabled:'Mail.ru',gmailEnabled:'Gmail',yandexMailEnabled:'Яндекс Почта',weatherEnabled:'Виджет погоды',weatherCity:'Город',weatherProvider:'Сервис погоды',theme:'Тема',width:'Ширина',countColumns:'Количество столбцов',space:'Расстояние',verticalCenter:'Центрировать по вертикали',addButton:'Кнопка добавления закладки',bookmarkSearch:'Поиск по закладкам',movieSearch:'Поиск фильмов и сериалов',searchProvider:'Источник поиска'};
+  const fieldLabels:Record<keyof Settings,MessageText> = {get language(){return message('settings.language.label');},mailruEnabled:'Mail.ru',gmailEnabled:'Gmail',get yandexMailEnabled(){return message('mail.providers.yandex');},get weatherEnabled(){return message('settings.weather.title');},get weatherCity(){return message('settings.weather.city');},get weatherProvider(){return message('settings.weather.provider');},get theme(){return message('settings.theme.label');},get width(){return message('settings.grid.width');},get countColumns(){return message('settings.grid.columns');},get space(){return message('settings.grid.spacing');},get verticalCenter(){return message('settings.grid.vertical_center');},get addButton(){return message('settings.bookmarks.add_button');},get bookmarkSearch(){return message('search.bookmarks.label');},get movieSearch(){return message('settings.bookmarks.movie_search');},get searchProvider(){return message('settings.search.provider');}};
   function publishSettings() {
     const settings = { ...confirmed };
     for (const [key,entry] of pendingFields) Object.assign(settings,{[key]:entry.value});
+    setLanguage(settings.language);
     snapshot.value = { ...snapshot.value, settings };
     settingsReady.value=true;
   }
@@ -34,7 +36,7 @@ export function useDial() {
   const channel = new BroadcastChannel('speed-dial-updates');
   let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, disposed = false;
   const attempted = new Set<string>();
-  const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
+  const errorText = (error: unknown) => errorMessage(error);
   const refresh = async () => {
     const sequence = ++generation;
     const includeBackground = backgroundDirty;
@@ -75,7 +77,7 @@ export function useDial() {
     return track((async()=>{
       try { const next=await withDataLock(()=>repository.patchSettings(patch));confirmed=next;return true; }
       catch(error) {
-        for(const key of keys)if(pendingFields.get(key)?.version===version)settingErrors.value={...settingErrors.value,[key]:fieldLabels[key]+': не удалось сохранить. '+errorText(error)};
+        for(const key of keys)if(pendingFields.get(key)?.version===version)settingErrors.value={...settingErrors.value,[key]:message('settings.errors.save_field_failed', {field_name: fieldLabels[key], error: errorText(error)})};
         return false;
       } finally {
         for(const key of keys)if(pendingFields.get(key)?.version===version)pendingFields.delete(key);
@@ -87,13 +89,15 @@ export function useDial() {
   const changeRoot = (id:string):Promise<boolean> => {
     const version=++rootVersion;
     return track((async()=>{try{await withDataLock(()=>repository.selectRoot(id));if(version===rootVersion){void syncRequest('folder',id);delete settingErrors.value.root;await refresh();channel.postMessage({type:'updated'});}return true;}
-      catch(error){if(version===rootVersion){settingErrors.value={...settingErrors.value,root:'Папка закладок: не удалось сохранить. '+errorText(error)};await refresh().catch(()=>{});}return false;}})());
+      catch(error){if(version===rootVersion){settingErrors.value={...settingErrors.value,root:message('settings.errors.save_folder_failed', {error: errorText(error)})};await refresh().catch(()=>{});}return false;}})());
   };
   const changeBackground = (blob:Blob|null):Promise<boolean> => {
     const version=++backgroundVersion;
     return track((async()=>{try{await withDataLock(()=>repository.saveBackground(blob));if(version===backgroundVersion){snapshot.value={...snapshot.value,background:blob};delete settingErrors.value.background;channel.postMessage({type:'updated',background:true});}return true;}
-      catch(error){if(version===backgroundVersion)settingErrors.value={...settingErrors.value,background:'Фон: не удалось сохранить. '+errorText(error)};return false;}})());
+      catch(error){if(version===backgroundVersion)settingErrors.value={...settingErrors.value,background:message('settings.errors.save_background_failed', {error: errorText(error)})};return false;}})());
   };
+  const stopLanguage=watch(language,()=>{if(settingsReady.value&&!disposed)schedule(false);});
+  onUnmounted(stopLanguage);
   channel.onmessage = event => {
     if(event.data?.background || event.data==='updated')backgroundDirty=true;
     schedule(!event.data?.assets);
@@ -131,12 +135,12 @@ export function useDial() {
         snapshot.value={...snapshot.value,background:asset?.blob??null};
     }).catch(()=>{}); // The regular refresh reports storage errors.
     try {
-      if (!api) throw new Error('Bookmarks API недоступен. Проверьте разрешение «Закладки» и переустановите расширение.');
+      if (!api) throw new LocalizedError(message('bookmarks.errors.api_unavailable'));
       await syncRequest('initialize');
       const initial = await withDataLock(() => repository.initialize());
       if (initial?.rootNotice) notice.value = initial.rootNotice;
       await refresh();
-    } catch (error) { notice.value = 'Не удалось открыть закладки. Проверьте разрешение расширения. ' + errorText(error); }
+    } catch (error) { notice.value = message('bookmarks.errors.open_failed', {error: errorText(error)}); }
     finally { loading.value = false; }
   });
   onUnmounted(() => { unwatchRoot();unwatchSettings?.(); disposed = true; generation++; clearTimeout(timer); events.forEach(event => event?.removeListener(bookmarkEvent)); browser.tabs?.onUpdated?.removeListener(tabUpdated); channel.close(); });

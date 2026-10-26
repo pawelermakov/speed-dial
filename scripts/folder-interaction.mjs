@@ -6,7 +6,7 @@ import {launchFirefox,firefoxUrl} from './firefox-driver.mjs';
 const out=resolve('.browser-test/folders');await mkdir(out,{recursive:true});
 const ext=resolve('.output/chrome-mv3');
 if(!process.argv.includes('--firefox-only')) {
-const context=await chromium.launchPersistentContext(resolve(out,crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
+const context=await chromium.launchPersistentContext(resolve(out,crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
 try{
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',()=>{throw Error('Unexpected system dialog');});
  await page.goto(worker.url().replace('background.js','newtab.html'));

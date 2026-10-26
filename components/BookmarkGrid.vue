@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../services/i18n';
 import { watch, nextTick, onMounted, onUnmounted, ref, computed } from 'vue';
 import { BookmarkImages } from '../utils/bookmarkImages';
 import type { Bookmark, Settings } from '../types/models';
@@ -124,7 +125,7 @@ function key(event: KeyboardEvent, tab: Bookmark) {
 }
 </script>
 <template>
-  <section ref="grid" aria-label="Визуальные закладки" :aria-busy="preparing" class="grid bookmarks grid-cols-[repeat(var(--columns),minmax(0,1fr))] mx-auto" :style="{
+  <section ref="grid" :aria-label="t('bookmarks.grid.label')" :aria-busy="preparing" class="grid bookmarks grid-cols-[repeat(var(--columns),minmax(0,1fr))] mx-auto" :style="{
       '--columns': columns, '--gap': settings.space + 'px', width: settings.width + '%', gap: settings.space + 'px', visibility: preparing && revealPending && !dragId ? 'hidden' : undefined
     }" @dragover="overGrid" @drop.prevent="dropGrid">
     <a v-for="tab in tabs" :key="tab.id" class="bookmark select-none relative overflow-hidden group block min-w-0 bg-center bg-cover bg-no-repeat text-black [&.dragging]:opacity-40 [&.drop-target]:outline-3 [&.drop-target]:outline-[var(--ui-accent)]"
@@ -142,9 +143,9 @@ function key(event: KeyboardEvent, tab: Bookmark) {
       </span>
     </a>
     <div v-if="!searching && !tabs.length" class="bookmark-empty col-span-full">
-      <EmptyState title="В этой папке пока нет закладок" description="Добавьте любимый сайт, чтобы открывать его из новой вкладки." action-label="Новая закладка" symbol="bookmark" :disabled="disabled" @action="emit('add')" />
+      <EmptyState :title="t('bookmarks.empty.title')" :description="t('bookmarks.empty.description')" :action-label="t('bookmarks.add.action')" symbol="bookmark" :disabled="disabled" @action="emit('add')" />
     </div>
-    <button v-if="!searching && tabs.length && settings.addButton" :inert="dragId !== null" :style="{visibility:dragId !== null?'hidden':undefined}" class="add-card relative block min-w-0" aria-label="Новая закладка" :disabled="disabled || dragId !== null" @click="emit('add')"><svg class="absolute left-1/2 top-1/2 w-[40%] max-w-14 h-auto max-h-[60%] -translate-x-1/2 -translate-y-1/2" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6v28M6 20h28"/></svg></button>
+    <button v-if="!searching && tabs.length && settings.addButton" :inert="dragId !== null" :style="{visibility:dragId !== null?'hidden':undefined}" class="add-card relative block min-w-0" :aria-label="t('bookmarks.add.action')" :disabled="disabled || dragId !== null" @click="emit('add')"><svg class="absolute left-1/2 top-1/2 w-[40%] max-w-14 h-auto max-h-[60%] -translate-x-1/2 -translate-y-1/2" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6v28M6 20h28"/></svg></button>
   </section>
 </template>
 <style scoped>

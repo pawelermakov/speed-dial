@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type { FolderChoice } from '../types/models';
 export interface BookmarkNode { type?: 'bookmark' | 'folder' | 'separator'; id: string; parentId?: string; title: string; url?: string; index?: number; children?: BookmarkNode[]; unmodifiable?: string; folderType?: string; syncing?: boolean }
 export interface BookmarksPort {
@@ -19,7 +20,7 @@ export function selectable(node: BookmarkNode): boolean {
   return isFolder(node) && !!node.parentId && !node.unmodifiable && node.folderType !== 'managed';
 }
 const systemLabels: Record<string, string> = {
-  'bookmarks-bar': 'Панель закладок', other: 'Другие закладки', mobile: 'Мобильные закладки',
+  get 'bookmarks-bar'(){return t('folders.system.toolbar');}, get other(){return t('folders.system.other');}, get mobile(){return t('folders.system.mobile');},
 };
 export const firefoxTypes: Record<string, string> = {
   menu________: 'menu', toolbar_____: 'bookmarks-bar', unfiled_____: 'other', mobile______: 'mobile',
@@ -36,8 +37,8 @@ export function folderChoices(tree: BookmarkNode[]): FolderChoice[] {
     const standard = !technical && roots.has(node.parentId!);
     const firefoxType = standard && node.parentId === 'root________' ? firefoxTypes[node.id] : undefined;
     const folderType = node.folderType || firefoxType;
-    const title = folderType ? systemLabels[folderType] ?? (folderType === 'menu' ? 'Меню закладок' : node.title) : node.title;
-    const location = standard && node.syncing !== undefined ? node.syncing ? ' (аккаунт)' : ' (локально)' : '';
+    const title = folderType ? systemLabels[folderType] ?? (folderType === 'menu' ? t('folders.system.menu') : node.title) : node.title;
+    const location = standard && node.syncing !== undefined ? node.syncing ? t('folders.location.account') : t('folders.location.local') : '';
     const next = technical ? '' : [path, title + location].filter(Boolean).join(' / ');
     if (!technical && selectable(node)) result.push({ id:node.id, title, path:next, syncing:node.syncing, standard, folderType, writableChildren:true });
     const children = node.children ?? [];

@@ -7,7 +7,7 @@ const out=resolve('.browser-test/settings-autosave');await mkdir(out,{recursive:
 const image=await readFile('public/images/icon128.png');
 const ext=resolve('.output/chrome-mv3');
 if(!process.argv.includes('--firefox-only')) {
-const context=await chromium.launchPersistentContext(resolve('.browser-test/settings-autosave-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/settings-autosave-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+ext,'--load-extension='+ext]});
 try{
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const url=worker.url().replace('background.js','newtab.html');
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',dialog=>{errors.push('Unexpected system dialog: '+dialog.type());void dialog.dismiss();});

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMessage } from '../services/i18n';
 import { useId } from 'vue';
 defineProps<{title:string;description:string;actionLabel:string;symbol:'bookmark'|'search';disabled?:boolean;announce?:boolean}>();
 const emit=defineEmits<{action:[]}>();
@@ -10,9 +11,9 @@ const titleId=useId();
       <path v-if="symbol==='bookmark'" d="M9 5h14a2 2 0 0 1 2 2v21l-9-6-9 6V7a2 2 0 0 1 2-2Z" />
       <template v-else><circle cx="14" cy="14" r="9"/><path d="m21 21 7 7"/></template>
     </svg>
-    <h2 :id="titleId" class="empty-state-title">{{title}}</h2>
-    <p class="empty-state-description">{{description}}</p>
-    <button type="button" class="ui-button empty-state-action" :class="{'add-card':symbol==='bookmark'}" :disabled="disabled" @click="emit('action')">{{actionLabel}}</button>
+    <h2 :id="titleId" class="empty-state-title">{{ formatMessage(title) }}</h2>
+    <p class="empty-state-description">{{ formatMessage(description) }}</p>
+    <button type="button" class="ui-button empty-state-action" :class="{'add-card':symbol==='bookmark'}" :disabled="disabled" @click="emit('action')">{{ formatMessage(actionLabel) }}</button>
   </section>
 </template>
 <style scoped>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, formatMessage } from '../services/i18n';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import InfoTooltip from './InfoTooltip.vue';
 import { ui } from '../utils/ui';
@@ -12,12 +13,12 @@ const state=ref<SyncState|null>(null);
 const stateItem=storage.defineItem<SyncState>('local:settingsSyncState');
 const unwatch=stateItem.watch(value=>{state.value=value;});
 let generation=0;
-const labels={enabled:'Включена',disabled:'Выключена',unknown:'Не удалось определить',unavailable:'Статус недоступен'};
+const labels={get enabled(){return t('sync.status.enabled');},get disabled(){return t('sync.status.disabled');},get unknown(){return t('sync.status.unknown');},get unavailable(){return t('sync.status.unavailable');}};
 const info=computed(()=>({
-  enabled:'Chrome синхронизирует настройки и выбранную папку. Фон и изображения хранятся на этом устройстве.',
-  disabled:'Включите в Chrome синхронизацию «Расширения» и «Закладки».',
-  unknown:'Проверьте синхронизацию в настройках Chrome.',
-  unavailable:'Firefox передаёт настройки и выбранную папку через Firefox Sync. В настройках браузера включите «Дополнения» и «Закладки». Доставка выполняется по расписанию браузера. Статус аккаунта недоступен расширению. Фон и изображения остаются на этом устройстве.',
+  get enabled(){return t('sync.help.chrome_enabled');},
+  get disabled(){return t('sync.help.chrome_disabled');},
+  get unknown(){return t('sync.help.chrome_unknown');},
+  get unavailable(){return t('sync.help.firefox');},
 })[status.value]);
 const icons={enabled:'circle-check',disabled:'circle-x',unknown:'circle-help',unavailable:'circle-help'};
 async function check(){
@@ -32,10 +33,10 @@ onMounted(()=>{void check();void stateItem.getValue().then(value=>{state.value=v
 onUnmounted(()=>{generation++;unwatch();});
 </script>
 <template>
-  <section class="relative mb-5 text-base" aria-label="Синхронизация">
+  <section class="relative mb-5 text-base" :aria-label="t('sync.title')">
     <div class="flex items-center gap-2 mb-2">
-      <h3 class="text-base leading-7 font-bold">Синхронизация</h3>
-      <InfoTooltip :target="tooltipTarget" id="sync-info" label="О синхронизации">{{info}}</InfoTooltip>
+      <h3 class="text-base leading-7 font-bold">{{ t('sync.title') }}</h3>
+      <InfoTooltip :target="tooltipTarget" id="sync-info" :label="t('sync.help.label')">{{info}}</InfoTooltip>
 
     </div>
     <div class="sync-account grid gap-0">
@@ -44,15 +45,15 @@ onUnmounted(()=>{generation++;unwatch();});
         <circle cx="12" cy="12" r="9"/><path v-if="status==='enabled'" d="m8 12 3 3 5-6"/><path v-else-if="status==='disabled'" d="m9 9 6 6m0-6-6 6"/><path v-else d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1-1.5 2m0 3h.01"/>
       </svg><span>{{labels[status]}}</span>
       </p>
-      <p class="sync-email min-w-0 truncate pl-[26px] text-sm leading-5 font-normal text-[var(--text-secondary)]" :tabindex="email?0:undefined" :title="email||undefined">{{email||(status==='unavailable'?'Проверьте настройки Firefox':'Аккаунт недоступен')}}</p>
+      <p class="sync-email min-w-0 truncate pl-[26px] text-sm leading-5 font-normal text-[var(--text-secondary)]" :tabindex="email?0:undefined" :title="email||undefined">{{email||(status==='unavailable'?t('sync.firefox.check_settings'):t('sync.account.unavailable'))}}</p>
     </div>
     <div v-if="state?.error" role="alert" class="sync-notice ui-caption mt-2">
-      <p>{{state.error}}</p>
-      <button type="button" class="sync-action mt-3" :class="ui.button" :aria-busy="checking" :disabled="checking" @click="check"><span class="ui-action-label">Повторить</span></button>
+      <p>{{formatMessage(state.error)}}</p>
+      <button type="button" class="sync-action mt-3" :class="ui.button" :aria-busy="checking" :disabled="checking" @click="check"><span class="ui-action-label">{{ t('common.retry') }}</span></button>
     </div>
     <div v-if="state?.confirm" class="sync-notice ui-caption mt-3">
-      <p>Сохранить настройки этого устройства для синхронизации или использовать значения по умолчанию? Уже сохранённые значения останутся без изменений.</p>
-      <div class="grid gap-2 mt-3"><button type="button" class="sync-action" :class="ui.button" @click="confirm(true)"><span class="ui-action-label">Перенести локальные</span></button><button type="button" class="sync-action" :class="ui.button" @click="confirm(false)"><span class="ui-action-label">По умолчанию</span></button></div>
+      <p>{{ t('sync.confirmation.description') }}</p>
+      <div class="grid gap-2 mt-3"><button type="button" class="sync-action" :class="ui.button" @click="confirm(true)"><span class="ui-action-label">{{ t('sync.confirmation.use_local') }}</span></button><button type="button" class="sync-action" :class="ui.button" @click="confirm(false)"><span class="ui-action-label">{{ t('sync.confirmation.use_defaults') }}</span></button></div>
     </div>
   </section>
 </template>

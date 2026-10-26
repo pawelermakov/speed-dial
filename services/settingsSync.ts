@@ -1,3 +1,4 @@
+import { message, type MessageText } from './i18n';
 import { defaults, type Settings } from '../types/models';
 import { folderKey, settingKeys, syncPatch, syncPrefix, validSetting, storedSettings } from './settingsSchema';
 import { locateFolder, resolveFolder, validLocator, portableFolder } from './folderLocator';
@@ -9,7 +10,7 @@ export interface StorageArea {
   set(values: Record<string, unknown>): Promise<void>;
   remove?(keys:string|string[]):Promise<void>;
 }
-export interface SyncState { error: string; folder: string; confirm: boolean }
+export interface SyncState { error: MessageText; folder: MessageText; confirm: boolean }
 export const syncStateKey = 'settingsSyncState';
 const lastWriteKey = 'settingsSyncLastWrite';
 const selectedSourceKey='settingsSyncSelectedSource.v1';
@@ -86,7 +87,7 @@ export class SettingsSync {
     // Browser error strings may contain submitted data. Keep the public reason
     // bounded and free of account identifiers or user content.
     const quota=error instanceof Error&&/quota|max_write|max_items/i.test(error.message);
-    await this.publish({ error: (quota?'Превышен лимит хранилища синхронизации.':'Хранилище синхронизации недоступно.')+' Настройки сохранены локально. Повторите проверку.' });
+    await this.publish({ error: message('sync.errors.saved_locally_retry', {error: (quota?message('sync.errors.quota_exceeded'):message('sync.errors.storage_unavailable'))}) });
   }
   initialize() { const epoch=this.epoch;return this.serial(async () => {
     if(epoch!==this.epoch)return;
@@ -163,7 +164,7 @@ export class SettingsSync {
       this.cloud[key] = change.newValue;
       if(change.newValue!==undefined){
         if(key===folderKey&&!validLocator(change.newValue)){
-          await this.publish({folder:'Выберите папку вручную: сохранённый путь повреждён.'});continue;
+          await this.publish({get folder(){return message('sync.folder.invalid_path');}});continue;
         }
         if(key!==folderKey&&!validSetting(key.slice(syncPrefix.length) as keyof Settings,change.newValue))continue;
       }
@@ -179,11 +180,11 @@ export class SettingsSync {
   private async restoreFolder() {
     const value = this.cloud[folderKey];
     if (value === undefined) return;
-    if (!validLocator(value)) { await this.publish({ folder: 'Выберите папку вручную: сохранённый путь повреждён.' }); return; }
+    if (!validLocator(value)) { await this.publish({ get folder(){return message('sync.folder.invalid_path');} }); return; }
     const generation = this.folderEpoch, epoch = this.epoch;
     let tree:BookmarkNode[];
     try{tree=await this.ports.tree();}
-    catch{if(generation===this.folderEpoch&&epoch===this.epoch)await this.publish({folder:'Не удалось проверить папку. Выберите её вручную или повторите проверку.'});return;}
+    catch{if(generation===this.folderEpoch&&epoch===this.epoch)await this.publish({get folder(){return message('sync.folder.check_failed');}});return;}
     const id = resolveFolder(tree, value);
     if (generation !== this.folderEpoch || epoch !== this.epoch) return;
     if (!id) {
@@ -195,7 +196,7 @@ export class SettingsSync {
         if(generation!==this.folderEpoch||epoch!==this.epoch)return;
         if(typeof local.rootFolderId==='string'&&equal(locateFolder(tree,local.rootFolderId),value))this.selectedId=local.rootFolderId;
       }
-      await this.publish({ folder: portableFolder(value) ? `Ожидаем папку из ${value.anchor.browser === 'firefox' ? 'Firefox' : 'Chrome'}. Если она недоступна, выберите папку вручную.` : 'Выберите папку вручную: локальная папка не переносится между устройствами.' });
+      await this.publish({ folder: portableFolder(value) ? message('sync.folder.waiting_for_browser', {browser_name: value.anchor.browser === 'firefox' ? 'Firefox' : 'Chrome'}) : message('sync.folder.local_not_portable') });
       return;
     }
     await this.ports.lock(async () => {
@@ -204,7 +205,7 @@ export class SettingsSync {
       await this.ports.local.set({...(local.rootFolderId!==id?{rootFolderId:id}:{}),[selectedSourceKey]:{id,locator:value}});
       this.selectedId = id;
     });
-    await this.publish({ folder: 'Папка восстановлена' });
+    await this.publish({ get folder(){return message('sync.folder.restored');} });
   }
   selectFolder(id: string) {
     const generation=++this.folderEpoch,epoch=this.epoch;
@@ -217,20 +218,20 @@ export class SettingsSync {
     this.selectedId=id;
     let tree:BookmarkNode[];
     try{tree=await this.ports.tree();}
-    catch{if(generation===this.folderEpoch&&epoch===this.epoch)await this.publish({folder:'Папка выбрана локально. Не удалось получить её путь — повторите проверку.'});return;}
+    catch{if(generation===this.folderEpoch&&epoch===this.epoch)await this.publish({get folder(){return message('sync.folder.selected_but_path_unavailable');}});return;}
     const locator = locateFolder(tree, id);
     if (generation !== this.folderEpoch || epoch !== this.epoch) return;
     this.selectedId = id;
     if (!locator) {
       if(!folderChoices(tree).some(choice=>choice.id===id)){this.selectedId=null;this.manualFolder=false;}
-      await this.publish({ folder: 'Выберите папку вручную: путь к выбранной папке недоступен.' }); return;
+      await this.publish({ get folder(){return message('sync.folder.path_unavailable');} }); return;
     }
     // Local evidence of an explicit/resolved source lets a cold MV3 worker
     // recognize a subsequent native rename/move event. It never goes to sync.
     await this.ports.local.set({[selectedSourceKey]:{id,locator}});
     if(generation!==this.folderEpoch||epoch!==this.epoch)return;
     this.enqueue({ [folderKey]: locator });
-    await this.publish({ folder: portableFolder(locator) ? '' : 'Локальная папка: на другом устройстве потребуется ручной выбор.' });
+    await this.publish({ folder: portableFolder(locator) ? '' : message('sync.folder.local_selection_required_elsewhere') });
   }
   bookmarksChanged(changedId?:string) { const receivedEpoch=this.epoch;return this.serial(async () => {
     if(receivedEpoch!==this.epoch)return;

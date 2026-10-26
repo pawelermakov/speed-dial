@@ -1,3 +1,4 @@
+import { message } from './i18n';
 import { browser } from 'wxt/browser';
 const outgoing=new Set<Promise<void>>();
 export async function syncRequest(action: string, value?: unknown): Promise<void> {
@@ -14,7 +15,7 @@ async function send(action:string,value:unknown){
   } catch {
     try {
       const existing=await browser.storage.local.get('settingsSyncState');
-      await browser.storage.local.set({ settingsSyncState: { folder:'',confirm:false,...existing.settingsSyncState as object,error: 'Хранилище синхронизации недоступно. Настройки сохранены локально.' } });
+      await browser.storage.local.set({ settingsSyncState: { folder:'',confirm:false,...existing.settingsSyncState as object,error:message('sync.errors.unavailable_saved_locally') } });
     }catch{/* Local settings remain usable even when status storage is unavailable. */}
   }
 }

@@ -14,7 +14,7 @@ const fixtures=Object.fromEntries(await Promise.all(providers.map(async id=>[id,
 const results=[];
 const extension=resolve('.output/chrome-mv3');
 if(!process.argv.includes('--firefox-only')) {
-const ctx=await chromium.launchPersistentContext(resolve('.browser-test','provider-ui-'+crypto.randomUUID()),{channel:'chromium',headless:!headed,args:['--disable-extensions-except='+extension,'--load-extension='+extension,...(headed?['--start-minimized']:[])]});
+const ctx=await chromium.launchPersistentContext(resolve('.browser-test','provider-ui-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:!headed,args:['--disable-extensions-except='+extension,'--load-extension='+extension,...(headed?['--start-minimized']:[])]});
 try{
  const worker=ctx.serviceWorkers()[0]??await ctx.waitForEvent('serviceworker');const url=worker.url().replace('background.js','newtab.html');
  const page=await ctx.newPage(),requests=[],navigation=[],network=[];const errors=[];page.on('pageerror',e=>errors.push(e.message));

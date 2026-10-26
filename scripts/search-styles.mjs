@@ -2,7 +2,7 @@ import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {resolve} from 'node:path';
 const extension=resolve('.output/chrome-mv3');
-const context=await chromium.launchPersistentContext(resolve('.browser-test/search-states-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/search-states-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 try {
  await context.route('**://suggest.yandex.ru/**',r=>r.fulfill({contentType:'application/json',body:JSON.stringify(['test',['First suggestion','Second suggestion']])}));
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();

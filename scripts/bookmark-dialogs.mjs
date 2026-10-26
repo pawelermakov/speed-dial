@@ -9,7 +9,7 @@ const icon=await readFile('public/images/icon128.png'),png='data:image/png;base6
 const server=createServer((req,res)=>{if(req.url==='/favicon.ico'){res.setHeader('Content-Type','image/png');res.end(icon);}else{res.setHeader('Content-Type','text/html');res.end('<title>Actual local page</title><body>Capture fixture</body>');}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const site='http://127.0.0.1:'+server.address().port;
 if (!process.argv.includes('--firefox-only')) {
-const context=await chromium.launchPersistentContext(resolve('.browser-test/bookmark-dialogs-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+resolve('.output/chrome-mv3'),'--load-extension='+resolve('.output/chrome-mv3')]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/bookmark-dialogs-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+resolve('.output/chrome-mv3'),'--load-extension='+resolve('.output/chrome-mv3')]});
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(worker.url().replace('background.js','newtab.html'));await expect(page.getByRole('button',{name:'Новая закладка',exact:true})).toBeEnabled();

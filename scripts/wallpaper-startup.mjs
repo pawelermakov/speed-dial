@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { launchFirefox, firefoxUrl } from './firefox-driver.mjs';
 const out=resolve('.browser-test/wallpaper-startup');await mkdir(out,{recursive:true});
 if(!process.argv.includes('--firefox-only')) {
-const context=await chromium.launchPersistentContext(resolve('.browser-test/wallpaper-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+resolve('.output/chrome-mv3'),'--load-extension='+resolve('.output/chrome-mv3')]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/wallpaper-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+resolve('.output/chrome-mv3'),'--load-extension='+resolve('.output/chrome-mv3')]});
 try {
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));

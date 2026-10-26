@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../services/i18n';
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import type { Folder } from '../types/models';
 import { contextKey, plainNavigation } from '../utils/keyboard';
@@ -57,7 +58,7 @@ function key(event: KeyboardEvent, folder: Folder) {
 
 </script>
 <template>
-<nav @contextmenu.stop.prevent="emit('background',$event)" @dragover.prevent @drop.prevent.stop aria-label="Папки" class="folder-tabs flex items-center gap-2 min-w-0 w-full">
+<nav @contextmenu.stop.prevent="emit('background',$event)" @dragover.prevent @drop.prevent.stop :aria-label="t('folders.title')" class="folder-tabs flex items-center gap-2 min-w-0 w-full">
   <div ref="list" @scroll.passive="updateEdges" :class="{'fade-start':fadeStart,'fade-end':fadeEnd}" class="folder-scroll relative flex items-center gap-2 min-w-0 w-full overflow-x-scroll">
   <button v-if="root" @keydown="key($event, root)" :data-folder-id="root.id" aria-haspopup="menu" :aria-expanded="contextId === root.id" :aria-controls="contextId === root.id ? 'bookmark-context-menu' : undefined" class="ui-folder folder-root flex items-center gap-1.5 min-w-0 shrink-0 h-12 px-3" :aria-pressed="activeId===root.id" :title="root.title" :aria-label="root.title" :disabled="disabled" @click="emit('select',root.id)">
     <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3 10V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v1M3 10h18l-2 10H5L3 10Z"/></svg><span class="ui-action-label truncate">{{root.title}}</span>

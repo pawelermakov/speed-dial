@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {resolve} from 'node:path';
 import {mkdir} from 'node:fs/promises';
 const out=resolve('.browser-test/design-system-consistency');await mkdir(out,{recursive:true});const extension=resolve('.output/chrome-mv3');
-const context=await chromium.launchPersistentContext(resolve(out,crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const context=await chromium.launchPersistentContext(resolve(out,crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 try {
  await context.route('**://suggest.yandex.ru/**',r=>r.fulfill({contentType:'application/json',body:'["test",["Example suggestion"]]'}));
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker');const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(worker.url().replace('background.js','newtab.html'));await expect(page.locator('.folder-root')).toBeEnabled();

@@ -1,3 +1,4 @@
+import { message, LocalizedError } from './i18n';
 import type { DialDatabase } from './database';
 import type { BookmarkAssets } from '../types/models';
 import { readFaviconColor } from './faviconColor';
@@ -31,7 +32,7 @@ export class BookmarkAssetStore {
     } catch { return undefined; }
   }
   async put(bookmarkId: string, url: string, resource: 'thumbnail' | 'favicon', blob: Blob) {
-    if (!valid(blob)) throw new Error('Неподдерживаемое изображение.');
+    if (!valid(blob)) throw new LocalizedError(message('images.errors.unsupported'));
     let color: string | null | undefined;
     if (resource === 'favicon') {
       try { color = await this.colorOf(blob) ?? null; }

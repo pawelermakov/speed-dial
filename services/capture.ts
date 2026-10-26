@@ -1,3 +1,4 @@
+import { message, errorMessage, LocalizedError } from './i18n';
 import { browser } from 'wxt/browser';
 import type { CaptureRequest, CaptureResponse } from '../types/models';
 import { normalizeUrl, safeFavicon } from './validation';
@@ -13,7 +14,7 @@ export function createCaptureQueue() {
   let pending = 0;
   let lastCapture = 0;
   return (request: CaptureRequest, originTab: number, cancellation: AbortSignal): Promise<CaptureResponse> => {
-    if (pending >= 8) return Promise.resolve({ requestId: request.requestId, error: 'Очередь захвата заполнена. Повторите позже.' });
+    if (pending >= 8) return Promise.resolve({ requestId: request.requestId, error:message('capture.errors.queue_full') });
     pending++;
     const task = queue.then(async () => {
       const signal = AbortSignal.any([cancellation, AbortSignal.timeout(20000)]);
@@ -33,11 +34,11 @@ export function createCaptureQueue() {
         signal.throwIfAborted();
         const url = normalizeUrl(request.url);
         const origin = await browser.tabs.get(originTab);
-        if (!origin.active) throw new Error('Сначала вернитесь на вкладку SpeedDial X.');
+        if (!origin.active) throw new LocalizedError(message('capture.errors.return_to_tab'));
         windowId = origin.windowId;
         const tab = await browser.tabs.create({ url, active: true, windowId, openerTabId: originTab });
         ownId = tab.id;
-        if (ownId === undefined) throw new Error('Браузер не создал временную вкладку.');
+        if (ownId === undefined) throw new LocalizedError(message('capture.errors.tab_not_created'));
         // Polling avoids leaked onUpdated listeners and the create/complete race.
         // Each API call also keeps the MV3 worker alive during the bounded task.
         let loaded = await browser.tabs.get(ownId);
@@ -52,7 +53,7 @@ export function createCaptureQueue() {
         const before = await browser.tabs.get(ownId);
         const active = await browser.tabs.query({ active: true, windowId });
         if (changed || before.status !== 'complete' || active[0]?.id !== ownId)
-          throw new Error('Активная вкладка изменилась. Захват отменён, чтобы не сохранить чужой экран.');
+          throw new LocalizedError(message('capture.errors.active_tab_changed'));
         normalizeUrl(before.url);
         signal.throwIfAborted();
         lastCapture = Date.now();
@@ -61,14 +62,14 @@ export function createCaptureQueue() {
         const activeAfter = await browser.tabs.query({ active: true, windowId });
         signal.throwIfAborted();
         if (changed || activeAfter[0]?.id !== ownId || after.url !== before.url || after.status !== 'complete')
-          throw new Error('Во время захвата вкладка изменилась; снимок отброшен.');
+          throw new LocalizedError(message('capture.errors.tab_changed_during_capture'));
         let favicon = '';
         try { favicon = safeFavicon(after.favIconUrl); } catch { /* Unsupported site icon: keep the optional favicon empty. */ }
         return { requestId: request.requestId, title: after.title || new URL(url).hostname, favicon, thumbnail };
       } catch (error) {
         return { requestId: request.requestId, error: signal.aborted
-          ? 'Захват отменён или сайт не загрузился за 20 секунд.'
-          : error instanceof Error ? error.message : String(error) };
+          ? message('capture.errors.canceled_or_timed_out')
+          : errorMessage(error) };
       } finally {
         watching = false;
         browser.tabs.onActivated.removeListener(activated);

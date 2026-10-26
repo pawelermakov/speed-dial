@@ -1,3 +1,4 @@
+import type { MessageText } from '../services/i18n';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { backupLimits, parseImport, selectExport, serializeExport, validateImportImages } from '../services/importExport';
 import { defaults } from '../types/models';
@@ -28,7 +29,7 @@ describe('complete backup contract',()=>{
   await expect(validateImportImages({entries:[],settings:defaults,background:image()})).rejects.toThrow('мегапикселей');expect(close).toHaveBeenCalled();
  });
  it('skips corrupt optional resources with an explicit warning',async()=>{
-  const warnings:string[]=[];const text=await serializeExport({entries:[{title:'A',url:'https://a.example/',thumbnail:new Blob(['<svg/>'],{type:'image/png'}),favicon:image()}],settings:defaults,background:null},message=>warnings.push(message));
+  const warnings:MessageText[]=[];const text=await serializeExport({entries:[{title:'A',url:'https://a.example/',thumbnail:new Blob(['<svg/>'],{type:'image/png'}),favicon:image()}],settings:defaults,background:null},message=>warnings.push(message));
   expect(warnings).toHaveLength(1);expect(JSON.parse(text).entries[0].thumbnail).toBeUndefined();expect(JSON.parse(text).entries[0].favicon).toContain('data:image/png');
  });
  it('validates complete settings, unknown fields, nesting, URLs, provenance and total entry count',()=>{
@@ -40,7 +41,7 @@ describe('complete backup contract',()=>{
  });
 });
 
-it('skips an oversized corrupt cache image without preventing a valid backup',async()=>{const warnings:string[]=[];const text=await serializeExport({entries:[{title:'A',url:'https://a.example/',thumbnail:new Blob([new Uint8Array(25*1024*1024)],{type:'text/html'})}],settings:defaults,background:null},message=>warnings.push(message));expect(JSON.parse(text).entries[0]).toEqual({title:'A',url:'https://a.example/'});expect(warnings).toHaveLength(1);});
+it('skips an oversized corrupt cache image without preventing a valid backup',async()=>{const warnings:MessageText[]=[];const text=await serializeExport({entries:[{title:'A',url:'https://a.example/',thumbnail:new Blob([new Uint8Array(25*1024*1024)],{type:'text/html'})}],settings:defaults,background:null},message=>warnings.push(message));expect(JSON.parse(text).entries[0]).toEqual({title:'A',url:'https://a.example/'});expect(warnings).toHaveLength(1);});
 
 
 it('roundtrips omitted sections without adding defaults or clearing wallpaper',async()=>{
@@ -62,7 +63,7 @@ it('selects sections from a fixed preview without mutating it or including exclu
 
 
 it('omits an unreadable wallpaper without turning it into a clear-background instruction',async()=>{
- const warnings:string[]=[];const text=await serializeExport({entries:[],settings:defaults,background:new Blob(['broken'],{type:'image/png'})},message=>warnings.push(message));
+ const warnings:MessageText[]=[];const text=await serializeExport({entries:[],settings:defaults,background:new Blob(['broken'],{type:'image/png'})},message=>warnings.push(message));
  expect(warnings).toHaveLength(1);expect(Object.hasOwn(JSON.parse(text),'background')).toBe(false);expect(Object.hasOwn(parseImport(text),'background')).toBe(false);
  expect(JSON.parse(await serializeExport({entries:[],background:null})).background).toBeNull();
 });

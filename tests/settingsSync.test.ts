@@ -1,5 +1,6 @@
+import { formatMessage } from '../services/i18n';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SettingsSync, type StorageArea } from '../services/settingsSync';
+import { SettingsSync, type SyncState, type StorageArea } from '../services/settingsSync';
 import { defaults } from '../types/models';
 import { folderKey, syncPrefix, syncPatch } from '../services/settingsSchema';
 import { locateFolder, resolveFolder, validLocator } from '../services/folderLocator';
@@ -92,13 +93,13 @@ describe('per-field Chrome settings synchronization',()=>{
     const f=fixture(localSettings({width:70}),{},null);await f.c.initialize();
     f.sync.set.mockRejectedValueOnce(new Error('QUOTA_BYTES private-account'));
     await f.c.changed({width:70});await f.c.flush();expect(settings(f.local).width).toBe(70);
-    expect(f.local.values.settingsSyncState).toMatchObject({error:expect.stringContaining('локально')});
+    expect(formatMessage((f.local.values.settingsSyncState as SyncState).error)).toContain('локально');
     expect(JSON.stringify(f.local.values)).not.toContain('private-account');
     await f.c.retry();expect(f.sync.values[syncPrefix+'width']).toBe(70);expect(f.local.values.settingsSyncState).toMatchObject({error:''});
   });
   it('continues locally when sync.get is unavailable',async()=>{
     const f=fixture(localSettings({width:70}));f.sync.get.mockRejectedValue(new Error('unavailable'));
-    await f.c.initialize();expect(settings(f.local).width).toBe(70);expect(f.local.values.settingsSyncState).toMatchObject({error:expect.any(String)});
+    await f.c.initialize();expect(settings(f.local).width).toBe(70);expect((f.local.values.settingsSyncState as SyncState).error).toMatchObject({key:'sync.errors.saved_locally_retry'});
   });
   it('reset/import replaces pending settings while preserving the remote folder',async()=>{
     const locator=locateFolder(tree(),'b')!;const f=fixture({}, {[folderKey]:locator});await f.c.initialize();
@@ -145,7 +146,7 @@ describe('portable folder resolution',()=>{
   it('waits for missing folders and retries on bookmark events without publishing a fallback',async()=>{
     const locator=locateFolder(tree(),'b')!;const f=fixture({rootFolderId:'other'},{[folderKey]:locator});
     f.bookmarks.value[0]!.children![0]!.children=[];await f.c.initialize();expect(f.local.values.rootFolderId).toBe('other');
-    expect(f.local.values.settingsSyncState).toMatchObject({folder:expect.stringContaining('Ожидаем')});
+    expect(formatMessage((f.local.values.settingsSyncState as SyncState).folder)).toContain('Ожидаем');
     f.bookmarks.value=tree();await f.c.bookmarksChanged();expect(f.local.values.rootFolderId).toBe('b');await f.c.flush();expect(f.sync.set).not.toHaveBeenCalled();
   });
   it('manual choice wins over a pending remote folder; rapid A-B-A keeps last choice',async()=>{
@@ -275,7 +276,7 @@ describe('native Firefox folder synchronization',()=>{
  it('waits for bookmarks delivery then restores the exact folder without echoing data',async()=>{
   const locator=locateFolder(firefoxTree(),'workFolder01')!;
   const f=fixture({rootFolderId:'unfiled_____'},{[folderKey]:locator},null);f.bookmarks.value=firefoxTree();f.bookmarks.value[0]!.children![0]!.children![0]!.id='fakeFolder01';
-  await f.c.initialize();expect(f.local.values.rootFolderId).toBe('unfiled_____');expect(f.local.values.settingsSyncState).toMatchObject({folder:expect.stringContaining('Firefox')});
+  await f.c.initialize();expect(f.local.values.rootFolderId).toBe('unfiled_____');expect(formatMessage((f.local.values.settingsSyncState as SyncState).folder)).toContain('Firefox');
   f.bookmarks.value=firefoxTree();await f.c.bookmarksChanged('workFolder01');await f.c.flush();expect(f.local.values.rootFolderId).toBe('workFolder01');expect(f.sync.set).not.toHaveBeenCalled();
  });
  it('uses the same confirmation and per-field writes without browser account identity',async()=>{
@@ -303,4 +304,9 @@ it('applies independent mail choices including explicit opt-out without echo',as
 it('retires saved mail addresses while retaining unrelated local preferences',async()=>{
  const f=fixture(localSettings({email:'retired@mail.ru',mailruEnabled:true,width:75,theme:'dark'}),{[syncPrefix+'email']:'retired@mail.ru'});await f.c.initialize();
  expect(settings(f.local)).toMatchObject({mailruEnabled:true,width:75,theme:'dark'});expect(settings(f.local)).not.toHaveProperty('email');expect(f.sync.values).not.toHaveProperty(syncPrefix+'email');expect(f.sync.set).not.toHaveBeenCalled();
+});
+
+it('applies a remotely selected language without echoing the setting',async()=>{
+ const f=fixture(localSettings());await f.c.initialize();f.sync.set.mockClear();
+ await f.c.remote({[syncPrefix+'language']:{newValue:'es'}});await f.c.flush();expect(settings(f.local).language).toBe('es');expect(f.sync.set).not.toHaveBeenCalled();
 });

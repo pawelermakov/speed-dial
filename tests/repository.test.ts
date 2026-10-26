@@ -1,8 +1,9 @@
+import { formatMessage } from '../services/i18n';
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialDatabase } from '../services/database';
 import { Repository } from '../services/repository';
-import { selectExport, serializeExport } from '../services/importExport';
+import { backupLimits, selectExport, serializeExport } from '../services/importExport';
 import { MockBookmarks } from './bookmarksMock';
 import type { RootPort } from '../services/bookmarks';
 import type { SettingsEnvelope, SettingsPort } from '../services/settings';
@@ -134,15 +135,15 @@ describe('browser bookmarks source', () => {
     api.nodes.get(root)!.unmodifiable='managed';
     const result=await repo.load();
     expect(result.rootId).toBe('other');
-    expect(result.rootNotice).toContain('недоступна');
+    expect(formatMessage(result.rootNotice)).toContain('недоступна');
     expect((await api.get(root))[0]).toBeTruthy();
   });
   it('keeps the recovery notice until a view consumes it, including another tab adoption', async () => {
     await setup(); const old=repo.rootId!;
     await api.removeTree(old);
     await repo.adoptRoot('other');
-    expect((await repo.load()).rootNotice).toContain('недоступна');
-    expect((await repo.load()).rootNotice).toContain('Другие закладки');
+    expect(formatMessage((await repo.load()).rootNotice)).toContain('недоступна');
+    expect(formatMessage((await repo.load()).rootNotice)).toContain('Другие закладки');
     repo.clearSourceNotice();
     expect((await repo.load()).rootNotice).toBeUndefined();
   });
@@ -280,7 +281,7 @@ describe('browser bookmarks source', () => {
     const outside = await api.create({ parentId: 'other', title: 'Outside', url: 'https://outside.example' }); await repo.importData(data,repo.rootId!); expect((await api.getChildren(repo.rootId!)).length).toBe(2); expect((await api.get(outside.id))[0]?.title).toBe('Outside');
     data.entries=[{title:'New',url:'https://new.example/'},{title:'Fail',children:[]}];
     const original = api.create.bind(api); vi.spyOn(api, 'create').mockImplementationOnce(original).mockRejectedValueOnce(new Error('failed'));
-    expect(await repo.importData(data,repo.rootId!)).toMatchObject({bookmarks:1,folders:0,error:expect.stringContaining('Импорт прерван')});
+    expect(await repo.importData(data,repo.rootId!)).toMatchObject({bookmarks:1,folders:0,error:{key:'backup.import.errors.interrupted'}});
   });
   it('does not expose mass clear and preserves hidden descendants when selecting sources', async () => { await setup(); const id=await add(); await repo.createFolder('A'); const a=(await api.getChildren(repo.rootId!)).find(node=>!node.url)!; const deep=await api.create({parentId:a.id,title:'Deep'}); const before=await api.getTree(); await repo.selectRoot('other'); expect('clear' in repo).toBe(false); expect(await api.getTree()).toEqual(before); expect((await api.get(id))[0]).toBeTruthy(); expect((await api.get(deep.id))[0]).toBeTruthy(); });
 });
@@ -343,7 +344,7 @@ describe('backup matching',()=>{
  it('retries partial imports without duplicating already created entries',async()=>{
   await setup();const data=await repo.exportData();data.entries=[{title:'First',url:'https://first.example/'},{title:'Second',url:'https://second.example/'}];
   const create=api.create.bind(api);vi.spyOn(api,'create').mockImplementationOnce(create).mockRejectedValueOnce(Error('interrupted'));
-  expect(await repo.importData(data,repo.rootId!)).toMatchObject({bookmarks:1,error:expect.any(String)});
+  expect(await repo.importData(data,repo.rootId!)).toMatchObject({bookmarks:1,error:{key:'backup.import.errors.interrupted'}});
   expect(await repo.importData(data,repo.rootId!)).toEqual({bookmarks:1,folders:0,images:0,settings:true,background:true,warnings:[]});expect(await api.getChildren(repo.rootId!)).toHaveLength(2);
  });
 });
@@ -379,7 +380,13 @@ describe('selected backup sections',()=>{
 
 
 it('can prepare settings-only export even when the native tree exceeds the file entry limit',async()=>{
- await setup();for(let i=0;i<10001;i++)api.nodes.set('large-'+i,{id:'large-'+i,parentId:repo.rootId!,title:'A',url:'https://example.com/'});
- const prepared=await repo.exportData();expect(prepared.entries).toHaveLength(10001);expect(prepared.settings).toEqual(defaults);
- const text=await serializeExport(selectExport(prepared,{bookmarks:false,images:false,settings:true,background:false}));expect(JSON.parse(text)).toMatchObject({entries:[],settings:defaults});await expect(serializeExport(prepared)).rejects.toThrow('10000');
+ await setup();
+ // This regression concerns the entry limit; avoid two IndexedDB reads per
+ // bookmark for absent assets. Asset persistence is covered by other tests.
+ vi.spyOn(db.tileAssets,'get').mockResolvedValue(undefined);
+ vi.spyOn(db.autoNames,'get').mockResolvedValue(undefined);
+ const entryCount=backupLimits.entries+1;
+ for(let i=0;i<entryCount;i++)api.nodes.set('large-'+i,{id:'large-'+i,parentId:repo.rootId!,title:'A',url:'https://example.com/'});
+ const prepared=await repo.exportData();expect(prepared.entries).toHaveLength(entryCount);expect(prepared.settings).toEqual(defaults);
+ const text=await serializeExport(selectExport(prepared,{bookmarks:false,images:false,settings:true,background:false}));expect(JSON.parse(text)).toMatchObject({entries:[],settings:defaults});await expect(serializeExport(prepared)).rejects.toThrow(String(backupLimits.entries));
 });

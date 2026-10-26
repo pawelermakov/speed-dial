@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../services/i18n';
 import { ref, nextTick, onMounted, onUnmounted } from 'vue';
 import type { Bookmark, Folder } from '../types/models';
 const props = defineProps<{ x: number; y: number; bookmark?: Bookmark; folder?: Folder; canMoveLeft?: boolean; canMoveRight?: boolean }>();
@@ -30,29 +31,29 @@ function keys(event: KeyboardEvent) {
 </script>
 <template>
   <div class="fixed inset-0 z-30" @pointerdown.self="close" @contextmenu.self.prevent="close">
-    <div ref="menu" id="bookmark-context-menu" tabindex="-1" role="menu" :aria-label="folder ? 'Действия с папкой' : bookmark ? 'Действия с закладкой' : 'Действия со страницей'" class="context ui-glass fixed w-max min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto"
+    <div ref="menu" id="bookmark-context-menu" tabindex="-1" role="menu" :aria-label="folder ? t('context.folder.label') : bookmark ? t('context.bookmark.label') : t('context.page.label')" class="context ui-glass fixed w-max min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto"
       :style="{ left: left + 'px', top: top + 'px' }" @keydown="keys">
       <template v-if="folder">
-        <button tabindex="-1" role="menuitem" @click="emit('action', 'edit')">Изменить папку</button>
-        <button tabindex="-1" role="menuitem" :disabled="!canMoveLeft" @click="emit('action', 'move-left')">Переместить влево</button>
-        <button tabindex="-1" role="menuitem" :disabled="!canMoveRight" @click="emit('action', 'move-right')">Переместить вправо</button>
+        <button tabindex="-1" role="menuitem" @click="emit('action', 'edit')">{{ t('folders.edit.title') }}</button>
+        <button tabindex="-1" role="menuitem" :disabled="!canMoveLeft" @click="emit('action', 'move-left')">{{ t('context.move_left') }}</button>
+        <button tabindex="-1" role="menuitem" :disabled="!canMoveRight" @click="emit('action', 'move-right')">{{ t('context.move_right') }}</button>
         <hr class="context-divider" role="separator" />
-        <button class="destructive" tabindex="-1" role="menuitem" @click="emit('action', 'delete')">Удалить папку</button>
+        <button class="destructive" tabindex="-1" role="menuitem" @click="emit('action', 'delete')">{{ t('folders.delete.action') }}</button>
       </template>
       <template v-else-if="bookmark">
-        <button tabindex="-1" role="menuitem" @click="emit('action', 'open')">Открыть в новой вкладке</button><hr class="context-divider" role="separator" />
-        <button tabindex="-1" role="menuitem" @click="emit('action', 'edit')">Изменить закладку</button>
-        <button tabindex="-1" role="menuitem" @click="emit('action', 'thumbnail')">Обновить эскиз</button>
-        <button tabindex="-1" role="menuitem" :disabled="!canMoveLeft" @click="emit('action', 'move-left')">Переместить влево</button>
-        <button tabindex="-1" role="menuitem" :disabled="!canMoveRight" @click="emit('action', 'move-right')">Переместить вправо</button>
+        <button tabindex="-1" role="menuitem" @click="emit('action', 'open')">{{ t('context.open_in_new_tab') }}</button><hr class="context-divider" role="separator" />
+        <button tabindex="-1" role="menuitem" @click="emit('action', 'edit')">{{ t('bookmarks.edit.title') }}</button>
+        <button tabindex="-1" role="menuitem" @click="emit('action', 'thumbnail')">{{ t('thumbnails.update.action') }}</button>
+        <button tabindex="-1" role="menuitem" :disabled="!canMoveLeft" @click="emit('action', 'move-left')">{{ t('context.move_left') }}</button>
+        <button tabindex="-1" role="menuitem" :disabled="!canMoveRight" @click="emit('action', 'move-right')">{{ t('context.move_right') }}</button>
         <hr class="context-divider" role="separator" />
-        <button class="destructive" tabindex="-1" role="menuitem" @click="emit('action', 'delete')">Удалить закладку</button>
+        <button class="destructive" tabindex="-1" role="menuitem" @click="emit('action', 'delete')">{{ t('bookmarks.delete.action') }}</button>
       </template>
       <template v-else>
-        <button tabindex="-1" role="menuitem" @click="emit('action', 'add')">Новая закладка</button>
-        <button tabindex="-1" role="menuitem" @click="emit('action', 'folder')">Новая папка</button>
+        <button tabindex="-1" role="menuitem" @click="emit('action', 'add')">{{ t('bookmarks.add.action') }}</button>
+        <button tabindex="-1" role="menuitem" @click="emit('action', 'folder')">{{ t('folders.add.title') }}</button>
         <hr class="context-divider" role="separator" />
-        <button tabindex="-1" role="menuitem" @click="emit('action', 'settings')">Настройки</button>
+        <button tabindex="-1" role="menuitem" @click="emit('action', 'settings')">{{ t('settings.title') }}</button>
       </template>
     </div>
   </div>

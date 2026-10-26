@@ -63,7 +63,7 @@ async function check(name,{exec,until,key,resize,reload,system,shot}) {
  console.log('PASS '+name+': theme persistence, native OS changes, explicit overrides, JSON v3, unchanged tiles/wallpaper bytes, light/dark/pattern backgrounds, 360/1280/1920 and modal/menu/empty screenshots');
 }
 if(!process.argv.includes('--firefox-only')) {
- const extension=resolve('.output/chrome-mv3'),ctx=await chromium.launchPersistentContext(resolve('.browser-test/themes-chrome-'+crypto.randomUUID()),{channel:'chromium',headless:true,colorScheme:'light',args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+ const extension=resolve('.output/chrome-mv3'),ctx=await chromium.launchPersistentContext(resolve('.browser-test/themes-chrome-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,colorScheme:'light',args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
  try{const worker=ctx.serviceWorkers()[0]??await ctx.waitForEvent('serviceworker'),page=await ctx.newPage();await page.goto(worker.url().replace('background.js','newtab.html'));const exec=(body,...args)=>page.evaluate(new Function('args','return (async function(){'+body+'}).apply(null,args)'),args);
  await check('chrome',{exec,until:async body=>{const start=Date.now();while(!await exec(body)){if(Date.now()-start>15000)throw Error(body);await new Promise(r=>setTimeout(r,100));}},key:value=>page.keyboard.press(value),resize:(width,height)=>page.setViewportSize({width,height}),reload:()=>page.reload(),system:value=>page.emulateMedia({colorScheme:value}),shot:label=>page.screenshot({path:resolve(out,label+'.png')})});
  }finally{await ctx.close();}

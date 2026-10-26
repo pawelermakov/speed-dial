@@ -4,7 +4,7 @@ import {mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 const output=resolve('.browser-test/toolbar-audit');await mkdir(output,{recursive:true});
 const extension=resolve('.output/chrome-mv3');
-const context=await chromium.launchPersistentContext(resolve('.browser-test/toolbar-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const context=await chromium.launchPersistentContext(resolve('.browser-test/toolbar-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 let count=3,mailError=false;
 try {
  await context.route('https://portal.mail.ru/NaviData?**',route=>route.fulfill({status:mailError?503:200,contentType:'application/json',body:JSON.stringify({status:'ok',data:{mail_cnt:count}})}));

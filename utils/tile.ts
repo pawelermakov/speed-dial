@@ -1,6 +1,7 @@
+import { t } from '../services/i18n';
 export function tileHostname(url: string): string {
-  try { return new URL(url).hostname.toLowerCase().replace(/^www\./, '') || 'Сайт'; }
-  catch { return 'Сайт'; }
+  try { return new URL(url).hostname.toLowerCase().replace(/^www\./, '') || t('bookmarks.fallback.website'); }
+  catch { return t('bookmarks.fallback.website'); }
 }
 
 export function tileColor(hostname: string): string {

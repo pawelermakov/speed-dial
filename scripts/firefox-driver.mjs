@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { firefox } from '@playwright/test';
 
 export const firefoxUrl = 'moz-extension://53423a26-924b-4dc4-aab1-e465830d9785/newtab.html';
-export async function launchFirefox(profile) {
+export async function launchFirefox(profile, language = 'ru-RU') {
   profile ??= resolve('.browser-test', 'firefox-' + randomUUID());
   await mkdir(profile, { recursive: true });
   const port = await new Promise((resolve, reject) => {
@@ -16,6 +16,7 @@ export async function launchFirefox(profile) {
     server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); });
   });
   await writeFile(resolve(profile, 'user.js'), [
+    'user_pref("intl.accept_languages", '+JSON.stringify(language)+');',
     'user_pref("marionette.port", ' + port + ');',
     'user_pref("browser.shell.checkDefaultBrowser", false);',
     'user_pref("browser.startup.homepage_override.mstone", "ignore");',

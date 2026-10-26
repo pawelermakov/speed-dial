@@ -36,7 +36,7 @@ async function check(name, driver) {
  await chooseBackup(exec,'{"version":1}');await until('return !!document.querySelector(".data-management [role=alert]");');
  assert.equal(await exec('return (await api.bookmarks.getChildren(parityRoot)).filter(e=>e.url&&e.type!=="separator").length;'),3);
  await chooseBackup(exec,{...exported,entries:[{title:'Imported folder',children:[{title:'Imported link',url:'https://imported.example/'}]}]});
- await until('return !!document.querySelector("#import-destination");');await dataClick(exec,'Импортировать');await until('return document.querySelector(".data-management [role=status]")?.textContent.includes("Добавлено закладок: 1");');
+ await until('return !!document.querySelector("#import-destination");');await dataClick(exec,'Импортировать');await until('return document.querySelector(".data-management [role=status]")?.textContent.includes("Добавлена 1 закладка");');
  await key('Escape');await until('return !document.querySelector(".data-management");');await close();
  await until('return [...document.querySelectorAll(".folder-tab")].some(e=>e.textContent.trim()==="Imported folder");');
  console.log('PASS '+name+': native source, separator exclusion, modal isolation, export/download Blob, invalid/valid import');
@@ -100,7 +100,7 @@ async function check(name, driver) {
 
 if(!process.argv.includes('--firefox-only')) {
  const extension=resolve('.output/chrome-mv3');
- const context=await chromium.launchPersistentContext(resolve('.browser-test/parity-chrome-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+ const context=await chromium.launchPersistentContext(resolve('.browser-test/parity-chrome-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
  try {
   const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker'),page=await context.newPage();
   await page.goto(worker.url().replace('background.js','newtab.html'));

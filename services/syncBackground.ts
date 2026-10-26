@@ -1,3 +1,5 @@
+import { setLanguage } from './i18n';
+import { storedSettings } from './settingsSchema';
 import { browser } from 'wxt/browser';
 import { withDataLock } from './repository';
 import { SettingsSync } from './settingsSync';
@@ -20,7 +22,7 @@ export function startSettingsSync() {
       } catch { return null; }
     },
   });
-  const ready = coordinator.initialize().catch(() => {});
+  const ready = browser.storage.local.get('settings').then(saved=>{setLanguage(storedSettings((saved.settings as {value?:unknown}|undefined)?.value).language);return coordinator.initialize();}).catch(() => {});
   browser.runtime.onMessage.addListener((message, sender) => {
     if (sender.id !== browser.runtime.id || !sender.url?.startsWith(browser.runtime.getURL('/newtab.html')) || message?.type !== 'settings-sync') return;
     const task = async () => {
@@ -41,6 +43,7 @@ export function startSettingsSync() {
     return task().then(() => ({ ok: true }));
   });
   browser.storage.onChanged.addListener((changes, area) => {
+    if(area==='local'&&changes.settings)setLanguage(storedSettings((changes.settings.newValue as {value?:unknown}|undefined)?.value).language);
     if (area === 'sync') void ready.then(() => coordinator.remote(changes)).catch(() => {});
   });
   const events = [browser.bookmarks.onCreated, browser.bookmarks.onRemoved, browser.bookmarks.onChanged, browser.bookmarks.onMoved, browser.bookmarks.onImportEnded];

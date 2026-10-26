@@ -33,7 +33,7 @@ async function check(name,{exec,until,key,resize}) {
 
 if(!process.argv.includes('--firefox-only')) {
  const extension=resolve('.output/chrome-mv3');
- const context=await chromium.launchPersistentContext(resolve('.browser-test/parity-chrome-'+crypto.randomUUID()),{channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+ const context=await chromium.launchPersistentContext(resolve('.browser-test/parity-chrome-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
  try {
   const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker'),page=await context.newPage();
   await page.goto(worker.url().replace('background.js','newtab.html'));

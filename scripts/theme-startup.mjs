@@ -3,7 +3,7 @@ import {resolve} from 'node:path';
 import {mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const out=resolve('.browser-test/themes');await mkdir(out,{recursive:true});
-const extension=resolve('.output/chrome-mv3'),context=await chromium.launchPersistentContext(resolve('.browser-test/theme-startup-'+crypto.randomUUID()),{channel:'chromium',headless:true,colorScheme:'light',args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+const extension=resolve('.output/chrome-mv3'),context=await chromium.launchPersistentContext(resolve('.browser-test/theme-startup-'+crypto.randomUUID()),{locale:'ru-RU',channel:'chromium',headless:true,colorScheme:'light',args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
 try{
  const worker=context.serviceWorkers()[0]??await context.waitForEvent('serviceworker'),url=worker.url().replace('background.js','newtab.html');const page=await context.newPage();await page.goto(url);await expect(page.locator('.settings-trigger')).toBeEnabled();
  // A second open tab must apply native storage delivery without a reload.

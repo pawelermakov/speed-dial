@@ -1,3 +1,4 @@
+import { formatMessage } from '../services/i18n';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 import { useProviderSuggestions } from '../composables/useProviderSuggestions';
@@ -22,7 +23,7 @@ it('does not send empty input, exposes errors and ignores late completions after
   const query=ref(''),provider=ref<SearchProviderId>('myshows'),dial=useProviderSuggestions(query,provider);
   query.value=' ';await vi.advanceTimersByTimeAsync(300);expect(state.fetch).not.toHaveBeenCalled();
   state.fetch.mockRejectedValueOnce(new Error('HTTP 403'));query.value='test';await vi.advanceTimersByTimeAsync(250);
-  expect(dial.loaded.value).toBe(true);expect(dial.error.value).toBe('Подсказки временно недоступны');
+  expect(dial.loaded.value).toBe(true);expect(formatMessage(dial.error.value)).toBe('Подсказки временно недоступны');
   let finish!:(rows:SearchSuggestion[])=>void;state.fetch.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
   query.value='late';await vi.advanceTimersByTimeAsync(250);state.unmount.splice(0).forEach(fn=>fn());
   finish([{id:'late',label:'Late'}]);await vi.advanceTimersByTimeAsync(0);expect(dial.items.value).toEqual([]);
