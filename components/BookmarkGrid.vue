@@ -23,10 +23,16 @@ const gridWidth = ref(0);
 const preparing = ref(true);
 let generation = 0, disposed = false;
 let revealPending = true;
+let initialReveal = true;
 let revealAnimations: Animation[] = [];
 function cancelReveal() { for (const animation of revealAnimations) animation.cancel(); revealAnimations = []; }
 watch(() => props.motionEnabled, enabled => { if (!enabled) cancelReveal(); });
 const columns = computed(() => fitTileColumns(gridWidth.value, props.settings.countColumns, props.settings.space));
+// URL parsing and contrast calculations depend on bookmark data, not drag state.
+const tileAppearance = computed(() => Object.fromEntries(props.tabs.map(tab => {
+  const hostname = tileHostname(tab.url);
+  return [tab.id, { hostname, color: tab.faviconColor ?? tileColor(hostname) }];
+})));
 const images = new BookmarkImages((nextPreviews, nextIcons) => {
   previews.value = nextPreviews;
   icons.value = nextIcons;
@@ -41,7 +47,7 @@ watch([() => props.tabs, () => props.folderId], async ([tabs,folderId], previous
   const liveIds=new Set(tabs.map(tab=>tab.id));
   for(const id of Object.keys(failedIcons.value))if(!liveIds.has(id))delete failedIcons.value[id];
   const current = ++generation;
-  const ready = images.sync(tabs);
+  const ready = images.sync(tabs, props.searching);
   preparing.value = images.pending;
   await ready;
   if (disposed || current !== generation) return;
@@ -53,7 +59,9 @@ watch([() => props.tabs, () => props.folderId], async ([tabs,folderId], previous
   await nextTick();
   if (disposed || current !== generation || !grid.value) return;
   revealPending = false;
-  if (props.motionEnabled) {
+  const animate = !initialReveal && props.motionEnabled;
+  initialReveal = false;
+  if (animate) {
     const style = getComputedStyle(grid.value);
     const duration = style.getPropertyValue('--motion-fast').trim();
     const options = {
@@ -131,12 +139,12 @@ function key(event: KeyboardEvent, tab: Bookmark) {
     <a v-for="tab in tabs" :key="tab.id" class="bookmark select-none relative overflow-hidden group block min-w-0 bg-center bg-cover bg-no-repeat text-black [&.dragging]:opacity-40 [&.drop-target]:outline-3 [&.drop-target]:outline-[var(--ui-accent)]"
       :class="{ dragging: dragId === tab.id, 'drop-target': overId === tab.id, 'insert-after': overId === tab.id && after, 'insert-before': overId === tab.id && !after }"
       :data-bookmark-id="tab.id" aria-haspopup="menu" :aria-expanded="contextId === tab.id" :aria-controls="contextId === tab.id ? 'bookmark-context-menu' : undefined" :href="tab.url" :title="tab.title + ' — ' + tab.url + (searching && folderNames?.[tab.parentId] ? ' · ' + folderNames[tab.parentId] : '')" :aria-label="tab.title + ' — ' + tab.url + (searching && folderNames?.[tab.parentId] ? ' · ' + folderNames[tab.parentId] : '')" :draggable="!disabled && !searching"
-      :style="{ backgroundImage: previews[tab.id] ? 'url(' + previews[tab.id] + ')' : undefined, backgroundColor: previews[tab.id] ? undefined : tab.faviconColor ?? tileColor(tileHostname(tab.url)) }"
+      :style="{ backgroundImage: previews[tab.id] ? 'url(' + previews[tab.id] + ')' : undefined, backgroundColor: previews[tab.id] ? undefined : tileAppearance[tab.id]!.color }"
       @keydown="key($event, tab)" @contextmenu.stop.prevent="emit('context', $event, tab)"
       @dragstart="start($event, tab.id)" @dragend="end" @dragover="over($event, tab.id)" @click="click"
       @drop.stop.prevent="drop($event, tab.id)">
-      <TileHostname v-if="!previews[tab.id]" :hostname="tileHostname(tab.url)" />
-      <span v-else class="bookmark-title flex items-center gap-2 absolute bottom-0 inset-x-0 ui-caption px-2 py-1 text-base [&_img]:w-4 [&_img]:min-w-4 [&_img]:h-4 [&_img]:object-contain">
+      <TileHostname v-if="!previews[tab.id] && (!preparing || !revealPending)" :hostname="tileAppearance[tab.id]!.hostname" />
+      <span v-else-if="previews[tab.id]" class="bookmark-title flex items-center gap-2 absolute bottom-0 inset-x-0 ui-caption px-2 py-1 text-base [&_img]:w-4 [&_img]:min-w-4 [&_img]:h-4 [&_img]:object-contain">
         <img v-if="icons[tab.id] && failedIcons[tab.id] !== icons[tab.id]" :src="icons[tab.id]" width="16" height="16" alt="" draggable="false" class="shrink-0 pointer-events-none" @error="failedIcons[tab.id] = icons[tab.id]!" />
         <svg v-else class="bookmark-icon pointer-events-none shrink-0 size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z"/></svg>
         <span class="bookmark-title-label min-w-0 flex-1 truncate">{{ tab.title }}</span>

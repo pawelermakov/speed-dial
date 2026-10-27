@@ -10,7 +10,21 @@ export class BookmarkAssetStore {
   constructor(private db: DialDatabase, private colorOf = readFaviconColor) {}
   async get(bookmarkId: string, url: string): Promise<BookmarkAssets | undefined> {
     try {
-      const row = await this.db.tileAssets.get([bookmarkId, url]);
+      return await this.prepare(await this.db.tileAssets.get([bookmarkId, url]));
+    } catch { return undefined; }
+  }
+  async getMany(keys: Array<[string, string]>): Promise<Array<BookmarkAssets | undefined>> {
+    if (!keys.length) return [];
+    try {
+      // bulkGet shares one readonly transaction instead of opening one per tile.
+      const rows = await this.db.tileAssets.bulkGet(keys);
+      return await Promise.all(rows.map(row => this.prepare(row)));
+    } catch { return keys.map(() => undefined); }
+  }
+  private async prepare(row: BookmarkAssets | undefined): Promise<BookmarkAssets | undefined> {
+    try {
+      if (!row) return undefined;
+      const { bookmarkId, url } = row;
       if (row && valid(row.favicon)) {
         if (row.faviconColor === undefined) {
           let resolved = false;

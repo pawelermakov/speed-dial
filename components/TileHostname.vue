@@ -1,3 +1,11 @@
+<script lang="ts">
+// Text measurement is synchronous; all labels can share one canvas/context.
+let measurementCanvas: HTMLCanvasElement | undefined;
+function measurementContext() {
+  measurementCanvas ??= document.createElement('canvas');
+  return measurementCanvas.getContext('2d');
+}
+</script>
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { fitTileFont } from '../utils/tile';
@@ -7,10 +15,9 @@ const size = ref(12);
 let observer: ResizeObserver | undefined;
 let frame = 0;
 let disposed = false;
-let canvas: HTMLCanvasElement;
 function measure() {
   const element = box.value;
-  const context = canvas?.getContext('2d');
+  const context = measurementContext();
   if (!element || !context || !element.clientWidth || !element.clientHeight) return;
   const style = getComputedStyle(element);
   const width = element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
@@ -24,7 +31,6 @@ function schedule() {
   frame = requestAnimationFrame(measure);
 }
 onMounted(() => {
-  canvas = document.createElement('canvas');
   observer = new ResizeObserver(schedule);
   observer.observe(box.value!);
   schedule();

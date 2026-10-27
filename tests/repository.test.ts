@@ -94,6 +94,20 @@ describe('browser bookmarks source', () => {
     expect((await repo.search('match'))[0]).toMatchObject({title:'Changed',url:'https://other.example/match',thumbnail:null});
     await api.remove(id);expect(await repo.search('match')).toEqual([]);
   });
+  it('search reuses current snapshot images while rereading titles and changed URLs', async () => {
+    await setup();const id=await add('https://example.com/match');
+    await repo.cache(id,'https://example.com/match','thumbnail',new Blob(['image'],{type:'image/png'}));
+    const snapshot=await repo.load(false);
+    const reads=vi.spyOn(db.tileAssets,'bulkGet');
+    await api.update(id,{title:'Updated match'});
+    const result=await repo.search('match',snapshot.tabs);
+    expect(result[0]?.title).toBe('Updated match');
+    expect(result[0]?.thumbnail).toBe(snapshot.tabs[0]?.thumbnail);
+    expect(reads).not.toHaveBeenCalled();
+    await api.update(id,{url:'https://other.example/match'});
+    expect((await repo.search('match',snapshot.tabs))[0]?.thumbnail).toBeNull();
+    expect(reads).toHaveBeenCalledTimes(1);
+  });
   it('propagates search read failures and handles a missing source', async () => {
     expect(await repo.search('match')).toEqual([]);await setup();
     vi.spyOn(api,'getSubTree').mockRejectedValueOnce(new Error('read failed'));

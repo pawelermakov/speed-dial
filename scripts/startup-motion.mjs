@@ -56,20 +56,24 @@ try {
  await expect(grid).toHaveCSS('visibility','hidden');assert.equal(await page.evaluate(()=>window.tileReveals.length),0);
  await releaseImage();await expect(grid).toHaveCSS('visibility','visible');
  const tileCount=await grid.locator(':scope > a,:scope > button').count();
- await expect.poll(()=>page.evaluate(()=>window.tileReveals.length)).toBe(tileCount);
- for(const reveal of await page.evaluate(()=>window.tileReveals))assert.deepEqual(reveal,{frames:[{opacity:0},{opacity:1}],duration:150,tile:true});
+ assert.deepEqual(await page.evaluate(()=>window.tileReveals),[]);
+ await expect(page.locator('header')).toHaveCSS('opacity','1');
+ await expect(page.locator('header')).toHaveCSS('animation-name','none');
+ await expect(page.locator('.bookmark-toolbar')).toHaveCSS('animation-name','none');
+ await expect(page.locator('.bookmark')).toHaveCSS('opacity','1');
  await expect(grid).toHaveCSS('opacity','1');await expect(grid).toHaveCSS('animation-name','none');
- await expect.poll(()=>page.evaluate(()=>window.startupEvents.length)).toBe(2);
+ assert.deepEqual(await page.evaluate(()=>window.startupEvents),[]);
  await page.getByRole('button',{name:'Startup folder',exact:true}).click();await expect(page.locator('.bookmark')).toHaveAttribute('href','https://folder.example/');
  const folderCount=await grid.locator(':scope > a,:scope > button').count();
- await expect.poll(()=>page.evaluate(()=>window.tileReveals.length)).toBe(tileCount+folderCount);
+ await expect.poll(()=>page.evaluate(()=>window.tileReveals.length)).toBe(folderCount);
+ for(const reveal of await page.evaluate(()=>window.tileReveals))assert.deepEqual(reveal,{frames:[{opacity:0},{opacity:1}],duration:150,tile:true});
  await page.locator('.folder-root').click();await releaseImage();await expect(grid).toHaveCSS('visibility','visible');
- await expect.poll(()=>page.evaluate(()=>window.tileReveals.length)).toBe(tileCount*2+folderCount);
+ await expect.poll(()=>page.evaluate(()=>window.tileReveals.length)).toBe(tileCount+folderCount);
  const count=await page.evaluate(()=>window.tileReveals.length);
  await page.locator('.folder-root').click();assert.equal(await page.evaluate(()=>window.tileReveals.length),count);
  await page.evaluate(id=>chrome.bookmarks.update(id,{title:'Renamed startup tile'}),fixture);
  await expect(page.locator('.bookmark')).toHaveAttribute('title','Renamed startup tile — https://example.com/');assert.equal(await page.evaluate(()=>window.tileReveals.length),count);
- assert.equal(await page.evaluate(()=>window.startupEvents.length),2);
+ assert.equal(await page.evaluate(()=>window.startupEvents.length),0);
  // Compare screenshot detail immediately before and after the animated layer is removed.
  for(const width of [360,1280,1920]){
   await page.setViewportSize({width,height:800});await page.evaluate(()=>window.pauseTileReveal=true);
@@ -96,5 +100,5 @@ try {
  await page.reload();await releaseImage();await expect(grid).toHaveCSS('visibility','visible');
  await expect(grid).toHaveCSS('opacity','1');assert.deepEqual(await page.evaluate(()=>window.tileReveals),[]);assert.deepEqual(await page.evaluate(()=>window.startupEvents),[]);
  await page.getByRole('button',{name:'Startup folder',exact:true}).click();await expect(page.locator('.bookmark')).toHaveAttribute('href','https://folder.example/');assert.deepEqual(await page.evaluate(()=>window.tileReveals),[]);
- assert.deepEqual(errors,[]);console.log('PASS 150 ms per-tile reveal, stable grid/bitmap detail at 3 widths, decode readiness, folder changes, no replay on metadata/same folder, reduced motion');
+ assert.deepEqual(errors,[]);console.log('PASS instant startup without fade, 150 ms folder reveal, stable grid/bitmap detail at 3 widths, decode readiness, no replay on metadata/same folder, reduced motion');
 } finally {await context.close()}

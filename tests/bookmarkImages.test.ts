@@ -23,6 +23,55 @@ function setup() {
   return { cache, bookmark, revoke, previews: () => previews };
 }
 describe('bookmark image lifecycle', () => {
+  it('retains the open folder during search without accumulating old search-only images', async () => {
+    const { cache, bookmark, revoke } = setup();
+    const folder = [{ ...bookmark, id: 'a' }, { ...bookmark, id: 'b' }];
+    const ready = cache.sync(folder);
+    for (const image of FakeImage.instances) image.onload!();
+    await ready;
+    await cache.sync([folder[0]!], true);
+    expect(revoke).not.toHaveBeenCalled();
+    const search = cache.sync([{ ...bookmark, id: 'external' }], true);
+    FakeImage.instances[2]!.onload!();await search;
+    await cache.sync([folder[0]!], true);
+    expect(revoke).toHaveBeenCalledTimes(1);
+    await cache.sync(folder);
+    expect(FakeImage.instances).toHaveLength(3);
+    expect(cache.pending).toBe(false);
+    await cache.sync([]);
+    expect(revoke).toHaveBeenCalledTimes(3);
+    cache.dispose();
+  });
+  it('publishes once when decodes finish in separate browser tasks', async () => {
+    const { bookmark } = setup();
+    const changed = vi.fn();
+    const cache = new BookmarkImages(changed);
+    const ready = cache.sync([{ ...bookmark, id: 'a' }, { ...bookmark, id: 'b' }]);
+    FakeImage.instances[0]!.onload!();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(changed).toHaveBeenCalledTimes(1);
+    expect(cache.pending).toBe(true);
+    FakeImage.instances[1]!.onload!();
+    await ready;
+    expect(changed).toHaveBeenCalledTimes(2);
+    expect(Object.keys(changed.mock.calls[1]![0])).toEqual(['a', 'b']);
+    cache.dispose();
+  });
+  it('batches simultaneous decodes and skips publishing unchanged resources', async () => {
+    const { bookmark } = setup();
+    const changed = vi.fn();
+    const cache = new BookmarkImages(changed);
+    const tabs = Array.from({ length: 100 }, (_, index) => ({ ...bookmark, id: String(index) }));
+    const ready = cache.sync(tabs);
+    expect(changed).toHaveBeenCalledTimes(1);
+    for (const image of FakeImage.instances) image.onload!();
+    await ready;
+    expect(changed).toHaveBeenCalledTimes(2);
+    expect(Object.keys(changed.mock.calls[1]![0])).toHaveLength(100);
+    await cache.sync(tabs.map(tab => ({ ...tab, title: 'Renamed' })));
+    expect(changed).toHaveBeenCalledTimes(2);
+    cache.dispose();
+  });
   it('does not declare the initial batch ready until decode finishes', async () => {
     const { cache, bookmark, previews } = setup();
     const ready = cache.sync([bookmark]);

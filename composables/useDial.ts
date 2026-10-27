@@ -24,11 +24,11 @@ export function useDial() {
   let settingsVersion = 0, settingsRead = 0, rootVersion = 0, backgroundVersion = 0;
   let backgroundDirty = true;
   const fieldLabels:Record<keyof Settings,MessageText> = {get language(){return message('settings.language.label');},mailruEnabled:'Mail.ru',gmailEnabled:'Gmail',get yandexMailEnabled(){return message('mail.providers.yandex');},get weatherEnabled(){return message('settings.weather.title');},get weatherCity(){return message('settings.weather.city');},get weatherProvider(){return message('settings.weather.provider');},get theme(){return message('settings.theme.label');},get width(){return message('settings.grid.width');},get countColumns(){return message('settings.grid.columns');},get space(){return message('settings.grid.spacing');},get verticalCenter(){return message('settings.grid.vertical_center');},get addButton(){return message('settings.bookmarks.add_button');},get bookmarkSearch(){return message('search.bookmarks.label');},get movieSearch(){return message('settings.bookmarks.movie_search');},get searchProvider(){return message('settings.search.provider');}};
-  function publishSettings() {
+  function publishSettings(base: Snapshot = snapshot.value) {
     const settings = { ...confirmed };
     for (const [key,entry] of pendingFields) Object.assign(settings,{[key]:entry.value});
     setLanguage(settings.language);
-    snapshot.value = { ...snapshot.value, settings };
+    snapshot.value = { ...base, settings };
     settingsReady.value=true;
   }
   function track<T>(promise:Promise<T>):Promise<T> { saves.add(promise);void promise.finally(()=>saves.delete(promise)).catch(()=>{});return promise; }
@@ -44,8 +44,7 @@ export function useDial() {
     if (sequence !== generation || disposed) return;
     if (includeBackground) backgroundDirty = false;
     confirmed = next.settings;
-    snapshot.value = { ...next, background:includeBackground ? next.background : snapshot.value.background };
-    publishSettings();
+    publishSettings({ ...next, background:includeBackground ? next.background : snapshot.value.background });
     if (next.rootNotice) { notice.value = next.rootNotice;settingErrors.value={...settingErrors.value,root:next.rootNotice}; repository.clearSourceNotice?.(); }
     for (const tab of next.tabs.filter(tab => !tab.favicon)) {
       const key = tab.id + tab.url;

@@ -11,10 +11,21 @@ vi.mock('../services/favicons', () => ({ faviconBlob: vi.fn(async () => null) })
 vi.mock('../services/repository', () => ({ Repository: class { load = state.load; initialize = state.initialize; }, withDataLock: (fn: ()=>Promise<unknown>) => fn() }));
 import { useDial, repository } from '../composables/useDial';
 import { defaults } from '../types/models';
+import { watch } from 'vue';
 const snapshot = (title: string) => ({ tabs: [{ id:'x', parentId:'root', title, url:'https://example.com/', index:0, favicon:null, thumbnail:null }], folders:[],rootId:'root',activeId:'root',settings:defaults,background:null });
 beforeEach(() => { vi.useFakeTimers(); state.mounted.length=0;state.unmounted.length=0;state.listeners.clear();state.background.mockReset().mockResolvedValue(undefined);state.load.mockReset().mockResolvedValue(snapshot('Initial'));state.initialize.mockReset().mockResolvedValue(undefined);vi.stubGlobal('BroadcastChannel',class { postMessage=state.post; close=state.close; onmessage=null; });vi.stubGlobal('navigator',{}); });
 afterEach(() => { state.unmounted.forEach(callback=>callback());vi.useRealTimers();vi.unstubAllGlobals(); });
 describe('browser event refresh lifecycle', () => {
+ it('publishes a refreshed snapshot once so synchronous search watchers do not run twice', async () => {
+   const dial = useDial();await state.mounted[0]!();
+   const changed = vi.fn();
+   const stop = watch(dial.snapshot, changed, { flush: 'sync' });
+   state.load.mockResolvedValue(snapshot('Updated'));
+   await dial.refresh();
+   expect(changed).toHaveBeenCalledTimes(1);
+   expect(dial.snapshot.value.tabs[0]?.title).toBe('Updated');
+   stop();
+ });
  it('refreshes asset-only broadcasts without invalidating a drag, but invalidates structural updates',async()=>{
    const channels:Array<{onmessage:((event:{data:unknown})=>void)|null}>=[];
    vi.stubGlobal('BroadcastChannel',class {onmessage:((event:{data:unknown})=>void)|null=null;postMessage=state.post;close=state.close;constructor(){channels.push(this);}});

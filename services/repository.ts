@@ -66,7 +66,7 @@ export class Repository {
     await this.parent(node.parentId);
     return node;
   }
-  async search(query: string): Promise<Bookmark[]> {
+  async search(query: string, cachedTabs: Bookmark[] = []): Promise<Bookmark[]> {
     const text = query.trim().toLocaleLowerCase();
     const rootId = this.rootId;
     if (!text || !rootId) return [];
@@ -75,22 +75,31 @@ export class Repository {
     if (!root || root.unmodifiable) throw new LocalizedError(message('bookmarks.source.unavailable'));
     const children = root.children ?? [];
     const rows = children.flatMap(node => isBookmark(node) ? [node] : (node.children ?? []).filter(isBookmark));
-    return Promise.all(rows.filter(node => (node.title + '\n' + node.url).toLocaleLowerCase().includes(text)).map(async node => {
-      const url = node.url!;
-      const cache = await this.images.get(node.id, url);
+    return this.withAssets(rows.filter(node => (node.title + '\n' + node.url).toLocaleLowerCase().includes(text)), cachedTabs);
+  }
+  private async withAssets(nodes: BookmarkNode[], cachedTabs: Bookmark[] = []): Promise<Bookmark[]> {
+    const cached = new Map(cachedTabs.map(tab => [tab.id, tab]));
+    const missing = nodes.filter(node => cached.get(node.id)?.url !== node.url);
+    const assets = await this.images.getMany(missing.map(node => [node.id, node.url!]));
+    const fetched = new Map(missing.map((node, index) => [node.id, assets[index]]));
+    return nodes.map(node => {
+      const url = node.url!, previous = cached.get(node.id);
+      const cache = previous?.url === url ? previous : fetched.get(node.id);
       return { id:node.id, parentId:node.parentId!, url, title:node.title || url, index:node.index ?? 0,
         thumbnail:cache?.thumbnail ?? null, favicon:cache?.favicon ?? null, faviconColor:cache?.faviconColor ?? undefined,
         thumbnailUpdatedAt:cache?.thumbnailUpdatedAt, faviconUpdatedAt:cache?.faviconUpdatedAt };
-    }));
+    });
   }
   async load(includeBackground = true): Promise<Snapshot> {
     const generation = ++this.readGeneration;
     const initialRoot = this.rootId;
     let rootId = initialRoot, activeId = this.activeId;
-    const envelope = await this.settings.getValue();
-    const background = includeBackground ? await this.db.assets.get('background') : undefined;
+    const [envelope, background, choices] = await Promise.all([
+      this.settings.getValue(),
+      includeBackground ? this.db.assets.get('background') : undefined,
+      this.choices(),
+    ]);
     let rootNotice = this.sourceNotice;
-    const choices = await this.choices();
     if (!rootId || !choices.some(choice => choice.id === rootId)) {
       rootId = defaultFolderId(choices);
       activeId = null;
@@ -107,11 +116,7 @@ export class Repository {
       folders = [{ id: rootId, title: rootTitle, index: -1, virtual: true }, ...childFolders.map(node => ({ id: node.id, title: node.title === rootTitle ? t('folders.display.duplicate_root_name', {folder_name: rootTitle}) : node.title, index: node.index ?? 0 }))];
       if (!activeId || (folders.length ? !folders.some(node => node.id === activeId) : activeId !== rootId)) activeId = folders[0]?.id ?? rootId;
       const nodes = activeId === rootId ? children : await this.bookmarks.getChildren(activeId);
-      tabs = await Promise.all(nodes.filter(isBookmark).map(async node => {
-        const url = node.url!;
-        const cache = await this.images.get(node.id, url);
-        return { id: node.id, parentId: node.parentId!, url, title: node.title || url, index: node.index ?? 0, thumbnail: cache?.thumbnail ?? null, favicon: cache?.favicon ?? null, faviconColor: cache?.faviconColor ?? undefined, thumbnailUpdatedAt: cache?.thumbnailUpdatedAt, faviconUpdatedAt: cache?.faviconUpdatedAt };
-      }));
+      tabs = await this.withAssets(nodes.filter(isBookmark));
     }
     if (generation === this.readGeneration && initialRoot === this.rootId) { this.rootId = rootId; this.activeId = activeId; }
     return { tabs, folders, rootId, activeId, settings: envelope ? validateSettings(envelope.value) : { ...defaults }, background: background?.blob ?? null, rootNotice };

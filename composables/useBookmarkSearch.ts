@@ -13,7 +13,7 @@ export function useBookmarkSearch(repository: Repository, snapshot: Ref<Snapshot
     pending.value = !!text && !!snapshot.value.rootId;
     if (!pending.value) return;
     try {
-      const next = await repository.search(text);
+      const next = await repository.search(text, snapshot.value.tabs);
       if (current === generation) results.value = next;
     } catch (cause) {
       if (current === generation) error.value = message('search.bookmarks.errors.failed', {error: (errorMessage(cause))});
