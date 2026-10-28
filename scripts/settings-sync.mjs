@@ -11,8 +11,6 @@ const run=crypto.randomUUID();
 if(!process.argv.includes('--firefox-only')) {
 const source=resolve('.output/chrome-mv3');
 const manifest=JSON.parse(await readFile(resolve(source,'manifest.json'),'utf8'));
-const firefox=JSON.parse(await readFile('.output/firefox-mv2/manifest.json','utf8'));
-assert.equal(firefox.key,undefined);
 createPublicKey({key:Buffer.from(manifest.key,'base64'),format:'der',type:'spki'});
 const expectedId=[...createHash('sha256').update(Buffer.from(manifest.key,'base64')).digest().subarray(0,16)].map(v=>String.fromCharCode(97+(v>>4),97+(v&15))).join('');
 const copies=await Promise.all(['a','b'].map(async name=>{
@@ -42,7 +40,7 @@ const cloud=worker=>worker.evaluate(()=>chrome.storage.sync.get(null));
 try{
  assert.equal(a.id,b.id);assert.notEqual(a.directory,b.directory);
  assert.deepEqual(await cloud(a.worker),{});assert.deepEqual(await cloud(b.worker),{});
- console.log('PASS same actual runtime ID from two independent unpacked directories; Firefox excludes key; clean profiles do not upload defaults');
+ console.log('PASS same actual runtime ID from two independent unpacked directories; clean profiles do not upload defaults');
 
  await open(a.page);await a.page.getByLabel('Ширина (%)',{exact:true}).fill('80');await close(a.page);
  await expect.poll(()=>cloud(a.worker)).toEqual({'settings.v1.width':80});
@@ -124,12 +122,14 @@ try{
  assert.equal(JSON.stringify(await cloud(a.worker)).includes('example.invalid'),false);
  console.log('PASS account/status UI, tooltip bounds, responsive panel, identity stays memory-only');
  for(const copy of copies)assert.deepEqual(copy.errors,[]);
- await writeFile(resolve(output,'id-check.json'),JSON.stringify({id:expectedId,directories:copies.map(copy=>copy.directory),firefoxKey:false,realGoogleDelivery:'NOT TESTED'},null,2));
+ await writeFile(resolve(output,'id-check.json'),JSON.stringify({id:expectedId,directories:copies.map(copy=>copy.directory),realGoogleDelivery:'NOT TESTED'},null,2));
  console.log('SKIP real signed-in Google accounts/devices and real cloud delivery: controlled isolated fixtures only');
 }finally{await Promise.all(copies.map(copy=>copy.context.close()));}
 
 }
 if(!process.argv.includes('--chrome-only')) {
+ const firefox=JSON.parse(await readFile('.output/firefox-mv2/manifest.json','utf8'));
+ assert.equal(firefox.key,undefined);
  let a,b;
  const open=async d=>{await d.exec('document.querySelector(".settings-trigger").click();return true;');await d.until('return !!document.querySelector(".settings")');};
  const close=async d=>{await d.exec('document.querySelector(".settings .close").click();return true;');await d.until('return !document.querySelector(".settings")');};
@@ -153,7 +153,7 @@ if(!process.argv.includes('--chrome-only')) {
   await a.exec('const el=document.querySelector("#bookmark-folder");el.value=arguments[0];el.dispatchEvent(new Event("change",{bubbles:true}));return true;',guid);await close(a);
   await a.until('return (await browser.storage.sync.get("selectedFolder.v1"))["selectedFolder.v1"]?.guid==="'+guid+'"');
   await b.exec('const {rootFolderId}=await browser.storage.local.get("rootFolderId");await browser.bookmarks.create({parentId:rootFolderId,title:"Sync Work"});return true;');
-  await deliver(a,b);await b.until('return (await browser.storage.local.get("settingsSyncState")).settingsSyncState.folder.includes("Ожидаем папку из Firefox")');
+  await deliver(a,b);await b.until('const folder=(await browser.storage.local.get("settingsSyncState")).settingsSyncState?.folder;return folder?.key==="sync.folder.waiting_for_browser"&&folder.params.browser_name==="Firefox";');
   assert.notEqual(await b.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),guid);
   await b.command('Marionette:SetContext',{value:'chrome'});
   // Only the isolated fixture uses privileged Places access to reproduce the

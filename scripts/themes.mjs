@@ -5,6 +5,7 @@ import {resolve} from 'node:path';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {launchFirefox,firefoxUrl} from './firefox-driver.mjs';
 const out=resolve('.browser-test/themes');await mkdir(out,{recursive:true});
+const luminance=rgb=>rgb.slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
 async function check(name,{exec,until,key,resize,reload,system,shot}) {
  await until('return !!document.querySelector(".folder-root")&&!document.querySelector(".settings-trigger").disabled;');
  await system('light');await until('return document.documentElement.dataset.theme==="light";');
@@ -46,10 +47,16 @@ async function check(name,{exec,until,key,resize,reload,system,shot}) {
  }
  for(const mode of ['light','dark']) {
   await resize(1280,900);await choose(mode);
+  // Read rendered placeholder and control colours instead of testing colour literals.
+  const control=await exec('const rgb=s=>(s.match(/[0-9.]+/g)||[]).map(Number);return {text:rgb(getComputedStyle(document.querySelector(".search input"),"::placeholder").color),surface:rgb(getComputedStyle(document.querySelector(".search-surface")).backgroundColor)};');
+  const alpha=control.surface[3]??1;
+  const backdrop=mode==='light'?0:255;
+  const surface=control.surface.slice(0,3).map(v=>v*alpha+backdrop*(1-alpha));
+  const textLight=luminance(control.text),surfaceLight=luminance(surface);
+  assert.ok((Math.max(textLight,surfaceLight)+.05)/(Math.min(textLight,surfaceLight)+.05)>=4.5,`${name} ${mode}: search placeholder must reach 4.5:1 on the least favourable wallpaper`);
   await exec('document.querySelector(".bookmark").focus();document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,cancelable:true,clientX:200,clientY:200}));');await until('return document.activeElement?.getAttribute("role")==="menuitem"&&!document.querySelector(".floating-enter-active");');await until('return getComputedStyle(document.activeElement).color==="rgb(23, 33, 47)";');await shot(name+'-'+mode+'-menu');
   await exec('[...document.querySelectorAll("[role=menuitem]")].find(e=>e.textContent.trim()==="Изменить закладку").click();');await until('return !!document.querySelector("#bookmark-url")&&!document.querySelector(".modal-panel-enter-active");');if(mode==='dark') {
    const audit=await exec('const modal=document.querySelector(".modal"),panel=document.querySelector(".search-surface"),probe=document.createElement("span");probe.style.color="var(--text-secondary)";modal.appendChild(probe);const rgb=s=>(s.match(/[0-9.]+/g)||[]).map(Number);const result={text:rgb(getComputedStyle(probe).color),modal:rgb(getComputedStyle(modal).backgroundColor),control:rgb(getComputedStyle(panel).backgroundColor)};probe.remove();return result;');
-   const luminance=rgb=>rgb.slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
    const background=audit.modal.slice(0,3).map(v=>(v*(audit.modal[3]??1)+255*(1-(audit.modal[3]??1)))*.94+255*.06);
    assert.ok(luminance(audit.modal)>luminance(audit.control),'raised modal must be lighter than base controls');
    assert.ok((luminance(audit.text)+.05)/(luminance(background)+.05)>=7,'secondary text must reach 7:1 over the brightest glass region');
