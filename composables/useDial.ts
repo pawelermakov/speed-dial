@@ -8,18 +8,23 @@ import {
 } from '../services/i18n';
 import { isMovieProvider } from '../types/models';
 import { ref, shallowRef, watch, onMounted, onUnmounted } from 'vue';
-import { browser } from 'wxt/browser';
-import { storage } from 'wxt/utils/storage';
-import { db } from '../services/database';
-import { settingsItem } from '../services/settings';
-import { syncRequest } from '../services/syncClient';
-import { Repository, withDataLock } from '../services/repository';
 import { defaults, type SearchProviderId, type Settings, type Snapshot } from '../types/models';
 import { validateSettings } from '../services/validation';
-import { faviconBlob } from '../services/favicons';
-const rootItem = storage.defineItem<string>('local:rootFolderId');
-export const repository = new Repository(db, settingsItem, browser.bookmarks, rootItem);
-export function useDial() {
+import type { DialDependencies } from '../modules/dial';
+import { useServices } from '../app/serviceContext';
+
+export function useDial(dependencies: DialDependencies = useServices()) {
+  const {
+    repository,
+    settings: settingsItem,
+    root: rootItem,
+    lock: withDataLock,
+    syncRequest,
+    updates,
+    events,
+    readBackground,
+    faviconBlob,
+  } = dependencies;
   const snapshot = shallowRef<Snapshot>({
     tabs: [],
     folders: [],
@@ -107,13 +112,13 @@ export function useDial() {
     while (saves.size) await Promise.allSettled([...saves]);
     await syncRequest('flush');
   }
-  const channel = new BroadcastChannel('speed-dial-updates');
   let generation = 0,
     timer: ReturnType<typeof setTimeout> | undefined,
     disposed = false;
   const attempted = new Set<string>();
   const errorText = (error: unknown) => errorMessage(error);
   const refresh = async () => {
+    if (disposed) return;
     const sequence = ++generation;
     const includeBackground = backgroundDirty;
     const next = await withDataLock(() => repository.load(includeBackground));
@@ -138,12 +143,13 @@ export function useDial() {
           if (!blob || disposed) return;
           await repository.cache(tab.id, tab.url, 'favicon', blob);
           schedule(false);
-          channel.postMessage({ type: 'updated', assets: true });
+          updates.publish({ type: 'updated', assets: true });
         })
         .catch(() => {});
     }
   };
   const schedule = (invalidateDrag = true) => {
+    if (disposed) return;
     generation++;
     if (invalidateDrag) revision.value++;
     clearTimeout(timer);
@@ -167,7 +173,7 @@ export function useDial() {
         settingErrors.value = {};
       }
       await refresh();
-      channel.postMessage({ type: 'updated', background: changesBackground });
+      updates.publish({ type: 'updated', background: changesBackground });
       return true;
     } catch (error) {
       notice.value = errorText(error);
@@ -234,7 +240,7 @@ export function useDial() {
             void syncRequest('folder', id);
             delete settingErrors.value.root;
             await refresh();
-            channel.postMessage({ type: 'updated' });
+            updates.publish({ type: 'updated' });
           }
           return true;
         } catch (error) {
@@ -259,7 +265,7 @@ export function useDial() {
           if (version === backgroundVersion) {
             snapshot.value = { ...snapshot.value, background: blob };
             delete settingErrors.value.background;
-            channel.postMessage({ type: 'updated', background: true });
+            updates.publish({ type: 'updated', background: true });
           }
           return true;
         } catch (error) {
@@ -279,10 +285,11 @@ export function useDial() {
     if (settingsReady.value && !disposed) schedule(false);
   });
   onUnmounted(stopLanguage);
-  channel.onmessage = (event) => {
-    if (event.data?.background || event.data === 'updated') backgroundDirty = true;
-    schedule(!event.data?.assets);
-  };
+  const unsubscribeUpdates = updates.subscribe((update) => {
+    const message = update === 'updated' ? undefined : update;
+    if (message?.background || update === 'updated') backgroundDirty = true;
+    schedule(!message?.assets);
+  });
   const unwatchSettings = settingsItem.watch?.(() => {
     const sequence = ++settingsRead;
     void withDataLock(async () => validateSettings((await settingsItem.getValue())?.value))
@@ -310,60 +317,44 @@ export function useDial() {
       schedule();
     }
   });
-  const api = browser.bookmarks;
-  const events = [
-    api?.onCreated,
-    api?.onRemoved,
-    api?.onChanged,
-    api?.onMoved,
-    api?.onChildrenReordered,
-    api?.onImportEnded,
-  ];
-  const bookmarkEvent = () => {
+  const unsubscribeEvents = events.subscribe((assetsOnly) => {
     attempted.clear();
-    schedule();
-  };
-  const tabUpdated = (_id: number, change: { favIconUrl?: string }) => {
-    if (change.favIconUrl) {
-      attempted.clear();
-      schedule(false);
-    }
-  };
-  events.forEach((event) => event?.addListener(bookmarkEvent));
-  browser.tabs?.onUpdated?.addListener(tabUpdated);
+    schedule(!assetsOnly);
+  });
   onMounted(async () => {
     // Wallpaper should not wait for sync and the bookmark tree.
     const initialBackgroundVersion = backgroundVersion;
-    void db.assets
-      .get('background')
-      .then((asset) => {
+    void readBackground()
+      .then((background) => {
         if (!disposed && backgroundDirty && backgroundVersion === initialBackgroundVersion)
-          snapshot.value = { ...snapshot.value, background: asset?.blob ?? null };
+          snapshot.value = { ...snapshot.value, background };
       })
       .catch(() => {}); // The regular refresh reports storage errors.
     try {
-      if (!api) throw new LocalizedError(message('bookmarks.errors.api_unavailable'));
+      if (!events.available) throw new LocalizedError(message('bookmarks.errors.api_unavailable'));
       await syncRequest('initialize');
+      if (disposed) return;
       const initial = await withDataLock(() => repository.initialize());
+      if (disposed) return;
       if (initial?.rootNotice) notice.value = initial.rootNotice;
       await refresh();
     } catch (error) {
-      notice.value = message('bookmarks.errors.open_failed', { error: errorText(error) });
+      if (!disposed)
+        notice.value = message('bookmarks.errors.open_failed', { error: errorText(error) });
     } finally {
-      loading.value = false;
+      if (!disposed) loading.value = false;
     }
   });
   onUnmounted(() => {
+    disposed = true;
     unwatchRoot();
     unwatchSettings?.();
-    disposed = true;
     generation++;
     clearTimeout(timer);
-    events.forEach((event) => event?.removeListener(bookmarkEvent));
-    browser.tabs?.onUpdated?.removeListener(tabUpdated);
-    channel.close();
+    unsubscribeEvents();
+    unsubscribeUpdates();
   });
-  const announce = () => channel.postMessage({ type: 'updated' });
+  const announce = () => updates.publish({ type: 'updated' });
   return {
     snapshot,
     loading,

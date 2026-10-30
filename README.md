@@ -95,7 +95,8 @@ npm run build:firefox
 Для исходников действуют `.editorconfig`, Prettier, ESLint и Stylelint.
 После `npm ci` Husky запускает lint-staged перед коммитом; полные проверки
 выполняются отдельно и в GitHub Actions. Ход архитектурной миграции описан в
-[плане](REFACTORING_PLAN.md) и [отчёте](docs/refactoring-progress.md).
+[плане](REFACTORING_PLAN.md) и [отчёте](docs/refactoring-progress.md). Реализованные
+границы описаны в [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ```sh
 npm run format:check

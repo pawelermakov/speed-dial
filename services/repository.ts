@@ -1,7 +1,13 @@
 import { t, message, LocalizedError, errorMessage, joinMessages, type MessageText } from './i18n';
 import { BookmarkAssetStore } from './bookmarkAssets';
 import type { DialDatabase } from './database';
-import type { SettingsPort } from './settings';
+import type { SettingsPort } from '../modules/dial/modules/settings';
+import type {
+  AssetsPort,
+  BookmarksPort,
+  RootPort,
+  BookmarkNode,
+} from '../modules/dial/modules/bookmarks';
 import {
   allBackupSections,
   type BackupSelection,
@@ -15,22 +21,10 @@ import {
   type SearchProviderId,
 } from '../types/models';
 import { normalizeUrl, validateSettings } from './validation';
-import {
-  isBookmark,
-  isFolder,
-  folderChoices,
-  defaultFolderId,
-  type BookmarksPort,
-  type RootPort,
-  type BookmarkNode,
-} from './bookmarks';
-let localQueue: Promise<unknown> = Promise.resolve();
-export async function withDataLock<T>(operation: () => Promise<T>): Promise<T> {
-  if (navigator.locks) return navigator.locks.request('speed-dial-data', operation);
-  const pending = localQueue.then(operation);
-  localQueue = pending.catch(() => {});
-  return pending;
-}
+import { isBookmark, isFolder, folderChoices, defaultFolderId } from './bookmarks';
+import { withDataLock } from '../shared/infrastructure/browser/dataLock';
+// Compatibility export until legacy consumers migrate in stage 8.
+export { withDataLock } from '../shared/infrastructure/browser/dataLock';
 export class Repository {
   rootId: string | null = null;
   activeId: string | null = null;
@@ -43,7 +37,7 @@ export class Repository {
     this.readGeneration++;
     this.activeId = id;
   }
-  private images: BookmarkAssetStore;
+  private images: AssetsPort;
   constructor(
     private db: DialDatabase,
     private settings: SettingsPort,

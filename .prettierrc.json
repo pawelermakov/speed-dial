@@ -4,5 +4,13 @@
   "singleQuote": true,
   "trailingComma": "all",
   "printWidth": 100,
-  "endOfLine": "lf"
+  "endOfLine": "lf",
+  "overrides": [
+    {
+      "files": "*.mdc",
+      "options": {
+        "parser": "markdown"
+      }
+    }
+  ]
 }

@@ -1,0 +1,21 @@
+---
+description: Модульные границы и правила рефакторинга SpeedDial X
+alwaysApply: true
+---
+
+- Следовать ARCHITECTURE.md и REFACTORING_PLAN.md; сохранять поведение и внешний вид.
+- Новый код размещать у feature-владельца в modules/dial/modules, общий — в shared.
+- Entities и чистые helpers не импортируют Vue, WXT, Dexie, DOM и адаптеры.
+- Сервисы получают порты; компоненты/composables не создают инфраструктуру и не выполняют HTTP.
+- Между feature использовать публичный index.ts; внутри feature — прямые относительные импорты.
+- Shared не зависит от modules. Подмодули не импортируют родительский Snapshot.
+- Сохранять явные импорты: WXT auto-imports отключены. Не добавлять Nuxt/Pinia.
+- Vue: Composition API, TypeScript, props вниз/emits вверх; focus, DOM-геометрия и accessibility остаются в UI.
+- Подписки, timers, AbortController и object URLs имеют явный cleanup; сохранять stale-result guards.
+- Не ожидать sync message под speed-dial-data, если обработчик использует тот же lock.
+- Не менять persisted keys, browser IDs, схему Dexie, backup format и permissions при переносе.
+- Словари остаются в locales; чистые message DTO не зависят от UI-переводчика.
+- Compatibility exports временные: указывать назначение и этап удаления, не расширять legacy-каталоги.
+- Проверять затронутые unit-тесты и TypeScript, при изменении import graph — обе сборки.
+- Browser/UI сценарии покрывают Chrome и Firefox равнозначно; не скрывать пробелы skip/allowlist.
+- Форматировать Prettier, проверять ESLint/Stylelint; не смешивать перенос с редизайном и оптимизацией.

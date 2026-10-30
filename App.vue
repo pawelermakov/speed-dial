@@ -26,9 +26,9 @@ import WeatherWidget from './components/WeatherWidget.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import ContextMenu from './components/ContextMenu.vue';
 import DataManagementDialog from './components/DataManagementDialog.vue';
-import { useDial, repository } from './composables/useDial';
+import { useDial } from './composables/useDial';
+import { useServices } from './app/serviceContext';
 import { requestThumbnail } from './services/thumbnails';
-import { withDataLock } from './services/repository';
 import { selectExport, serializeExport } from './services/importExport';
 import { normalizeUrl } from './services/validation';
 import { cacheBackgroundPreview, clearBackgroundPreview } from './utils/backgroundPreview';
@@ -45,6 +45,8 @@ import type {
   Settings,
 } from './types/models';
 
+const services = useServices();
+const { repository, lock: withDataLock } = services;
 const {
   snapshot,
   loading,
@@ -61,7 +63,7 @@ const {
   changeBackground,
   flushSettings,
   settingErrors,
-} = useDial();
+} = useDial(services);
 useTheme(
   () => snapshot.value.settings.theme,
   () => settingsReady.value,

@@ -1,4 +1,4 @@
-import { defaults, type Settings } from '../types/models';
+import { defaults, type Settings } from '../modules/dial/modules/settings';
 import { validateSettings } from './validation';
 
 // Settings is the sole allowlist: identities, image data and bookmark IDs never

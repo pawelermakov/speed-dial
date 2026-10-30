@@ -1,32 +1,6 @@
 import { t } from './i18n';
-import type { FolderChoice } from '../types/models';
-export interface BookmarkNode {
-  type?: 'bookmark' | 'folder' | 'separator';
-  id: string;
-  parentId?: string;
-  title: string;
-  url?: string;
-  index?: number;
-  children?: BookmarkNode[];
-  unmodifiable?: string;
-  folderType?: string;
-  syncing?: boolean;
-}
-export interface BookmarksPort {
-  get(id: string): Promise<BookmarkNode[]>;
-  getTree(): Promise<BookmarkNode[]>;
-  getSubTree(id: string): Promise<BookmarkNode[]>;
-  getChildren(id: string): Promise<BookmarkNode[]>;
-  create(value: { parentId: string; title: string; url?: string }): Promise<BookmarkNode>;
-  update(id: string, value: { title?: string; url?: string }): Promise<BookmarkNode>;
-  move(id: string, value: { parentId?: string; index?: number }): Promise<BookmarkNode>;
-  remove(id: string): Promise<void>;
-  removeTree(id: string): Promise<void>;
-}
-export interface RootPort {
-  getValue(): Promise<string | null>;
-  setValue(value: string): Promise<void>;
-}
+import type { BookmarkNode, FolderChoice } from '../modules/dial/modules/bookmarks';
+export type { BookmarkNode, BookmarksPort, RootPort } from '../modules/dial/modules/bookmarks';
 export function isBookmark(node: BookmarkNode): boolean {
   return !!node.url && node.type !== 'separator' && node.type !== 'folder';
 }

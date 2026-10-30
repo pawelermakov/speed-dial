@@ -26,10 +26,6 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.webextensions } },
   },
   {
-    files: ['scripts/**/*.mjs'],
-    languageOptions: { globals: { ...globals.webextensions } },
-  },
-  {
     files: ['**/*.{js,mjs,ts,vue}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: {
@@ -55,6 +51,81 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
+    },
+  },
+  {
+    files: ['modules/**/entities/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['vue', 'dexie'],
+          patterns: [
+            'vue/**',
+            'wxt',
+            'wxt/**',
+            '**/services/**',
+            '**/adapters/**',
+            '**/components/**',
+            '**/composables/**',
+            '**/utils/**',
+            '**/types/models',
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['shared/**/*.ts'],
+    rules: { 'no-restricted-imports': ['error', { patterns: ['**/modules/**'] }] },
+  },
+  {
+    files: ['shared/i18n/contracts.ts', 'shared/i18n/messages.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['vue', 'dexie'],
+          patterns: [
+            'vue/**',
+            'wxt',
+            'wxt/**',
+            '**/modules/**',
+            '**/services/**',
+            '**/adapters/**',
+            '**/components/**',
+            '**/composables/**',
+            '**/utils/**',
+            '**/types/models',
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['composables/useDial.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            '../services/database',
+            '../services/repository',
+            '../services/settings',
+            '../services/favicons',
+          ],
+          patterns: ['wxt', 'wxt/**', '**/adapters/**', '**/infrastructure/**'],
+        },
+      ],
+    },
+  },
+  {
+    files: ['app/createBackgroundApplication.ts', 'entrypoints/background.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: ['vue'], patterns: ['**/components/**', '**/*.vue'] },
+      ],
     },
   },
   prettier,

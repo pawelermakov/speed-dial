@@ -1,5 +1,8 @@
 import { isLanguage, message, LocalizedError, type MessageText } from './i18n';
-import { weatherCities, weatherProviders } from '../utils/weather';
+import {
+  weatherCityDefinitions as weatherCities,
+  weatherProviderDefinitions as weatherProviders,
+} from '../modules/dial/modules/weather';
 import {
   defaults,
   themeModes,

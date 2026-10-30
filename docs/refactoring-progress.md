@@ -1,7 +1,7 @@
 # Ход рефакторинга
 
 Начало реализации: 30 октября 2026 года. Порядок работ задан в
-[REFACTORING_PLAN.md](../REFACTORING_PLAN.md). Миграция модулей ещё не начата.
+[REFACTORING_PLAN.md](../REFACTORING_PLAN.md). Выделены модульные контракты и composition roots этапов 1–2.
 
 ## Исходная точка (этап 0)
 
@@ -68,7 +68,85 @@ newtab вырос на 2 байта (Chrome 420986, Firefox 420605). Общий 
 до 60506 байт, ранний wallpaper-bootstrap — с 1471 до 1714 байт из-за форматирования.
 Оптимизация этих артефактов не совмещалась с настройкой инструментов.
 
-Следом: этап 1 (правила и модульные контракты), затем этап 2 (composition roots).
+## Этап 1. Правила и модульные контракты
+
+Завершён 30 октября 2026 года.
+
+- Добавлены ARCHITECTURE.md и адаптированные правила .cursor/rules/architecture.mdc.
+- Типы/defaults разнесены по dial, bookmarks, settings, appearance, search, backup,
+  capture и weather. У каждого владельца есть публичный index.ts. Старый
+  types/models.ts сохраняет именованные compatibility exports до этапа 8.
+- Чистые контракты языка/сообщений и message/joinMessages находятся в shared/i18n.
+  Они не создают Vue refs и не читают localStorage. Runtime переводов пока прежний;
+  переход на vue-i18n остаётся отдельной задачей.
+- Справочники weather не зависят от переводчика. Локализованные getters и
+  forecastLink временно остаются в utils/weather.ts; валидация использует чистые данные.
+- BookmarksPort, RootPort, SettingsPort и SettingsEnvelope перенесены к владельцам;
+  старые пути реэкспортируют их. Добавлен AssetsPort, реализуемый BookmarkAssetStore;
+  Repository ссылается на интерфейс assets.
+- Подготовлены минимальные DataLock, SyncClient и UpdatesPort для этапа 2.
+  Создание реальных зависимостей и алгоритмы lifecycle пока не переносились.
+- ESLint проверяет чистоту entities/i18n contracts и запрет modules в shared.
+  Диагностика проверена на запрещённых импортах Vue и feature-контрактов в shared.
+- Vitest теперь обнаруживает тесты в modules/shared/app; все существующие
+  25 файлов и 276 тестов продолжают выполняться. Перенос самих suites остаётся
+  отдельной работой, вместе с обязательным паритетом Chrome/Firefox.
+- Добавлена поддержка форматирования .mdc в Prettier/lint-staged и LF в Git.
+
+Проверки: npm run check, обе production-сборки, i18n и weather-widget в Chrome
+и Firefox успешны. Проверены три языковых профиля каждого браузера, live-переключение
+RU/EN/ES, ошибки/диалоги/export, persistence и вторая вкладка; для weather —
+import/export, defaults, все города/провайдеры, отсутствие запросов погоды,
+светлая/тёмная темы и ширины 320–1920 px. Firefox запускался вне песочницы.
+
+Storage/sync keys, схема Dexie, backup format, browser IDs, permissions и UI
+сохранены. Полные browser/UI suites на этом этапе не повторялись: выполнены
+затронутые сценарии; исходные полные browser-прогоны записаны выше.
+
+## Этап 2. Composition roots и инфраструктура
+
+Завершён 30 октября 2026 года.
+
+- Добавлены отдельные createNewtabApplication и createBackgroundApplication.
+  DB, settings/root storage и Repository создаются в корнях сборки, без глобального
+  экземпляра repository из composable. Repository пока сохраняет фасадный API.
+- UI получает приложение через типизированный Vue provide/inject и useServices.
+  useDial принимает DialDependencies явно; App и SettingsPanel используют один
+  Repository своей вкладки. Раннее выставление языка и чтение wallpaper сохранены.
+- Dexie schema перенесена в shared/infrastructure/database, где нет зависимостей
+  от feature-модулей. Сохранены имя SpeedDialX, v3, таблицы и индексы. Создаётся
+  отдельное соединение на контекст; services/database.ts оставляет export класса.
+- Settings storage adapter создаётся фабрикой с переданным SyncClient. Сохранены
+  envelope, replace/patch semantics и отправка patch без ожидания под data lock.
+- Общая блокировка перенесена в shared infrastructure с прежним speed-dial-data
+  и одной fallback queue на JS-контекст. Старый export Repository временно сохранён.
+- Browser events и speed-dial-updates вынесены в адаптеры. Сохранены структурное
+  invalidation, asset-only refresh и старая строка updated. Подписки снимаются,
+  dispose канала и DB идемпотентен, завершение startup после unmount отсекается.
+- Background sync получает API/lock извне, возвращает dispose и снимает все
+  runtime/storage/bookmark/identity/tab listeners. Capture root сохраняет sender,
+  runtime ID/newtab URL и validation, отменяет активные операции и поздние replies.
+- useDial tests больше не подменяют WXT, Dexie, browser globals и Repository class;
+  используют fake-порты. Добавлены проверки двух экземпляров/контекстов, cleanup,
+  pending startup/settings reads, native/fallback lock, update wire compatibility,
+  capture sender checks/disposal и sync initialization после dispose.
+- ESLint запрещает прямую инфраструктуру в useDial и UI-импорты в background roots.
+
+Проверки: npm run check — успешно, 30 файлов / 287 unit-тестов; обе production-сборки
+успешны. Полные текущие browser-наборы прошли: 23 сценария Chrome и 21 сценарий
+Firefox (вне песочницы). Проверены запуск и фон, выбор/смена root, несколько вкладок,
+CRUD/capture, внешние события, импорт/экспорт, sync и autosave; Chrome также проверяет
+нативный drag. Настоящая облачная доставка между авторизованными устройствами
+не проверялась: sync-сценарии используют контролируемые fixtures. Полный отдельный
+UI suite и live-сеть на этом этапе не запускались.
+
+Размеры JS после этапа 2 (байт, без gzip): background Chrome 217607 / Firefox
+217261; newtab Chrome 422029 / Firefox 421648. Относительно этапа 1 это +817/+747
+байт background и +1148/+1149 байт newtab на сборку и cleanup. CSS и wallpaper
+bootstrap не менялись. Отдельный замер времени холодного старта пока не выполнен.
+
+Следом: этап 3 — извлечение bookmarks из Repository небольшими вертикальными
+сценариями, с сохранением фасада для ещё не перенесённых функций.
 При рефакторинге тестовой инфраструктуры обязателен полный паритет Chrome и
 Firefox по разделу 7.4 плана: аудит всех browser/UI/live сценариев и assertions,
 устранение всех пробелов (включая theme-startup, bookmark-drag и UI allowlist),

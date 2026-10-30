@@ -1,22 +1,24 @@
 import { setLanguage } from './i18n';
 import { storedSettings } from './settingsSchema';
-import { browser } from 'wxt/browser';
-import { withDataLock } from './repository';
+import type { browser } from 'wxt/browser';
+import type { DataLock } from '../shared/infrastructure/browser/interfaces';
 import { SettingsSync } from './settingsSync';
 import type { Settings } from '../types/models';
 
-export function startSettingsSync() {
+export function startSettingsSync(api: typeof browser, lock: DataLock) {
+  let disposed = false;
+  const cleanups: Array<() => void> = [];
   const firefox = import.meta.env.BROWSER === 'firefox';
   const coordinator = new SettingsSync({
-    local: browser.storage.local,
-    sync: browser.storage.sync,
-    tree: () => browser.bookmarks.getTree(),
-    lock: withDataLock,
+    local: api.storage.local,
+    sync: api.storage.sync,
+    tree: () => api.bookmarks.getTree(),
+    lock,
     async account() {
       if (firefox) return null; // Firefox exposes no browser-account identity API.
       try {
-        if (!(await browser.permissions.contains({ permissions: ['identity.email'] }))) return null;
-        const info = await browser.identity.getProfileUserInfo({ accountStatus: 'SYNC' });
+        if (!(await api.permissions.contains({ permissions: ['identity.email'] }))) return null;
+        const info = await api.identity.getProfileUserInfo({ accountStatus: 'SYNC' });
         // Empty string is a confirmed signed-out profile; null is uncertainty.
         return typeof info.id === 'string' ? info.id : null;
       } catch {
@@ -24,24 +26,27 @@ export function startSettingsSync() {
       }
     },
   });
-  const ready = browser.storage.local
+  const ready = api.storage.local
     .get('settings')
     .then((saved) => {
+      if (disposed) return;
       setLanguage(
         storedSettings((saved.settings as { value?: unknown } | undefined)?.value).language,
       );
       return coordinator.initialize();
     })
     .catch(() => {});
-  browser.runtime.onMessage.addListener((message, sender) => {
+  const onMessage: Parameters<typeof api.runtime.onMessage.addListener>[0] = (message, sender) => {
+    if (disposed) return;
     if (
-      sender.id !== browser.runtime.id ||
-      !sender.url?.startsWith(browser.runtime.getURL('/newtab.html')) ||
+      sender.id !== api.runtime.id ||
+      !sender.url?.startsWith(api.runtime.getURL('/newtab.html')) ||
       message?.type !== 'settings-sync'
     )
       return;
     const task = async () => {
       await ready;
+      if (disposed) return;
       switch (message.action) {
         case 'initialize':
           await coordinator.retry();
@@ -68,33 +73,69 @@ export function startSettingsSync() {
       }
     };
     return task().then(() => ({ ok: true }));
-  });
-  browser.storage.onChanged.addListener((changes, area) => {
+  };
+  api.runtime.onMessage.addListener(onMessage);
+  cleanups.push(() => api.runtime.onMessage.removeListener(onMessage));
+  const onStorageChanged: Parameters<typeof api.storage.onChanged.addListener>[0] = (
+    changes,
+    area,
+  ) => {
+    if (disposed) return;
     if (area === 'local' && changes.settings)
       setLanguage(
         storedSettings((changes.settings.newValue as { value?: unknown } | undefined)?.value)
           .language,
       );
-    if (area === 'sync') void ready.then(() => coordinator.remote(changes)).catch(() => {});
-  });
-  const events = [
-    browser.bookmarks.onCreated,
-    browser.bookmarks.onRemoved,
-    browser.bookmarks.onChanged,
-    browser.bookmarks.onMoved,
-    browser.bookmarks.onImportEnded,
-  ];
-  for (const event of events)
-    event?.addListener((id?: unknown) => {
+    if (area === 'sync')
       void ready
-        .then(() => coordinator.bookmarksChanged(typeof id === 'string' ? id : undefined))
+        .then(() => {
+          if (!disposed) return coordinator.remote(changes);
+        })
         .catch(() => {});
-    });
-  if (!firefox)
-    browser.identity?.onSignInChanged?.addListener(() => {
-      void coordinator.accountChanged().catch(() => {});
-    });
-  browser.tabs.onActivated.addListener(() => {
-    void ready.then(() => coordinator.retry()).catch(() => {});
-  });
+  };
+  api.storage.onChanged.addListener(onStorageChanged);
+  cleanups.push(() => api.storage.onChanged.removeListener(onStorageChanged));
+  const events = [
+    api.bookmarks.onCreated,
+    api.bookmarks.onRemoved,
+    api.bookmarks.onChanged,
+    api.bookmarks.onMoved,
+    api.bookmarks.onImportEnded,
+  ];
+  for (const event of events) {
+    const listener = (id?: unknown) => {
+      void ready
+        .then(() => {
+          if (!disposed)
+            return coordinator.bookmarksChanged(typeof id === 'string' ? id : undefined);
+        })
+        .catch(() => {});
+    };
+    event?.addListener(listener);
+    cleanups.push(() => event?.removeListener(listener));
+  }
+  const signInChanged = () => {
+    if (!disposed) void coordinator.accountChanged().catch(() => {});
+  };
+  if (!firefox) {
+    api.identity?.onSignInChanged?.addListener(signInChanged);
+    cleanups.push(() => api.identity?.onSignInChanged?.removeListener(signInChanged));
+  }
+  const activated = () => {
+    void ready
+      .then(() => {
+        if (!disposed) return coordinator.retry();
+      })
+      .catch(() => {});
+  };
+  api.tabs.onActivated.addListener(activated);
+  cleanups.push(() => api.tabs.onActivated.removeListener(activated));
+  return {
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      cleanups.forEach((cleanup) => cleanup());
+      coordinator.dispose();
+    },
+  };
 }

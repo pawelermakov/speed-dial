@@ -1,4 +1,21 @@
 import { shallowRef } from 'vue';
+import {
+  defaultLanguage,
+  isLanguage,
+  type Language,
+  type MessageKey,
+  type MessageText,
+  type MessageValue,
+} from '../shared/i18n/contracts';
+export { defaultLanguage, isLanguage } from '../shared/i18n/contracts';
+export type {
+  Language,
+  MessageKey,
+  Message,
+  MessageList,
+  MessageText,
+} from '../shared/i18n/contracts';
+export { message, joinMessages } from '../shared/i18n/messages';
 import ru from '../locales/ru.json';
 import en from '../locales/en.json';
 import es from '../locales/es.json';
@@ -8,11 +25,6 @@ export const languages = [
   { id: 'en', label: ru['language.names.en'] },
   { id: 'es', label: ru['language.names.es'] },
 ] as const;
-export type Language = (typeof languages)[number]['id'];
-export function isLanguage(value: unknown): value is Language {
-  return languages.some((row) => row.id === value);
-}
-export const defaultLanguage: Language = 'ru';
 function initialLanguage(): Language {
   try {
     const saved = localStorage.getItem('speed-dial-language');
@@ -32,29 +44,11 @@ export function setLanguage(value: Language) {
     /* The authoritative preference remains in extension storage. */
   }
 }
-export type MessageKey = keyof typeof ru;
 // Both missing and additional keys are rejected by TypeScript.
 type SameKeys<T> = Exclude<keyof T, MessageKey> extends never ? Record<MessageKey, string> : never;
 const checkedEn: SameKeys<typeof en> = en;
 const checkedEs: SameKeys<typeof es> = es;
 const messages: Record<Language, Record<MessageKey, string>> = { ru, en: checkedEn, es: checkedEs };
-export interface Message {
-  key: MessageKey;
-  params: Record<string, MessageValue>;
-}
-export interface MessageList {
-  parts: MessageText[];
-  separator: string;
-}
-export type MessageText = string | Message | MessageList;
-type MessageValue = MessageText | number | boolean | null | undefined;
-export function message(key: MessageKey, params: Record<string, MessageValue> = {}): Message {
-  return { key, params };
-}
-export function joinMessages(parts: (MessageText | undefined)[], separator = ' '): MessageText {
-  const present = parts.filter((part): part is MessageText => !!part);
-  return present.length ? { parts: present, separator } : '';
-}
 export function formatMessage(value: MessageText | null | undefined): string {
   if (value == null) return '';
   if (typeof value === 'string') return value;

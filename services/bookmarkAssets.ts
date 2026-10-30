@@ -1,6 +1,6 @@
 import { message, LocalizedError } from './i18n';
 import type { DialDatabase } from './database';
-import type { BookmarkAssets } from '../types/models';
+import type { AssetsPort, BookmarkAssets } from '../modules/dial/modules/bookmarks';
 import { readFaviconColor } from './faviconColor';
 function valid(blob: unknown): blob is Blob {
   return (
@@ -10,7 +10,7 @@ function valid(blob: unknown): blob is Blob {
   );
 }
 // Optional, reproducible tile resources. This store never reads or mutates browser bookmarks.
-export class BookmarkAssetStore {
+export class BookmarkAssetStore implements AssetsPort {
   constructor(
     private db: DialDatabase,
     private colorOf = readFaviconColor,
