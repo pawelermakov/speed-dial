@@ -4,7 +4,8 @@ import { normalizeUrl } from './validation';
 let chromePlaceholder: Promise<Uint8Array | null> | undefined;
 const endpoint = (url: string) => {
   const source = new URL('/_favicon/', browser.runtime.getURL('/newtab.html'));
-  source.searchParams.set('pageUrl', url); source.searchParams.set('size', '32');
+  source.searchParams.set('pageUrl', url);
+  source.searchParams.set('size', '32');
   return source.href;
 };
 async function fetchBlob(source: string): Promise<Blob | null> {
@@ -33,15 +34,24 @@ export async function faviconBlob(url: string, hint?: string): Promise<Blob | nu
       const bytes = blob ? new Uint8Array(await blob.arrayBuffer()) : new Uint8Array();
       // Chrome's internal endpoint returns PNG bytes without a Content-Type.
       if (blob && !blob.type) {
-        blob = [137,80,78,71,13,10,26,10].every((value,index) => bytes[index] === value)
-          ? blob.slice(0, blob.size, 'image/png') : null;
+        blob = [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value)
+          ? blob.slice(0, blob.size, 'image/png')
+          : null;
       }
-      chromePlaceholder ??= fetchBlob(endpoint('https://' + crypto.randomUUID() + '.invalid/')).then(async value => value ? new Uint8Array(await value.arrayBuffer()) : null).catch(() => null);
+      chromePlaceholder ??= fetchBlob(endpoint('https://' + crypto.randomUUID() + '.invalid/'))
+        .then(async (value) => (value ? new Uint8Array(await value.arrayBuffer()) : null))
+        .catch(() => null);
       const placeholder = await chromePlaceholder;
-      if (placeholder && bytes.length === placeholder.length && bytes.every((value,index) => value === placeholder[index])) blob = null;
+      if (
+        placeholder &&
+        bytes.length === placeholder.length &&
+        bytes.every((value, index) => value === placeholder[index])
+      )
+        blob = null;
       if (!blob) blob = await siteIcon(url, hint);
     } else {
-      const value = hint || (await browser.tabs.query({})).find(tab => tab.url === url)?.favIconUrl;
+      const value =
+        hint || (await browser.tabs.query({})).find((tab) => tab.url === url)?.favIconUrl;
       if (!value) blob = await siteIcon(normalizeUrl(url));
       else if (value.startsWith('data:')) blob = imageFromDataUrl(value, 'Favicon');
       else {
@@ -50,7 +60,16 @@ export async function faviconBlob(url: string, hint?: string): Promise<Blob | nu
         blob = await fetchBlob(source);
       }
     }
-    if (!blob || blob.size > 1024 * 1024 || !/^image\/(png|jpeg|webp|gif|bmp|avif|x-icon|vnd.microsoft.icon)$/.test(blob.type)) return null;
-    const bitmap = await createImageBitmap(blob); bitmap.close(); return blob;
-  } catch { return null; }
+    if (
+      !blob ||
+      blob.size > 1024 * 1024 ||
+      !/^image\/(png|jpeg|webp|gif|bmp|avif|x-icon|vnd.microsoft.icon)$/.test(blob.type)
+    )
+      return null;
+    const bitmap = await createImageBitmap(blob);
+    bitmap.close();
+    return blob;
+  } catch {
+    return null;
+  }
 }

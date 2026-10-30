@@ -1,7 +1,8 @@
 import { faviconTileColor } from '../utils/tile';
 
 export async function readFaviconColor(blob: Blob): Promise<string | undefined> {
-  if (typeof Image === 'undefined' || typeof document === 'undefined') throw new Error('Image decoder unavailable');
+  if (typeof Image === 'undefined' || typeof document === 'undefined')
+    throw new Error('Image decoder unavailable');
   const imageUrl = URL.createObjectURL(blob);
   try {
     const image = new Image();
@@ -16,6 +17,7 @@ export async function readFaviconColor(blob: Blob): Promise<string | undefined> 
   } catch (error) {
     if (error instanceof DOMException && error.name === 'EncodingError') return undefined;
     throw error;
+  } finally {
+    URL.revokeObjectURL(imageUrl);
   }
-  finally { URL.revokeObjectURL(imageUrl); }
 }

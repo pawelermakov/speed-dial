@@ -1,6 +1,12 @@
 import type { Bookmark } from '../types/models';
 
-type Resource = { key: string; url: string; ready: boolean; settled: boolean; image?: HTMLImageElement };
+type Resource = {
+  key: string;
+  url: string;
+  ready: boolean;
+  settled: boolean;
+  image?: HTMLImageElement;
+};
 
 // Retain object URLs across snapshot refreshes; dispose only changed resources.
 export class BookmarkImages {
@@ -9,7 +15,9 @@ export class BookmarkImages {
   private waiters = new Set<() => void>();
   private folderIds = new Set<string>();
   private publishQueued = false;
-  constructor(private changed: (previews: Record<string, string>, icons: Record<string, string>) => void) {}
+  constructor(
+    private changed: (previews: Record<string, string>, icons: Record<string, string>) => void,
+  ) {}
 
   private schedulePublish() {
     // Decode callbacks arrive in separate browser tasks. Publishing each one
@@ -24,12 +32,18 @@ export class BookmarkImages {
   }
 
   private release(row: Resource) {
-    if (row.image) { row.image.onload = null; row.image.onerror = null; row.image.src = ''; }
+    if (row.image) {
+      row.image.onload = null;
+      row.image.onerror = null;
+      row.image.src = '';
+    }
     URL.revokeObjectURL(row.url);
   }
   private publish() {
     this.changed(
-      Object.fromEntries([...this.thumbnails].filter(([, row]) => row.ready).map(([id, row]) => [id, row.url])),
+      Object.fromEntries(
+        [...this.thumbnails].filter(([, row]) => row.ready).map(([id, row]) => [id, row.url]),
+      ),
       Object.fromEntries([...this.favicons].map(([id, row]) => [id, row.url])),
     );
     if (!this.pending) {
@@ -44,7 +58,7 @@ export class BookmarkImages {
   sync(tabs: Bookmark[], searching = false) {
     // Keep the open folder decoded while filtering, but release old search-only
     // results. Clearing the query can then restore the folder without decoding.
-    if (!searching) this.folderIds = new Set(tabs.map(tab => tab.id));
+    if (!searching) this.folderIds = new Set(tabs.map((tab) => tab.id));
     let changed = false;
     for (const kind of ['thumbnail', 'favicon'] as const) {
       const rows = kind === 'thumbnail' ? this.thumbnails : this.favicons;
@@ -59,10 +73,15 @@ export class BookmarkImages {
         if (old?.key === key) continue;
         changed = true;
         if (old) this.release(old);
-        const row: Resource = { key, url: URL.createObjectURL(blob), ready: kind === 'favicon', settled: kind === 'favicon' };
+        const row: Resource = {
+          key,
+          url: URL.createObjectURL(blob),
+          ready: kind === 'favicon',
+          settled: kind === 'favicon',
+        };
         rows.set(tab.id, row);
         if (kind === 'thumbnail') {
-          const image = row.image = new Image();
+          const image = (row.image = new Image());
           image.onload = () => {
             const finish = (decoded: boolean) => {
               if (rows.get(tab.id) !== row) return;
@@ -71,7 +90,10 @@ export class BookmarkImages {
               this.schedulePublish();
             };
             // load alone need not mean pixels are decoded and ready to paint.
-            void image.decode().then(() => finish(true), () => finish(false));
+            void image.decode().then(
+              () => finish(true),
+              () => finish(false),
+            );
           };
           image.onerror = () => {
             if (rows.get(tab.id) !== row) return;
@@ -82,10 +104,17 @@ export class BookmarkImages {
           image.src = row.url;
         }
       }
-      for (const [id, row] of rows) if (!wanted.has(id) && !(searching && this.folderIds.has(id))) { this.release(row); rows.delete(id); changed = true; }
+      for (const [id, row] of rows)
+        if (!wanted.has(id) && !(searching && this.folderIds.has(id))) {
+          this.release(row);
+          rows.delete(id);
+          changed = true;
+        }
     }
     if (changed) this.publish();
-    return this.pending ? new Promise<void>(resolve => this.waiters.add(resolve)) : Promise.resolve();
+    return this.pending
+      ? new Promise<void>((resolve) => this.waiters.add(resolve))
+      : Promise.resolve();
   }
   dispose() {
     this.publishQueued = false;

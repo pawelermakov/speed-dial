@@ -72,15 +72,15 @@ npm run build:firefox
 <details>
 <summary>Зачем нужны разрешения</summary>
 
-| Разрешение | Для чего используется |
-| --- | --- |
-| `bookmarks` | Чтение и изменение закладок и папок браузера |
-| `storage` | Сохранение настроек и работа с браузерной синхронизацией |
-| `unlimitedStorage` | Хранение локальных изображений без стандартной квоты хранилища расширения |
-| `<all_urls>` | Создание эскизов через `captureVisibleTab`, загрузка иконок и обращения к внешним сервисам |
-| `declarativeNetRequestWithHostAccess` | Настройка заголовка запроса для подсказок Кинопоиска |
-| `favicon` — Chrome | Получение иконок из хранилища браузера |
-| `identity`, `identity.email` — Chrome | Определение доступного статуса синхронизации и отображение адреса аккаунта браузера |
+| Разрешение                            | Для чего используется                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `bookmarks`                           | Чтение и изменение закладок и папок браузера                                               |
+| `storage`                             | Сохранение настроек и работа с браузерной синхронизацией                                   |
+| `unlimitedStorage`                    | Хранение локальных изображений без стандартной квоты хранилища расширения                  |
+| `<all_urls>`                          | Создание эскизов через `captureVisibleTab`, загрузка иконок и обращения к внешним сервисам |
+| `declarativeNetRequestWithHostAccess` | Настройка заголовка запроса для подсказок Кинопоиска                                       |
+| `favicon` — Chrome                    | Получение иконок из хранилища браузера                                                     |
+| `identity`, `identity.email` — Chrome | Определение доступного статуса синхронизации и отображение адреса аккаунта браузера        |
 
 </details>
 
@@ -92,16 +92,32 @@ npm run build:firefox
 
 ### Команды сборки и проверки
 
-| Команда | Назначение |
-| --- | --- |
-| `npm run dev` / `npm run dev:firefox` | Разработка для Chrome / Firefox |
-| `npm run build` / `npm run build:firefox` | Сборка для Chrome / Firefox |
-| `npm run zip` / `npm run zip:firefox` | ZIP-архив для Chrome / Firefox |
-| `npm run compile` | Проверка TypeScript |
-| `npm test` | TypeScript и модульные тесты |
-| `npm run test:browser` | Браузерные сценарии |
-| `npm run test:ui` | Проверки интерфейса |
-| `npm run test:live -- --headed` | Проверка реальных поисковых сервисов |
+Для исходников действуют `.editorconfig`, Prettier, ESLint и Stylelint.
+После `npm ci` Husky запускает lint-staged перед коммитом; полные проверки
+выполняются отдельно и в GitHub Actions. Ход архитектурной миграции описан в
+[плане](REFACTORING_PLAN.md) и [отчёте](docs/refactoring-progress.md).
+
+```sh
+npm run format:check
+npm run lint
+npm run lint:styles
+npm run check
+# Исправление форматирования и поддерживаемых диагностик:
+npm run format
+npm run lint:fix
+npm run lint:styles:fix
+```
+
+| Команда                                   | Назначение                           |
+| ----------------------------------------- | ------------------------------------ |
+| `npm run dev` / `npm run dev:firefox`     | Разработка для Chrome / Firefox      |
+| `npm run build` / `npm run build:firefox` | Сборка для Chrome / Firefox          |
+| `npm run zip` / `npm run zip:firefox`     | ZIP-архив для Chrome / Firefox       |
+| `npm run compile`                         | Проверка TypeScript                  |
+| `npm test`                                | TypeScript и модульные тесты         |
+| `npm run test:browser`                    | Браузерные сценарии                  |
+| `npm run test:ui`                         | Проверки интерфейса                  |
+| `npm run test:live -- --headed`           | Проверка реальных поисковых сервисов |
 
 Перед браузерными тестами выполните `npx playwright install chromium firefox`. Чтобы проверить одну платформу, добавьте `-- --chrome-only` или `-- --firefox-only` к команде браузерных или UI-тестов. Тесты используют отдельные профили.
 

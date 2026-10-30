@@ -9,6 +9,14 @@
     "npm": ">=10"
   },
   "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:styles": "stylelint \"**/*.{css,vue}\"",
+    "lint:styles:fix": "stylelint \"**/*.{css,vue}\" --fix",
+    "check": "npm run format:check && npm run lint && npm run lint:styles && npm test",
+    "prepare": "husky",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
@@ -23,21 +31,49 @@
     "test:live": "node scripts/search-providers.mjs --live"
   },
   "dependencies": {
-    "vue": "^3.5.29",
-    "dexie": "^4.2.0"
+    "dexie": "^4.2.0",
+    "vue": "^3.5.29"
   },
   "devDependencies": {
-    "@wxt-dev/module-vue": "^1.0.3",
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "^1.58.0",
     "@tailwindcss/vite": "^4.1.0",
+    "@wxt-dev/module-vue": "^1.0.3",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-vue": "10.12.0",
+    "fake-indexeddb": "^6.2.0",
+    "globals": "17.13.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0",
+    "postcss-html": "2.0.0",
+    "prettier": "3.9.10",
+    "stylelint": "17.16.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "8.72.1",
     "vite": "^8.1.5",
+    "vitest": "^4.0.0",
+    "vue-eslint-parser": "10.4.1",
     "vue-tsc": "^3.2.5",
     "web-ext": "^10.5.0",
-    "wxt": "^0.21.4",
-    "vitest": "^4.0.0",
-    "fake-indexeddb": "^6.2.0",
-    "@playwright/test": "^1.58.0"
+    "wxt": "^0.21.4"
+  },
+  "lint-staged": {
+    "*.{js,mjs,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.vue": [
+      "eslint --fix",
+      "stylelint --fix",
+      "prettier --write"
+    ],
+    "*.css": [
+      "stylelint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": "prettier --write"
   },
   "overrides": {
     "shell-quote": "^1.12.0"

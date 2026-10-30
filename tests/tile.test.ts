@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { fitTileFont, fitTileColumns, tileColor, tileHostname, faviconTileColor } from '../utils/tile';
+import {
+  fitTileFont,
+  fitTileColumns,
+  tileColor,
+  tileHostname,
+  faviconTileColor,
+} from '../utils/tile';
 
 describe('text bookmark tiles', () => {
   it('caps columns at a usable card width without changing the requested setting', () => {
@@ -20,8 +26,8 @@ describe('text bookmark tiles', () => {
   });
   it('extracts the dominant mark, ignoring transparency and neutral backing', () => {
     const pixels = new Uint8ClampedArray([
-      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-      0, 0, 255, 255, 0, 0, 255, 255, 255, 0, 0, 0,
+      255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255,
+      255, 0, 0, 0,
     ]);
     expect(faviconTileColor(pixels)).toBe('#0000ff');
     expect(faviconTileColor(new Uint8ClampedArray([255, 0, 0, 0]))).toBeUndefined();
@@ -34,7 +40,9 @@ describe('text bookmark tiles', () => {
     expect(tileHostname('file:///tmp/a')).toBe('Сайт');
   });
   it('keeps color independent of paths, titles, ids and folders', () => {
-    expect(tileColor(tileHostname('https://www.Example.com/a'))).toBe(tileColor(tileHostname('http://example.com/b')));
+    expect(tileColor(tileHostname('https://www.Example.com/a'))).toBe(
+      tileColor(tileHostname('http://example.com/b')),
+    );
     expect(tileColor('example.com')).toBe('#754691');
   });
   it('generates diverse colors with text contrast of at least 4.5', () => {
@@ -42,12 +50,17 @@ describe('text bookmark tiles', () => {
     for (let i = 0; i < 20000; i++) {
       const color = tileColor(`site-${i}.example`);
       colors.add(color);
-      const iconColor = faviconTileColor(new Uint8ClampedArray([i % 256, (i * 7) % 256, (i * 13) % 256, 255]))!;
+      const iconColor = faviconTileColor(
+        new Uint8ClampedArray([i % 256, (i * 7) % 256, (i * 13) % 256, 255]),
+      )!;
       for (const background of [color, iconColor]) {
-        const channels = background.slice(1).match(/../g)!.map(hex => {
-          const channel = parseInt(hex, 16) / 255;
-          return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-        });
+        const channels = background
+          .slice(1)
+          .match(/../g)!
+          .map((hex) => {
+            const channel = parseInt(hex, 16) / 255;
+            return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+          });
         const luminance = channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722;
         const contrast = 1.05 / (luminance + 0.05);
         expect(contrast).toBeGreaterThanOrEqual(4.5);
@@ -56,9 +69,9 @@ describe('text bookmark tiles', () => {
     expect(colors.size).toBeGreaterThan(10000);
   });
   it('finds the largest fitting font and preserves a readable minimum', () => {
-    expect(fitTileFont(150, 100, size => size * 5)).toBe(28);
-    expect(fitTileFont(10, 10, size => size * 100)).toBe(12);
-    expect(fitTileFont(1000, 200, size => size)).toBe(40);
-    expect(fitTileFont(200, 100, size => size * 5)).toBe(28);
+    expect(fitTileFont(150, 100, (size) => size * 5)).toBe(28);
+    expect(fitTileFont(10, 10, (size) => size * 100)).toBe(12);
+    expect(fitTileFont(1000, 200, (size) => size)).toBe(40);
+    expect(fitTileFont(200, 100, (size) => size * 5)).toBe(28);
   });
 });

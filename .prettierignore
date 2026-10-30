@@ -1,0 +1,14 @@
+node_modules/
+.git/
+.wxt/
+.output/
+.browser-test/
+.idea/
+.codex/
+.agents/
+dist/
+coverage/
+test-results/
+playwright-report/
+package-lock.json
+*.zip

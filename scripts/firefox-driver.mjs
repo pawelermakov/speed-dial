@@ -13,24 +13,44 @@ export async function launchFirefox(profile, language = 'ru-RU') {
   const port = await new Promise((resolve, reject) => {
     const server = net.createServer();
     server.on('error', reject);
-    server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); });
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
   });
-  await writeFile(resolve(profile, 'user.js'), [
-    'user_pref("intl.accept_languages", '+JSON.stringify(language)+');',
-    'user_pref("marionette.port", ' + port + ');',
-    'user_pref("browser.shell.checkDefaultBrowser", false);',
-    'user_pref("browser.startup.homepage_override.mstone", "ignore");',
-    'user_pref("extensions.webextensions.uuids", "{\\"speed-dial-x@pawelermakov.github.io\\":\\"53423a26-924b-4dc4-aab1-e465830d9785\\"}");',
-  ].join('\n'));
+  await writeFile(
+    resolve(profile, 'user.js'),
+    [
+      'user_pref("intl.accept_languages", ' + JSON.stringify(language) + ');',
+      'user_pref("marionette.port", ' + port + ');',
+      'user_pref("browser.shell.checkDefaultBrowser", false);',
+      'user_pref("browser.startup.homepage_override.mstone", "ignore");',
+      'user_pref("extensions.webextensions.uuids", "{\\"speed-dial-x@pawelermakov.github.io\\":\\"53423a26-924b-4dc4-aab1-e465830d9785\\"}");',
+    ].join('\n'),
+  );
   const logPath = resolve(profile, 'firefox.log');
   const log = openSync(logPath, 'w');
   let child;
   try {
-    child = spawn(firefox.executablePath(), ['--headless', '--no-remote', '--profile', profile,
-      '--marionette', '--remote-allow-system-access'], { windowsHide: true, stdio: ['ignore', log, log] });
-  } finally { closeSync(log); }
+    child = spawn(
+      firefox.executablePath(),
+      [
+        '--headless',
+        '--no-remote',
+        '--profile',
+        profile,
+        '--marionette',
+        '--remote-allow-system-access',
+      ],
+      { windowsHide: true, stdio: ['ignore', log, log] },
+    );
+  } finally {
+    closeSync(log);
+  }
   let launchError;
-  child.once('error', error => { launchError = error; });
+  child.once('error', (error) => {
+    launchError = error;
+  });
   let socket;
   for (let n = 0; n < 100; n++) {
     try {
@@ -40,12 +60,20 @@ export async function launchFirefox(profile, language = 'ru-RU') {
         client.once('error', reject);
       });
       break;
-    } catch { await new Promise(resolve => setTimeout(resolve, 100)); }
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }
-  if (!socket) { child.kill(); throw new Error(`Firefox Marionette did not start. ${launchError?.message ?? ''} Log: ${logPath}`); }
-  let buffer = Buffer.alloc(0), sequence = 0;
+  if (!socket) {
+    child.kill();
+    throw new Error(
+      `Firefox Marionette did not start. ${launchError?.message ?? ''} Log: ${logPath}`,
+    );
+  }
+  let buffer = Buffer.alloc(0),
+    sequence = 0;
   const waiters = new Map();
-  socket.on('data', chunk => {
+  socket.on('data', (chunk) => {
     buffer = Buffer.concat([buffer, chunk]);
     while (true) {
       const colon = buffer.indexOf(58);
@@ -57,14 +85,19 @@ export async function launchFirefox(profile, language = 'ru-RU') {
       if (!Array.isArray(packet)) continue; // Protocol greeting.
       const waiter = waiters.get(packet[1]);
       if (!waiter) continue;
-      clearTimeout(waiter.timer); waiters.delete(packet[1]);
-      packet[2] ? waiter.reject(new Error(JSON.stringify(packet[2]))) : waiter.resolve(packet[3]?.value ?? packet[3]);
+      clearTimeout(waiter.timer);
+      waiters.delete(packet[1]);
+      if (packet[2]) waiter.reject(new Error(JSON.stringify(packet[2])));
+      else waiter.resolve(packet[3]?.value ?? packet[3]);
     }
   });
   function command(name, parameters = {}) {
     return new Promise((resolve, reject) => {
       const id = ++sequence;
-      const timer = setTimeout(() => { waiters.delete(id); reject(new Error('Marionette timeout: ' + name)); }, 35000);
+      const timer = setTimeout(() => {
+        waiters.delete(id);
+        reject(new Error('Marionette timeout: ' + name));
+      }, 35000);
       waiters.set(id, { resolve, reject, timer });
       const payload = JSON.stringify([0, id, name, parameters]);
       socket.write(Buffer.byteLength(payload) + ':' + payload);
@@ -72,9 +105,12 @@ export async function launchFirefox(profile, language = 'ru-RU') {
   }
   async function exec(body, ...args) {
     const result = await command('WebDriver:ExecuteAsyncScript', {
-      script: 'const done = arguments[arguments.length - 1]; (async () => {' + body +
+      script:
+        'const done = arguments[arguments.length - 1]; (async () => {' +
+        body +
         '})().then(value => done({ value }), error => done({ error: String(error) }));',
-      args, newSandbox: false,
+      args,
+      newSandbox: false,
     });
     if (result.error) throw new Error(result.error);
     return result.value;
@@ -83,15 +119,22 @@ export async function launchFirefox(profile, language = 'ru-RU') {
     const start = Date.now();
     while (Date.now() - start < timeout) {
       if (await exec(body)) return;
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
     throw new Error('Firefox condition failed: ' + body);
   }
   async function close() {
-    try { await command('WebDriver:DeleteSession'); } catch { /* Already stopped. */ }
+    try {
+      await command('WebDriver:DeleteSession');
+    } catch {
+      /* Already stopped. */
+    }
     socket.end();
     child.kill();
-    await new Promise(resolve => { if (child.exitCode !== null) resolve(); else child.once('exit', resolve); });
+    await new Promise((resolve) => {
+      if (child.exitCode !== null) resolve();
+      else child.once('exit', resolve);
+    });
   }
   try {
     await command('WebDriver:NewSession', {});
@@ -104,8 +147,14 @@ export async function launchFirefox(profile, language = 'ru-RU') {
   } catch (error) {
     await close();
     const output = await readFile(logPath, 'utf8').catch(() => '');
-    if (process.platform === 'win32' && /Failed to launch (?:tab|utility) subprocess.*SpawnTarget/.test(output)) {
-      throw new Error(`Windows blocked Firefox child processes (SpawnTarget). Run browser tests from a regular terminal or outside the coding-agent sandbox; keep Firefox sandboxing enabled. Log: ${logPath}`, { cause: error });
+    if (
+      process.platform === 'win32' &&
+      /Failed to launch (?:tab|utility) subprocess.*SpawnTarget/.test(output)
+    ) {
+      throw new Error(
+        `Windows blocked Firefox child processes (SpawnTarget). Run browser tests from a regular terminal or outside the coding-agent sandbox; keep Firefox sandboxing enabled. Log: ${logPath}`,
+        { cause: error },
+      );
     }
     throw new Error(`${error.message}\nFirefox log: ${logPath}`, { cause: error });
   }

@@ -9,30 +9,51 @@ class FakeImage {
   naturalWidth = 64;
   src = '';
   decode = vi.fn(async () => {});
-  constructor() { FakeImage.instances.push(this); }
+  constructor() {
+    FakeImage.instances.push(this);
+  }
 }
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); FakeImage.instances = []; });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  FakeImage.instances = [];
+});
 function setup() {
   vi.stubGlobal('Image', FakeImage);
   let next = 0;
   vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:' + ++next);
   const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
   let previews: Record<string, string> = {};
-  const cache = new BookmarkImages(value => { previews = value; });
-  const bookmark: Bookmark = { id: '1', parentId: 'root', title: 'Site', url: 'https://example.com', index: 0, thumbnail: new Blob(['image']), favicon: null, thumbnailUpdatedAt: 1 };
+  const cache = new BookmarkImages((value) => {
+    previews = value;
+  });
+  const bookmark: Bookmark = {
+    id: '1',
+    parentId: 'root',
+    title: 'Site',
+    url: 'https://example.com',
+    index: 0,
+    thumbnail: new Blob(['image']),
+    favicon: null,
+    thumbnailUpdatedAt: 1,
+  };
   return { cache, bookmark, revoke, previews: () => previews };
 }
 describe('bookmark image lifecycle', () => {
   it('retains the open folder during search without accumulating old search-only images', async () => {
     const { cache, bookmark, revoke } = setup();
-    const folder = [{ ...bookmark, id: 'a' }, { ...bookmark, id: 'b' }];
+    const folder = [
+      { ...bookmark, id: 'a' },
+      { ...bookmark, id: 'b' },
+    ];
     const ready = cache.sync(folder);
     for (const image of FakeImage.instances) image.onload!();
     await ready;
     await cache.sync([folder[0]!], true);
     expect(revoke).not.toHaveBeenCalled();
     const search = cache.sync([{ ...bookmark, id: 'external' }], true);
-    FakeImage.instances[2]!.onload!();await search;
+    FakeImage.instances[2]!.onload!();
+    await search;
     await cache.sync([folder[0]!], true);
     expect(revoke).toHaveBeenCalledTimes(1);
     await cache.sync(folder);
@@ -46,9 +67,12 @@ describe('bookmark image lifecycle', () => {
     const { bookmark } = setup();
     const changed = vi.fn();
     const cache = new BookmarkImages(changed);
-    const ready = cache.sync([{ ...bookmark, id: 'a' }, { ...bookmark, id: 'b' }]);
+    const ready = cache.sync([
+      { ...bookmark, id: 'a' },
+      { ...bookmark, id: 'b' },
+    ]);
     FakeImage.instances[0]!.onload!();
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(changed).toHaveBeenCalledTimes(1);
     expect(cache.pending).toBe(true);
     FakeImage.instances[1]!.onload!();
@@ -68,7 +92,7 @@ describe('bookmark image lifecycle', () => {
     await ready;
     expect(changed).toHaveBeenCalledTimes(2);
     expect(Object.keys(changed.mock.calls[1]![0])).toHaveLength(100);
-    await cache.sync(tabs.map(tab => ({ ...tab, title: 'Renamed' })));
+    await cache.sync(tabs.map((tab) => ({ ...tab, title: 'Renamed' })));
     expect(changed).toHaveBeenCalledTimes(2);
     cache.dispose();
   });
@@ -76,7 +100,12 @@ describe('bookmark image lifecycle', () => {
     const { cache, bookmark, previews } = setup();
     const ready = cache.sync([bookmark]);
     let finish!: () => void;
-    FakeImage.instances[0]!.decode.mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+    FakeImage.instances[0]!.decode.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
     FakeImage.instances[0]!.onload!();
     expect(cache.pending).toBe(true);
     expect(previews()).toEqual({});
@@ -104,7 +133,7 @@ describe('bookmark image lifecycle', () => {
     FakeImage.instances[0]!.onload!();
     await ready;
     const original = previews()['1'];
-    cache.sync([{ ...bookmark, title: 'Renamed', index: 3, thumbnail: new Blob(['image']) }]);
+    void cache.sync([{ ...bookmark, title: 'Renamed', index: 3, thumbnail: new Blob(['image']) }]);
     expect(previews()['1']).toBe(original);
     expect(FakeImage.instances).toHaveLength(1);
     expect(revoke).not.toHaveBeenCalled();
@@ -113,28 +142,30 @@ describe('bookmark image lifecycle', () => {
   });
   it('drops old URLs immediately and ignores late image callbacks', async () => {
     const { cache, bookmark, revoke, previews } = setup();
-    cache.sync([bookmark]);
+    void cache.sync([bookmark]);
     const late = FakeImage.instances[0]!.onload!;
-    const ready = cache.sync([{ ...bookmark, url: 'https://other.example', thumbnailUpdatedAt: 2 }]);
+    const ready = cache.sync([
+      { ...bookmark, url: 'https://other.example', thumbnailUpdatedAt: 2 },
+    ]);
     late();
     expect(previews()).toEqual({});
     expect(revoke).toHaveBeenCalledWith('blob:1');
     FakeImage.instances[1]!.onload!();
     await ready;
     expect(previews()['1']).toBe('blob:2');
-    cache.sync([]);
+    void cache.sync([]);
     expect(previews()).toEqual({});
     cache.dispose();
     expect(revoke).toHaveBeenCalledTimes(2);
   });
   it('does not repeatedly decode a corrupt unchanged preview', () => {
     const { cache, bookmark, previews } = setup();
-    cache.sync([bookmark]);
+    void cache.sync([bookmark]);
     FakeImage.instances[0]!.onerror!();
-    cache.sync([{ ...bookmark }]);
+    void cache.sync([{ ...bookmark }]);
     expect(FakeImage.instances).toHaveLength(1);
     expect(previews()).toEqual({});
-    cache.sync([{ ...bookmark, thumbnailUpdatedAt: 2 }]);
+    void cache.sync([{ ...bookmark, thumbnailUpdatedAt: 2 }]);
     expect(FakeImage.instances).toHaveLength(2);
     cache.dispose();
   });

@@ -1,68 +1,183 @@
 import assert from 'node:assert/strict';
 import { launchFirefox, firefoxUrl } from './firefox-driver.mjs';
 export async function firefoxSmoke(siteUrl, results) {
- const driver = await launchFirefox();
- try {
-  await driver.command('WebDriver:Navigate',{url:firefoxUrl});
-  await driver.until('return !!document.querySelector(".page") && !document.querySelector("button[aria-label=Настройки]").disabled;');
-  const defaultId = await driver.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;');
-  assert.equal(defaultId,'unfiled_____');
-  assert.equal(await driver.exec('return (await browser.bookmarks.getChildren(arguments[0])).filter(row=>row.title==="Speed Dial").length;',defaultId),0);
-  results.push('firefox: clean profile selects native unfiled without creating Speed Dial');
-  const rootId = await driver.exec('const root=await browser.bookmarks.create({parentId:arguments[0],title:"Firefox source"}); return root.id;',defaultId);
-  await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
-  await driver.until('return !!document.querySelector("#bookmark-folder") && !document.querySelector("#bookmark-folder").disabled;');
-  await driver.exec('const select=document.querySelector("#bookmark-folder");select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}));',rootId);
-  await driver.exec(`document.querySelector('button[aria-label="Закрыть настройки"]').click();`);
-  await driver.until('return !document.querySelector(".settings");');
-  assert.equal(await driver.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),rootId);
-  results.push('firefox: native folder select autosaves and survives close');
-  await driver.until('return !!document.querySelector(".add-card, .empty-state");');
-  const click = text => driver.exec('Array.from(document.querySelectorAll("button")).find(button=>button.textContent.trim()===arguments[0] || button.getAttribute("aria-label")===arguments[0]).click();',text);
-  await click('Новая закладка');
-  await driver.until('return !!document.querySelector("dialog input");');
-  await driver.exec('const inputs=document.querySelectorAll("dialog input"); inputs[0].value=arguments[0];inputs[1].value="Firefox custom";for(const input of inputs)input.dispatchEvent(new Event("input",{bubbles:true}));',siteUrl);
-  await driver.exec('document.querySelector(".capture-option input").click();'); await click('Добавить'); await driver.until('return document.querySelectorAll(".bookmark").length===1 && !document.querySelector("dialog");');
-  const id = await driver.exec('return (await browser.bookmarks.getChildren(arguments[0]))[0].id;',rootId);
-  assert.equal(await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].title;',id),'Firefox custom');
-  await driver.exec('document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));'); await click('Обновить эскиз');
-  await driver.until('return document.querySelector(".notice")?.textContent.includes("Изображения обновлены");',30000);
-  assert.equal(await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].title;',id),'Firefox custom');
-  results.push('firefox: real UI create, browser source, capture and custom title preservation');
-  await driver.exec('const select=document.querySelector(".search select");select.value="bookmarks";select.dispatchEvent(new Event("change",{bubbles:true}));document.querySelector(".search input").focus();');
-  await driver.until('return document.activeElement?.getAttribute("aria-label")==="Поиск по закладкам";');
-  await driver.exec('const input=document.querySelector(".search input");input.value="  FIREFOX  ";input.dispatchEvent(new Event("input",{bubbles:true}));');
-  await driver.until('return document.querySelectorAll(".bookmark").length===1 && document.querySelector(".bookmark").getAttribute("draggable")==="false";');
-  assert.equal(await driver.exec('return document.querySelector(".bookmark").draggable;'),false);
-  await driver.exec('await browser.bookmarks.update(arguments[0],{title:"Search externally renamed"});',id);
-  await driver.until('return document.querySelector(".bookmark-area").textContent.includes("Закладки не найдены");');
-  await driver.exec('const input=document.querySelector(".search input");input.value="";input.dispatchEvent(new Event("input",{bubbles:true}));');
-  await driver.until('return document.querySelectorAll(".bookmark").length===1;');
-  await driver.exec('document.activeElement.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));');
-  await driver.until('return document.querySelector(".search input").value === "";');
-  results.push('firefox: local search focus, case/trim, unchanged tiles, no drag, external rename and clear/close');
-  const folder = await driver.exec('const folder=await browser.bookmarks.create({parentId:arguments[0],title:"Work"});await browser.bookmarks.move(arguments[1],{parentId:folder.id});return folder.id;',rootId,id);
-  await driver.until('return Array.from(document.querySelectorAll("nav button")).some(button=>button.textContent.trim()==="Work");');
-  await click('Work');await driver.until('return document.querySelectorAll(".bookmark").length===1;');
-  await driver.exec('await browser.bookmarks.update(arguments[0],{title:"External Firefox"});',id);
-  await driver.until('return document.querySelector(".bookmark")?.textContent.includes("External Firefox");');
-  await driver.exec('document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));'); await click('Изменить закладку');
-  await driver.until('return !!document.querySelector("#bookmark-title");');
-  await driver.exec('const input=document.querySelector("#bookmark-title");input.value="Edited Firefox";input.dispatchEvent(new Event("input",{bubbles:true}));'); await click('Сохранить');
-  await driver.until('return !document.querySelector("dialog") && document.querySelector(".bookmark")?.textContent.includes("Edited Firefox");');
-  await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',folder);
-  await driver.until('return document.querySelectorAll(".bookmark").length===0;');
-  results.push('firefox: folder transfer, external change, UI edit and external folder removal');
-  await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
-  await driver.until('return document.querySelector(".settings")?.textContent.includes("Статус недоступен");');
-  await click('Управление данными');await driver.until('return !!document.querySelector(".data-management");');await driver.exec('[...document.querySelectorAll(".data-management button")].find(e=>e.getAttribute("aria-label")==="Сбросить настройки и кэш").click();');await click('Сбросить');
-  await driver.until('return document.querySelector(".data-management [role=status]")?.textContent.includes("Закладки и выбранная папка сохранены");');
-  await driver.command('WebDriver:PerformActions',{actions:[{type:'key',id:'close-data',actions:[{type:'keyDown',value:'\uE00C'},{type:'keyUp',value:'\uE00C'}]}]});
-  await driver.until('return !document.querySelector(".data-management");');
-  await driver.until('return !document.querySelector(".settings");');
-  assert.ok((await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].id;',rootId))===rootId);
-  await driver.exec('await browser.bookmarks.removeTree(arguments[0]);',rootId);
-  await driver.until('return document.querySelector(".notice")?.textContent.includes("Другие закладки");');
-  results.push('firefox: unavailable account status and native Sync, safe reset and fallback after source deletion');
- } finally { await driver.close(); }
+  const driver = await launchFirefox();
+  try {
+    await driver.command('WebDriver:Navigate', { url: firefoxUrl });
+    await driver.until(
+      'return !!document.querySelector(".page") && !document.querySelector("button[aria-label=Настройки]").disabled;',
+    );
+    const defaultId = await driver.exec(
+      'return (await browser.storage.local.get("rootFolderId")).rootFolderId;',
+    );
+    assert.equal(defaultId, 'unfiled_____');
+    assert.equal(
+      await driver.exec(
+        'return (await browser.bookmarks.getChildren(arguments[0])).filter(row=>row.title==="Speed Dial").length;',
+        defaultId,
+      ),
+      0,
+    );
+    results.push('firefox: clean profile selects native unfiled without creating Speed Dial');
+    const rootId = await driver.exec(
+      'const root=await browser.bookmarks.create({parentId:arguments[0],title:"Firefox source"}); return root.id;',
+      defaultId,
+    );
+    await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
+    await driver.until(
+      'return !!document.querySelector("#bookmark-folder") && !document.querySelector("#bookmark-folder").disabled;',
+    );
+    await driver.exec(
+      'const select=document.querySelector("#bookmark-folder");select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}));',
+      rootId,
+    );
+    await driver.exec(`document.querySelector('button[aria-label="Закрыть настройки"]').click();`);
+    await driver.until('return !document.querySelector(".settings");');
+    assert.equal(
+      await driver.exec('return (await browser.storage.local.get("rootFolderId")).rootFolderId;'),
+      rootId,
+    );
+    results.push('firefox: native folder select autosaves and survives close');
+    await driver.until('return !!document.querySelector(".add-card, .empty-state");');
+    const click = (text) =>
+      driver.exec(
+        'Array.from(document.querySelectorAll("button")).find(button=>button.textContent.trim()===arguments[0] || button.getAttribute("aria-label")===arguments[0]).click();',
+        text,
+      );
+    await click('Новая закладка');
+    await driver.until('return !!document.querySelector("dialog input");');
+    await driver.exec(
+      'const inputs=document.querySelectorAll("dialog input"); inputs[0].value=arguments[0];inputs[1].value="Firefox custom";for(const input of inputs)input.dispatchEvent(new Event("input",{bubbles:true}));',
+      siteUrl,
+    );
+    await driver.exec('document.querySelector(".capture-option input").click();');
+    await click('Добавить');
+    await driver.until(
+      'return document.querySelectorAll(".bookmark").length===1 && !document.querySelector("dialog");',
+    );
+    const id = await driver.exec(
+      'return (await browser.bookmarks.getChildren(arguments[0]))[0].id;',
+      rootId,
+    );
+    assert.equal(
+      await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].title;', id),
+      'Firefox custom',
+    );
+    await driver.exec(
+      'document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));',
+    );
+    await click('Обновить эскиз');
+    await driver.until(
+      'return document.querySelector(".notice")?.textContent.includes("Изображения обновлены");',
+      30000,
+    );
+    assert.equal(
+      await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].title;', id),
+      'Firefox custom',
+    );
+    results.push('firefox: real UI create, browser source, capture and custom title preservation');
+    await driver.exec(
+      'const select=document.querySelector(".search select");select.value="bookmarks";select.dispatchEvent(new Event("change",{bubbles:true}));document.querySelector(".search input").focus();',
+    );
+    await driver.until(
+      'return document.activeElement?.getAttribute("aria-label")==="Поиск по закладкам";',
+    );
+    await driver.exec(
+      'const input=document.querySelector(".search input");input.value="  FIREFOX  ";input.dispatchEvent(new Event("input",{bubbles:true}));',
+    );
+    await driver.until(
+      'return document.querySelectorAll(".bookmark").length===1 && document.querySelector(".bookmark").getAttribute("draggable")==="false";',
+    );
+    assert.equal(await driver.exec('return document.querySelector(".bookmark").draggable;'), false);
+    await driver.exec(
+      'await browser.bookmarks.update(arguments[0],{title:"Search externally renamed"});',
+      id,
+    );
+    await driver.until(
+      'return document.querySelector(".bookmark-area").textContent.includes("Закладки не найдены");',
+    );
+    await driver.exec(
+      'const input=document.querySelector(".search input");input.value="";input.dispatchEvent(new Event("input",{bubbles:true}));',
+    );
+    await driver.until('return document.querySelectorAll(".bookmark").length===1;');
+    await driver.exec(
+      'document.activeElement.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));',
+    );
+    await driver.until('return document.querySelector(".search input").value === "";');
+    results.push(
+      'firefox: local search focus, case/trim, unchanged tiles, no drag, external rename and clear/close',
+    );
+    const folder = await driver.exec(
+      'const folder=await browser.bookmarks.create({parentId:arguments[0],title:"Work"});await browser.bookmarks.move(arguments[1],{parentId:folder.id});return folder.id;',
+      rootId,
+      id,
+    );
+    await driver.until(
+      'return Array.from(document.querySelectorAll("nav button")).some(button=>button.textContent.trim()==="Work");',
+    );
+    await click('Work');
+    await driver.until('return document.querySelectorAll(".bookmark").length===1;');
+    await driver.exec(
+      'await browser.bookmarks.update(arguments[0],{title:"External Firefox"});',
+      id,
+    );
+    await driver.until(
+      'return document.querySelector(".bookmark")?.textContent.includes("External Firefox");',
+    );
+    await driver.exec(
+      'document.querySelector(".bookmark").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:30,clientY:100}));',
+    );
+    await click('Изменить закладку');
+    await driver.until('return !!document.querySelector("#bookmark-title");');
+    await driver.exec(
+      'const input=document.querySelector("#bookmark-title");input.value="Edited Firefox";input.dispatchEvent(new Event("input",{bubbles:true}));',
+    );
+    await click('Сохранить');
+    await driver.until(
+      'return !document.querySelector("dialog") && document.querySelector(".bookmark")?.textContent.includes("Edited Firefox");',
+    );
+    await driver.exec('await browser.bookmarks.removeTree(arguments[0]);', folder);
+    await driver.until('return document.querySelectorAll(".bookmark").length===0;');
+    results.push('firefox: folder transfer, external change, UI edit and external folder removal');
+    await driver.exec('document.querySelector("button[aria-label=Настройки]").click();');
+    await driver.until(
+      'return document.querySelector(".settings")?.textContent.includes("Статус недоступен");',
+    );
+    await click('Управление данными');
+    await driver.until('return !!document.querySelector(".data-management");');
+    await driver.exec(
+      '[...document.querySelectorAll(".data-management button")].find(e=>e.getAttribute("aria-label")==="Сбросить настройки и кэш").click();',
+    );
+    await click('Сбросить');
+    await driver.until(
+      'return document.querySelector(".data-management [role=status]")?.textContent.includes("Закладки и выбранная папка сохранены");',
+    );
+    await driver.command('WebDriver:PerformActions', {
+      actions: [
+        {
+          type: 'key',
+          id: 'close-data',
+          actions: [
+            { type: 'keyDown', value: '\uE00C' },
+            { type: 'keyUp', value: '\uE00C' },
+          ],
+        },
+      ],
+    });
+    await driver.until('return !document.querySelector(".data-management");');
+    await driver.until('return !document.querySelector(".settings");');
+    assert.ok(
+      (await driver.exec('return (await browser.bookmarks.get(arguments[0]))[0].id;', rootId)) ===
+        rootId,
+    );
+    await driver.exec('await browser.bookmarks.removeTree(arguments[0]);', rootId);
+    await driver.until(
+      'return document.querySelector(".notice")?.textContent.includes("Другие закладки");',
+    );
+    results.push(
+      'firefox: unavailable account status and native Sync, safe reset and fallback after source deletion',
+    );
+  } finally {
+    await driver.close();
+  }
 }
