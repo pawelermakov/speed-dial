@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialDatabase } from '../services/database';
 import { Repository } from '../services/repository';
 import { backupLimits, selectExport, serializeExport } from '../services/importExport';
-import { MockBookmarks } from './bookmarksMock';
+import { MockBookmarks } from './helpers/bookmarksMock';
 import type { RootPort } from '../services/bookmarks';
 import type { SettingsEnvelope, SettingsPort } from '../services/settings';
 import { defaults } from '../types/models';
@@ -78,6 +78,24 @@ describe('browser bookmarks source', () => {
     await old;
     expect(repo.activeId).toBe(b.id);
     expect((await repo.load(false)).activeId).toBe(b.id);
+  });
+  it('does not commit a fallback root when parallel snapshot reads fail', async () => {
+    await setup();
+    const selected = repo.rootId!;
+    await api.removeTree(selected);
+    const write = vi.spyOn(rootPort, 'setValue');
+    vi.spyOn(settingsPort, 'getValue').mockRejectedValueOnce(new Error('Settings read failed'));
+    await expect(repo.load()).rejects.toThrow('Settings read failed');
+    expect(write).not.toHaveBeenCalled();
+    expect(repo.rootId).toBe(selected);
+    expect(rootId).toBe(selected);
+    vi.spyOn(db.assets, 'get').mockRejectedValueOnce(new Error('Wallpaper read failed'));
+    await expect(repo.load()).rejects.toThrow('Wallpaper read failed');
+    expect(write).not.toHaveBeenCalled();
+    expect(repo.rootId).toBe(selected);
+    expect(rootId).toBe(selected);
+    expect((await repo.load()).rootId).toBe('other');
+    expect(rootId).toBe('other');
   });
   it('patches only current keys and does not reload background for bookmark-only reads', async () => {
     await setup();

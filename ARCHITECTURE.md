@@ -4,7 +4,7 @@ SpeedDial X постепенно переходит к модульной стр
 [плану рефакторинга](REFACTORING_PLAN.md). Этот документ описывает реализованные
 границы. WXT, Vue 3, TypeScript, Dexie и Tailwind сохраняются.
 
-## Реализовано на этапах 1–2
+## Реализовано на этапах 1–3
 
 | Владелец                        | Контракты                                                                                 |
 | ------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -79,6 +79,43 @@ ESLint проверяет чистоту новых entities и независи
 Ограничения legacy-каталогов усиливаются при их переносе. Не добавлять новые
 функции в старые общие каталоги только ради использования привычного пути.
 
+## Вертикальный сценарий bookmarks
+
+В `app/createNewtabApplication.ts` создаётся BookmarksModule через
+`createBookmarksModule({database, bookmarks, root, lock, normalizeUrl, presentation})`.
+Фабрика собирает BookmarksSource, BookmarkActions, BookmarkAssetStore и AutoNameStore
+с тем же соединением Dexie. UI не создаёт эти зависимости.
+
+- `services/source.ts` владеет root/active selection, read generation и recovery
+  notice; читает дерево/папки, ищет локальные закладки и добавляет assets к view.
+- `services/actions.ts` выполняет CRUD, folder operations, reorder, capture title
+  и image guards через BookmarkSourcePort, BookmarksPort, AssetsPort и AutoNamesPort.
+- Сервисы не импортируют Vue, WXT, Dexie или адаптеры. Перевод/создание ошибок,
+  нормализация URL, data lock и преобразование native move index передаются извне.
+- `helpers/folders.ts` содержит правила native folders/separators и подписи через
+  переданный переводчик. `adapters/moveIndex.ts` сохраняет разницу Chrome/Firefox.
+- `adapters/assets.ts` и `adapters/autoNames.ts` инкапсулируют доступ к feature
+  таблицам. getStored читает raw assets для backup без декодирования/фильтрации;
+  обычные get/getMany сохраняют best-effort обработку необязательных изображений.
+- Repository только делегирует bookmark-операции. Settings/appearance/backup пока
+  остаются в фасаде; их методы не читают feature-таблицы напрямую, а используют порты.
+- prepareRead фиксирует поколение/выбор до асинхронных операций. Repository ждёт
+  settings/background/choices, затем завершает чтение bookmarks. При ошибке раннего
+  чтения fallback root не сохраняется; старое чтение не меняет новый active/root.
+- `composables/useBookmarkSearch.ts` принадлежит bookmarks и принимает минимальные
+  BookmarkSearchPort и BookmarkSearchView. Подмодуль не зависит от родительского Snapshot.
+- Тесты в `bookmarks/tests` проверяют factory → source/actions → adapters через
+  MockBookmarks/fake-indexeddb, auto-name tickets, assets, folders, search и reorder.
+  Межмодульные проверки согласованного snapshot/backup/reset и совместимости фасада
+  остаются в корневых tests. Общий fake находится в tests/helpers с type-only contract import.
+
+В production Repository получает уже собранный BookmarksModule пятым аргументом.
+Его конструктор с четырьмя аргументами временно сохранён для legacy-потребителей:
+он собирает тот же модуль, не создавая второго владельца source state. Удалить
+эту совместимость вместе с фасадом на этапе 8. Старые services/bookmarks,
+services/bookmarkAssets, services/autoNames, composables/useBookmarkSearch и
+utils/reorder остаются только compatibility wrappers до миграции пользователей.
+
 ## Как добавлять поведение
 
 1. Определить feature-владельца и его чистые entities.
@@ -89,8 +126,8 @@ ESLint проверяет чистоту новых entities и независи
 4. Разместить unit-тест у владельца, browser/UI сценарий — в общей инфраструктуре.
    Общий сценарий должен выполняться в Chrome и Firefox с равнозначными assertions.
 
-Конкретный пример factory → service → adapter → composable будет добавлен после
-первого вертикального извлечения bookmarks. Пустые фабрики ради схемы не создаются.
+Реальный пример factory → service → adapter → composable приведён выше. Пустые
+фабрики ради схемы не создаются.
 
 ## Проверки
 
@@ -99,7 +136,7 @@ npm run check
 npm run build
 npm run build:firefox
 # Unit-тесты модуля sync:
-npm test -- modules/dial/modules/sync
+npm test -- modules/dial/modules/bookmarks
 # Один существующий browser-сценарий; предварительно собрать оба браузера:
 node scripts/weather-widget.mjs --chrome-only
 node scripts/weather-widget.mjs --firefox-only

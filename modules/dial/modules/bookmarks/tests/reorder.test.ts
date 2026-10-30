@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { insertedOrder, nearestInsertion } from '../utils/reorder';
+import { insertedOrder, nearestInsertion } from '../helpers/reorder';
 describe('drag insertion', () => {
   it('inserts on either side and ignores self, unknown and unchanged drops', () => {
     expect(insertedOrder(['a', 'b', 'c'], 'a', 'c', false)).toEqual(['b', 'a', 'c']);

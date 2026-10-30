@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-  folderChoices,
-  folderOptionLabels,
-  defaultFolderId,
-  type BookmarkNode,
-} from '../services/bookmarks';
+import { t } from '../../../../../services/i18n';
+import { folderChoices as choices, folderOptionLabels, defaultFolderId } from '../helpers/folders';
+import type { BookmarkNode } from '../entities/models';
+const folderChoices = (tree: BookmarkNode[]) => choices(tree, t);
 
 describe('bookmark source folders', () => {
   it('excludes Firefox separators from folder choices', () => {

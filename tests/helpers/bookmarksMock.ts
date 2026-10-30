@@ -1,4 +1,4 @@
-import type { BookmarkNode, BookmarksPort } from '../services/bookmarks';
+import type { BookmarkNode, BookmarksPort } from '../../modules/dial/modules/bookmarks';
 export class MockBookmarks implements BookmarksPort {
   nodes = new Map<string, BookmarkNode>();
   next = 100;

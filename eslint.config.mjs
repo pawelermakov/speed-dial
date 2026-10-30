@@ -128,5 +128,23 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['modules/dial/modules/bookmarks/services/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['vue', 'dexie', 'wxt'],
+          patterns: [
+            'vue/**',
+            'wxt/**',
+            '**/adapters/**',
+            '**/services/i18n',
+            '**/services/validation',
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 );

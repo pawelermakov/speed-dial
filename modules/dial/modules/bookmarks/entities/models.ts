@@ -1,3 +1,5 @@
+import type { MessageText } from '../../../../../shared/i18n/contracts';
+
 export interface Bookmark {
   id: string;
   parentId: string;
@@ -46,4 +48,23 @@ export interface BookmarkNode {
   unmodifiable?: string;
   folderType?: string;
   syncing?: boolean;
+}
+
+export interface AutoNameTicket {
+  bookmarkId: string;
+  url: string;
+  token: string;
+  pendingEdit?: { url: boolean; title: boolean };
+}
+export interface BookmarksView {
+  tabs: Bookmark[];
+  folders: Folder[];
+  rootId: string | null;
+  activeId: string | null;
+  rootNotice?: MessageText;
+}
+
+export interface BookmarkSearchView {
+  tabs: Bookmark[];
+  rootId: string | null;
 }

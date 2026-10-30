@@ -1,9 +1,9 @@
-import { formatMessage } from '../services/i18n';
+import { formatMessage } from '../../../../../services/i18n';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ref, shallowRef, nextTick } from 'vue';
 import { useBookmarkSearch } from '../composables/useBookmarkSearch';
-import type { Repository } from '../services/repository';
-import { defaults, type Snapshot, type Bookmark } from '../types/models';
+import type { BookmarkSearchPort } from '../services/interfaces';
+import { defaults, type Snapshot, type Bookmark } from '../../../../../types/models';
 const state = vi.hoisted(() => ({ unmount: [] as Array<() => void> }));
 vi.mock('vue', async () => ({
   ...(await vi.importActual('vue')),
@@ -32,7 +32,7 @@ it('rejects stale results, refreshes on browser snapshots and clears query/error
     )
     .mockResolvedValue([{ id: 'new' }]);
   const snapshot = shallowRef(initial),
-    dial = useBookmarkSearch({ search } as unknown as Repository, snapshot);
+    dial = useBookmarkSearch({ search } as unknown as BookmarkSearchPort, snapshot);
   dial.query.value = 'old';
   dial.query.value = 'new';
   await nextTick();
@@ -57,7 +57,7 @@ it('ignores late search completions after unmount', async () => {
         finish = resolve;
       }),
   );
-  const dial = useBookmarkSearch({ search } as unknown as Repository, shallowRef(initial));
+  const dial = useBookmarkSearch({ search } as unknown as BookmarkSearchPort, shallowRef(initial));
   dial.query.value = 'query';
   state.unmount.splice(0).forEach((fn) => fn());
   finish([{ id: 'late' } as Bookmark]);
@@ -68,7 +68,7 @@ it('invalidates results immediately on browser changes independently of the norm
   const revision = ref(0),
     search = vi.fn().mockResolvedValue([{ id: 'first' }]);
   const dial = useBookmarkSearch(
-    { search } as unknown as Repository,
+    { search } as unknown as BookmarkSearchPort,
     shallowRef(initial),
     revision,
   );

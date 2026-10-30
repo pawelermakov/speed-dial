@@ -1,7 +1,7 @@
 # Ход рефакторинга
 
 Начало реализации: 30 октября 2026 года. Порядок работ задан в
-[REFACTORING_PLAN.md](../REFACTORING_PLAN.md). Выделены модульные контракты и composition roots этапов 1–2.
+[REFACTORING_PLAN.md](../REFACTORING_PLAN.md). Выделены модульные контракты и composition roots этапов 1–2; bookmarks выделен на этапе 3.
 
 ## Исходная точка (этап 0)
 
@@ -145,8 +145,47 @@ UI suite и live-сеть на этом этапе не запускались.
 байт background и +1148/+1149 байт newtab на сборку и cleanup. CSS и wallpaper
 bootstrap не менялись. Отдельный замер времени холодного старта пока не выполнен.
 
-Следом: этап 3 — извлечение bookmarks из Repository небольшими вертикальными
-сценариями, с сохранением фасада для ещё не перенесённых функций.
+## Этап 3. Bookmarks
+
+Завершён 30 октября 2026 года.
+
+- Добавлена createBookmarksModule; production root передаёт собранный модуль в
+  Repository. Сохранён временный legacy-конструктор фасада для совместимости.
+- BookmarksSource — единственный владелец root/active, read generation и recovery
+  notice; BookmarksView не зависит от Settings/Snapshot. Repository координирует
+  settings/background и завершение prepared read в прежнем порядке, без раннего
+  fallback при сбое параллельных чтений.
+- BookmarkActions содержит CRUD/папки/reorder, expected-state guards, assets и
+  captured-title workflows. Сохранены смешанные slots, protected folders, Firefox
+  separators, native move indices и отсутствие повторного data lock.
+- Assets и auto-name metadata перенесены в feature adapters с прежними таблицами,
+  ключами, validation, best-effort поведением и pendingEdit/ticket semantics.
+  Backup читает raw assets через getStored; схема/backup JSON не менялись.
+- Search composable и insertion helpers принадлежат bookmarks. Composable получает
+  минимальный search port/view, не Repository class и не родительский Snapshot.
+- Перенесены существующие tests assets/folders/search/reorder/autoNames. Проверки
+  autoNames вызывают модуль напрямую; reset оставлен отдельным корневым integration
+  test. MockBookmarks перемещён в tests/helpers с type-only публичными контрактами.
+  Сохранены все 287 прежних тестов, добавлен guard-test параллельного snapshot failure.
+- ESLint запрещает Vue/WXT/Dexie и адаптеры в bookmark services; правила представления
+  и нормализация URL внедряются снаружи. ARCHITECTURE.md содержит реальный пример
+  factory → services → adapters → composable → tests.
+
+Проверки: check прошёл, 31 файл / 288 тестов; обе production-сборки успешны.
+Полные текущие browser-наборы прошли: Chrome — 23 сценария, Firefox — 21 сценарий
+(вне песочницы). Проверены root/fallback, внешние изменения, два окна/вкладки, CRUD,
+folder operations, capture, partial backup/import, auto-name и stale guards,
+Chrome native drag, Firefox native API sorting, settings/sync, темы и фон.
+Отдельные полные UI/live suites не повторялись; реальная cloud-доставка между
+авторизованными устройствами не проверялась.
+
+Размеры JS: background Chrome 217935 / Firefox 217589 байт; newtab Chrome 426011 /
+Firefox 425641 байт. Прирост к этапу 2: +328/+328 background и +3982/+3993 newtab;
+он включает модульную сборку и временную делегацию фасада. CSS и wallpaper bootstrap
+не менялись; отдельный замер холодного старта пока не выполнен.
+
+Следом: этап 4 — settings, appearance и sync с сохранением optimistic patches,
+flush, background coordinator и wire contracts.
 При рефакторинге тестовой инфраструктуры обязателен полный паритет Chrome и
 Firefox по разделу 7.4 плана: аудит всех browser/UI/live сценариев и assertions,
 устранение всех пробелов (включая theme-startup, bookmark-drag и UI allowlist),
