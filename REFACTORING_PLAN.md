@@ -1,6 +1,6 @@
 # План рефакторинга SpeedDial X
 
-Дата: 30 октября 2026 года. Статус: этап 3 завершён; следующий — этап 4 (settings, appearance и sync).
+Дата: 30 октября 2026 года. Статус: этап 4 завершён; следующий — этап 5 (backup, capture и lazy loading).
 Результаты проверок и текущий прогресс: [docs/refactoring-progress.md](docs/refactoring-progress.md).
 
 ## 1. Основания и цель

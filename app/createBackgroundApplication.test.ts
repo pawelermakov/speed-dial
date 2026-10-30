@@ -44,7 +44,7 @@ vi.mock('../shared/infrastructure/database', () => ({
     close = state.close;
   },
 }));
-vi.mock('../services/syncBackground', () => ({
+vi.mock('../modules/dial/modules/sync/adapters/background', () => ({
   startSettingsSync: () => ({ dispose: state.stopSync }),
 }));
 vi.mock('../services/capture', () => ({ createCaptureQueue: () => state.capture }));

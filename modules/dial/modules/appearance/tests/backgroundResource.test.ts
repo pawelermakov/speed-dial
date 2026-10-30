@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { BackgroundResource } from '../utils/backgroundResource';
+import { BackgroundResource } from '../adapters/backgroundResource';
 describe('background resource lifetime', () => {
   it('keeps the URL for equivalent Blob instances and frees it only after replacement is published', async () => {
     let sequence = 0;

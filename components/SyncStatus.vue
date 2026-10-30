@@ -3,16 +3,15 @@ import { t, formatMessage } from '../services/i18n';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import InfoTooltip from './InfoTooltip.vue';
 import { ui } from '../utils/ui';
-import { storage } from 'wxt/utils/storage';
-import { syncStatus, type SyncStatus } from '../services/sync';
-import { syncRequest } from '../services/syncClient';
+import type { SyncStatus } from '../modules/dial/modules/sync';
+import { useServices } from '../app/serviceContext';
+const { syncRequest, syncState: stateItem, getSyncStatus: syncStatus } = useServices();
 import type { SyncState } from '../services/settingsSync';
 defineProps<{ tooltipTarget?: string }>();
 const status = ref<SyncStatus>('unknown'),
   checking = ref(false),
   email = ref('');
 const state = ref<SyncState | null>(null);
-const stateItem = storage.defineItem<SyncState>('local:settingsSyncState');
 const unwatch = stateItem.watch((value) => {
   state.value = value;
 });

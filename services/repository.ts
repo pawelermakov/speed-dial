@@ -1,6 +1,15 @@
-import { t, message, LocalizedError, errorMessage, joinMessages, type MessageText } from './i18n';
+import { t, message, LocalizedError, errorMessage, type MessageText } from './i18n';
 import type { DialDatabase } from './database';
-import type { SettingsPort } from '../modules/dial/modules/settings';
+import {
+  createSettingsService,
+  type SettingsService,
+  type SettingsPort,
+} from '../modules/dial/modules/settings';
+import {
+  createAppearanceService,
+  type AppearanceService,
+} from '../modules/dial/modules/appearance';
+import { createBackgroundStorage } from '../modules/dial/modules/appearance/adapters/storage';
 import {
   createBookmarksModule,
   type BookmarksModule,
@@ -19,7 +28,6 @@ import {
   type ImportData,
   type BackupBookmark,
   type ImportReport,
-  type SearchProviderId,
 } from '../types/models';
 import { normalizeUrl, validateSettings } from './validation';
 import { isBookmark, isFolder } from '../modules/dial/modules/bookmarks/helpers/folders';
@@ -27,14 +35,17 @@ import { withDataLock } from '../shared/infrastructure/browser/dataLock';
 export { withDataLock } from '../shared/infrastructure/browser/dataLock';
 export class Repository {
   private module: BookmarksModule;
+  private settingsService: SettingsService;
+  private appearance: AppearanceService;
   private images: AssetsPort;
   private metadata: AutoNamesPort;
   constructor(
-    private db: DialDatabase,
+    db: DialDatabase,
     private settings: SettingsPort,
     readonly bookmarks: BookmarksPort,
     root: RootPort,
     module?: BookmarksModule,
+    preferences?: { settings: SettingsService; appearance: AppearanceService },
   ) {
     // Compatibility assembly for legacy constructors; production passes the module from its root.
     this.module =
@@ -46,6 +57,18 @@ export class Repository {
         lock: withDataLock,
         normalizeUrl,
         presentation: { translate: t, error: (message) => new LocalizedError(message) },
+      });
+    this.appearance =
+      preferences?.appearance ?? createAppearanceService(createBackgroundStorage(db));
+    this.settingsService =
+      preferences?.settings ??
+      createSettingsService({
+        storage: settings,
+        background: this.appearance,
+        source: this.module.source,
+        validate: validateSettings,
+        error: (message) => new LocalizedError(message),
+        errorText: errorMessage,
       });
     this.images = this.module.assets;
     this.metadata = this.module.autoNames;
@@ -144,7 +167,7 @@ export class Repository {
     const complete = this.module.source.prepareRead();
     const [envelope, background, choices] = await Promise.all([
       this.settings.getValue(),
-      includeBackground ? this.db.assets.get('background') : undefined,
+      includeBackground ? this.appearance.readStored() : undefined,
       this.choices(),
     ]);
     const view = await complete(choices);
@@ -158,76 +181,22 @@ export class Repository {
       rootNotice: view.rootNotice,
     };
   }
-  async saveSettings(
-    settings: Settings,
-    background?: Blob | null,
-    rootId?: string,
-    replace = false,
-  ) {
-    const next = validateSettings(settings);
-    if (rootId !== undefined) await this.folder(rootId);
-    const previous = await this.settings.getValue();
-    let previousSettings: Settings;
-    try {
-      previousSettings = validateSettings(previous?.value);
-    } catch {
-      previousSettings = { ...defaults };
-    }
-    const settingsChanged = (Object.keys(defaults) as Array<keyof Settings>).some(
-      (key) => next[key] !== previousSettings[key],
-    );
-    const previousBackground =
-      background !== undefined ? await this.db.assets.get('background') : undefined;
-    let wroteSettings = false,
-      wroteBackground = false;
-    try {
-      if (settingsChanged || replace) {
-        await this.settings.setValue({ value: next }, replace);
-        wroteSettings = true;
-      }
-      if (background !== undefined) {
-        if (background) await this.db.assets.put({ key: 'background', blob: background });
-        else await this.db.assets.delete('background');
-        wroteBackground = true;
-      }
-      // Commit the source last: failed writes cannot silently switch the root.
-      if (rootId !== undefined) await this.selectRoot(rootId);
-    } catch (error) {
-      const rollback = await Promise.allSettled([
-        wroteSettings
-          ? this.settings.setValue(previous ?? { value: { ...defaults } })
-          : Promise.resolve(),
-        wroteBackground
-          ? previousBackground
-            ? this.db.assets.put(previousBackground)
-            : this.db.assets.delete('background')
-          : Promise.resolve(),
-      ]);
-      const detail = rollback.some((result) => result.status === 'rejected')
-        ? message('settings.errors.partial_restore')
-        : '';
-      throw new LocalizedError(joinMessages([errorMessage(error), detail], ''));
-    }
+  saveSettings(...args: Parameters<SettingsService['saveSettings']>) {
+    return this.settingsService.saveSettings(...args);
   }
-  async saveSearchProvider(searchProvider: SearchProviderId) {
-    await this.patchSettings({ searchProvider });
+  patchSettings(...args: Parameters<SettingsService['patchSettings']>) {
+    return this.settingsService.patchSettings(...args);
   }
-  async patchSettings(patch: Partial<Settings>): Promise<Settings> {
-    if (Object.keys(patch).some((key) => !Object.hasOwn(defaults, key)))
-      throw new LocalizedError(message('validation.settings.unknown_field'));
-    const current = validateSettings((await this.settings.getValue())?.value);
-    const next = validateSettings({ ...current, ...patch });
-    await this.saveSettings(next);
-    return next;
+  saveSearchProvider(...args: Parameters<SettingsService['saveSearchProvider']>) {
+    return this.settingsService.saveSearchProvider(...args);
   }
   async reset() {
     await this.saveSettings({ ...defaults }, null, undefined, true);
     await this.images.clear();
     await this.metadata.clear();
   }
-  async saveBackground(background: Blob | null) {
-    if (background) await this.db.assets.put({ key: 'background', blob: background });
-    else await this.db.assets.delete('background');
+  saveBackground(blob: Blob | null) {
+    return this.appearance.save(blob);
   }
   async exportData(
     warning: (message: MessageText) => void = () => {},
@@ -282,7 +251,7 @@ export class Repository {
         ? { settings: validateSettings((await this.settings.getValue())?.value) }
         : {}),
       ...(selection.background
-        ? { background: (await this.db.assets.get('background'))?.blob ?? null }
+        ? { background: (await this.appearance.readStored())?.blob ?? null }
         : {}),
     };
   }
@@ -404,8 +373,7 @@ export class Repository {
         background = selection.background ? data.background : undefined;
       if (settings) await this.saveSettings(settings, background, undefined, true);
       else if (background !== undefined) {
-        if (background) await this.db.assets.put({ key: 'background', blob: background });
-        else await this.db.assets.delete('background');
+        await this.appearance.save(background);
       }
       if (settings) report.settings = true;
       if (background !== undefined) report.background = true;

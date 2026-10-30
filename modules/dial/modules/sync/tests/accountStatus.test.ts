@@ -6,7 +6,7 @@ vi.mock('wxt/browser', () => ({
     identity: { getProfileUserInfo: state.get },
   },
 }));
-import { syncStatus } from '../services/sync';
+import { syncStatus } from '../adapters/accountStatus';
 beforeEach(() => {
   state.contains.mockReset().mockResolvedValue(true);
   state.get.mockReset();

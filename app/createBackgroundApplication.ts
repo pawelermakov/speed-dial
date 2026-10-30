@@ -3,7 +3,7 @@ import { DialDatabase } from '../shared/infrastructure/database';
 import { withDataLock } from '../shared/infrastructure/browser/dataLock';
 import { createCaptureQueue } from '../services/capture';
 import type { CaptureRequest } from '../modules/dial/modules/capture';
-import { startSettingsSync } from '../services/syncBackground';
+import { startSettingsSync } from '../modules/dial/modules/sync/adapters/background';
 import { invalidateAutoName } from '../services/autoNames';
 
 export function createBackgroundApplication() {

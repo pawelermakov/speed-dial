@@ -19,15 +19,12 @@ import { ui } from '../utils/ui';
 import { reactive, ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { browser } from 'wxt/browser';
 import { useServices } from '../app/serviceContext';
-const { repository } = useServices();
+const { repository, syncRequest, syncState: syncStateItem } = useServices();
 import type { Settings, FolderChoice } from '../types/models';
 import { validateSettings } from '../services/validation';
 import { readImage } from '../services/images';
 import SyncStatus from './SyncStatus.vue';
-import { syncRequest } from '../services/syncClient';
-import { storage } from 'wxt/utils/storage';
 import type { SyncState } from '../services/settingsSync';
-const syncStateItem = storage.defineItem<SyncState>('local:settingsSyncState');
 const syncState = ref<SyncState | null>(null);
 const unwatchSync = syncStateItem.watch((value) => {
   syncState.value = value;

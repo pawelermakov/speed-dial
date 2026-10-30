@@ -4,7 +4,7 @@ SpeedDial X постепенно переходит к модульной стр
 [плану рефакторинга](REFACTORING_PLAN.md). Этот документ описывает реализованные
 границы. WXT, Vue 3, TypeScript, Dexie и Tailwind сохраняются.
 
-## Реализовано на этапах 1–3
+## Реализовано на этапах 1–4
 
 | Владелец                        | Контракты                                                                                 |
 | ------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -97,8 +97,8 @@ ESLint проверяет чистоту новых entities и независи
 - `adapters/assets.ts` и `adapters/autoNames.ts` инкапсулируют доступ к feature
   таблицам. getStored читает raw assets для backup без декодирования/фильтрации;
   обычные get/getMany сохраняют best-effort обработку необязательных изображений.
-- Repository только делегирует bookmark-операции. Settings/appearance/backup пока
-  остаются в фасаде; их методы не читают feature-таблицы напрямую, а используют порты.
+- Repository только делегирует bookmark-операции. Backup пока
+  остаётся в фасаде; settings/appearance делегируются профильным сервисам; их методы не читают feature-таблицы напрямую, а используют порты.
 - prepareRead фиксирует поколение/выбор до асинхронных операций. Repository ждёт
   settings/background/choices, затем завершает чтение bookmarks. При ошибке раннего
   чтения fallback root не сохраняется; старое чтение не меняет новый active/root.
@@ -115,6 +115,47 @@ ESLint проверяет чистоту новых entities и независи
 эту совместимость вместе с фасадом на этапе 8. Старые services/bookmarks,
 services/bookmarkAssets, services/autoNames, composables/useBookmarkSearch и
 utils/reorder остаются только compatibility wrappers до миграции пользователей.
+
+## Settings, appearance и sync
+
+- settings/services/settings.ts сохраняет/patch-ит текущие настройки через порты,
+  проверяет source до записи, фиксирует root последним и выполняет прежний rollback
+  настроек/фона при сбое. Production root передаёт этот сервис в фасад Repository.
+- settings/composables/useSettingsState.ts владеет confirmed/pending fields,
+  версиями записей, field errors и ready. Он возвращает overlay для одного publish
+  общего snapshot. track/flush учитывают также незавершённые операции root/background
+  редактора; sync flush вызывается после local writes.
+- Settings storage сообщает об успешном сохранении через SettingsChangeSink.
+  Он не импортирует sync module и не ожидает runtime message под data lock.
+  Composition root связывает sink с SyncClient; remote apply coordinator пишет
+  низкоуровневый local storage и не создаёт echo через этот sink.
+- appearance/services/appearance.ts и adapters/storage.ts владеют background row.
+  useBackgroundState содержит dirty/version и startup-read guards. UI adapters
+  BackgroundResource/backgroundPreview и composable useTheme находятся в appearance;
+  public wallpaper-bootstrap.js, URL, mirrors, CSS и порядок первого paint сохранены.
+- sync/services/coordinator.ts содержит прежний SettingsSync с sparse writes,
+  rate limit, retry, account/folder epochs и portable source locator. Алгоритм
+  сохранён; нативная инфраструктура находится в adapters/background.ts.
+- sync/services/client.ts создаёт личную outgoing queue на приложение. Browser
+  transport находится в adapters/browserClient.ts; ошибка доставки не отменяет
+  успешный local save, а записывается в отдельный sync status.
+- SettingsSyncMessage — discriminated union исходящих сообщений; incoming patch
+  имеет Record<string,unknown>. Декодер проверяет action/type, формы payload и
+  ограничения folder ID, а coordinator отдельно валидирует ключи/значения patch.
+  Sender/runtime ID/newtab URL проверяются независимо от TypeScript.
+- SyncState/SyncInfo отделены от Settings. UI получает sync client, status storage
+  и account-status reader через useServices; email остаётся только в памяти UI.
+- Portable locator и native folder rules опубликованы отдельными pure entries
+  bookmarks/locators.ts и bookmarks/folders.ts, без импорта UI/фабрики bookmarks.
+- Schema helper пока использует legacy validateSettings. Старый runtime i18n и
+  этот мост нормализации остаются до отдельной миграции переводов/удаления legacy;
+  они не заменены вторым переводчиком. Старые пути сохраняют compatibility exports.
+
+Тесты theme/background/appearance и settingsSync/accountStatus перенесены к
+владельцам. Новые тесты покрывают concurrent optimistic edits, flush связанных
+записей, rollback/partial restore, stale background, независимые sync queues,
+transport failures и malformed wire messages. Межмодульные useDial/Repository
+проверки остаются в корневой инфраструктуре.
 
 ## Как добавлять поведение
 

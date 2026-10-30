@@ -6,7 +6,7 @@ const state = vi.hoisted(() => ({
   retry: vi.fn(async () => {}),
   dispose: vi.fn(),
 }));
-vi.mock('../../../../../services/settingsSync', () => ({
+vi.mock('../services/coordinator', () => ({
   SettingsSync: class {
     initialize = state.initialize;
     retry = state.retry;

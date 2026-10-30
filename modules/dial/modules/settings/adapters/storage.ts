@@ -2,9 +2,8 @@ import { storage } from 'wxt/utils/storage';
 import { settingKeys, storedSettings } from '../../../../../services/settingsSchema';
 import { defaults, type Settings } from '../entities/models';
 import type { SettingsEnvelope } from '../entities/models';
-import type { SettingsPort } from '../services/interfaces';
-import type { SyncClient } from '../../sync';
-export function createSettingsStorage(syncRequest: SyncClient): SettingsPort {
+import type { SettingsPort, SettingsChangeSink } from '../services/interfaces';
+export function createSettingsStorage(changed: SettingsChangeSink): SettingsPort {
   const localItem = storage.defineItem<SettingsEnvelope>('local:settings');
   return {
     getValue: async () => {
@@ -29,7 +28,7 @@ export function createSettingsStorage(syncRequest: SyncClient): SettingsPort {
       );
       // Do not wait under the repository data lock: remote application uses that
       // same cross-context lock. The background owns the durable local snapshot.
-      if (Object.keys(patch).length) void syncRequest('patch', patch);
+      if (Object.keys(patch).length) changed(patch);
     },
   };
 }

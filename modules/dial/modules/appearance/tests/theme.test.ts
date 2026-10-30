@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaults, type ThemeMode } from '../types/models';
-import { validateSettings } from '../services/validation';
-import { parseImport, serializeExport } from '../services/importExport';
-import { syncPatch } from '../services/settingsSchema';
+import { defaults, type ThemeMode } from '../../../../../types/models';
+import { validateSettings } from '../../../../../services/validation';
+import { parseImport, serializeExport } from '../../../../../services/importExport';
+import { syncPatch } from '../../../../../services/settingsSchema';
 const state = vi.hoisted(() => ({ dispose: [] as Array<() => void> }));
 vi.mock('vue', async () => ({
   ...(await vi.importActual<typeof import('vue')>('vue')),
@@ -17,7 +17,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 const bootstrap = readFileSync(
-  new URL('../public/wallpaper-bootstrap.js', import.meta.url),
+  new URL('../../../../../public/wallpaper-bootstrap.js', import.meta.url),
   'utf8',
 );
 function start(saved: unknown, dark: boolean, preview?: string, unavailable = false) {

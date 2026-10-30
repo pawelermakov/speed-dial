@@ -49,7 +49,6 @@ vi.mock('../shared/infrastructure/database', () => ({
     }
   },
 }));
-vi.mock('../services/syncClient', () => ({ syncRequest: state.sync }));
 const applications: Array<ReturnType<typeof createNewtabApplication>> = [];
 beforeEach(() => {
   state.changed.listeners.clear();

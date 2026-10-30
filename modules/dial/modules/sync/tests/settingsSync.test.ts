@@ -1,10 +1,11 @@
-import { formatMessage } from '../services/i18n';
+import { formatMessage } from '../../../../../services/i18n';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SettingsSync, type SyncState, type StorageArea } from '../services/settingsSync';
-import { defaults } from '../types/models';
-import { folderKey, syncPrefix, syncPatch } from '../services/settingsSchema';
-import { locateFolder, resolveFolder, validLocator } from '../services/folderLocator';
-import type { BookmarkNode } from '../services/bookmarks';
+import { SettingsSync, type StorageArea } from '../services/coordinator';
+import type { SyncState } from '../entities/models';
+import { defaults } from '../../../../../types/models';
+import { folderKey, syncPrefix, syncPatch } from '../../../../../services/settingsSchema';
+import { locateFolder, resolveFolder, validLocator } from '../../../../../services/folderLocator';
+import type { BookmarkNode } from '../../../../../services/bookmarks';
 
 const node = (id: string, title: string, children: BookmarkNode[] = []): BookmarkNode => ({
   id,

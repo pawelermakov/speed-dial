@@ -184,8 +184,51 @@ Firefox 425641 байт. Прирост к этапу 2: +328/+328 background и
 он включает модульную сборку и временную делегацию фасада. CSS и wallpaper bootstrap
 не менялись; отдельный замер холодного старта пока не выполнен.
 
-Следом: этап 4 — settings, appearance и sync с сохранением optimistic patches,
-flush, background coordinator и wire contracts.
+## Этап 4. Settings, appearance и sync
+
+Завершён 30 октября 2026 года.
+
+- SettingsService и AppearanceService вынесены из Repository, production root
+  передаёт собранные сервисы в совместимый фасад. Он больше не читает Dexie напрямую.
+  Сохранены patch текущих значений, replace, source-last commit и rollback/partial restore.
+- useSettingsState владеет confirmed/pending fields, версиями, field errors,
+  ready и track/flush. Root/background writes входят в ту же очередь ожидания.
+  useDial публикует общий snapshot один раз через переданный callback.
+- useBackgroundState владеет version/dirty/startup guards; theme, preview и
+  BackgroundResource перенесены в appearance. CSS, mirrors, bootstrap и URL прежние.
+- SettingsChangeSink отделяет storage от sync; в composition root он отправляет
+  patch без ожидания runtime message под lock. Remote apply не создаёт echo.
+- SettingsSync перенесён почти без изменения алгоритма в sync/services/coordinator;
+  browser wiring — в adapters/background. Portable locator/native folder helpers
+  принадлежат bookmarks с отдельными публичными pure entries.
+- SyncClient теперь factory с outgoing queue на экземпляр приложения; UI получает
+  тот же клиент, status storage и status reader через typed context. Sync status
+  не добавляется в persisted Settings, account identity остаётся только в памяти.
+- Добавлены typed message union и отдельный runtime decoder; incoming patch остаётся
+  untrusted record до coordinator validation. Сохранены sender/ID/URL checks.
+- Перенесены существующие tests theme/background/appearance/settingsSync/status;
+  исправлен относительный путь к существующему bootstrap fixture, без копирования.
+  Сохранены все 288 предыдущих тестов; добавлены 17 проверок новых границ и гонок.
+
+check прошёл: 36 файлов / 305 тестов, линтеры и TypeScript. Обе сборки успешны.
+Полные текущие browser-наборы прошли: Chrome — 23 сценария, Firefox — 21 сценарий
+(вне песочницы). После удаления лишней build-зависимости повторно прошли settings-sync,
+settings-autosave и wallpaper-startup в обоих браузерах. Полные UI/live suites
+на этом этапе отдельно не запускались; реальная cloud-доставка не проверялась.
+
+Аудит generateBundle подтвердил отсутствие test modules в обоих production chunks,
+а также UI modules/runtime-dom и WXT storage в background. Обнаруженный лишний импорт
+WXT storage через параметр appearance-сервиса устранён переименованием этого параметра;
+background уменьшился на 8704 байта, newtab не изменился. Временный audit plugin удалён,
+wxt.config.ts восстановлен без diff. Локальные отчёты находятся в .browser-test/.
+
+Итоговые JS размеры (байт, без gzip): background Chrome 218548 / Firefox 218202;
+newtab Chrome 427905 / Firefox 427535. Прирост к этапу 3: +613/+613 background и
++1894/+1894 newtab. CSS — 60506 байт, wallpaper-bootstrap — 1714 байт; исходники
+стилей, startup mirrors и bootstrap не менялись. Отдельный замер cold start остаётся
+открытым.
+
+Следом: этап 5 — backup/capture и загрузка необязательной функциональности по требованию.
 При рефакторинге тестовой инфраструктуры обязателен полный паритет Chrome и
 Firefox по разделу 7.4 плана: аудит всех browser/UI/live сценариев и assertions,
 устранение всех пробелов (включая theme-startup, bookmark-drag и UI allowlist),
