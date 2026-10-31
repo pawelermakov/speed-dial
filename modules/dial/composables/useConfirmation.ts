@@ -1,4 +1,6 @@
-import { message, errorMessage, type MessageText } from '../../../services/i18n';
+import { message } from '../../../shared/i18n/messages';
+import { errorMessage } from '../../../shared/i18n/errors';
+import { type MessageText } from '../../../shared/i18n/contracts';
 import { ref, shallowRef } from 'vue';
 import type { DialState } from '../screenTypes';
 import type { Ref } from 'vue';

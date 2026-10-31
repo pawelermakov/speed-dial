@@ -1,4 +1,4 @@
-import { formatMessage } from '../services/i18n';
+import { formatMessage } from './helpers/i18n';
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialDatabase } from '../shared/infrastructure/database';
@@ -58,10 +58,10 @@ describe('browser bookmarks source', () => {
     expect((await fixture.snapshots.load()).folders.map((row) => row.id)).toEqual([root]);
     expect(await fixture.bookmarks.source.search('data:')).toEqual([]);
     expect((await fixture.backup.exportData()).entries).toHaveLength(2);
-    await expect(fixture.bookmarks.source.bookmark(separator.id)).rejects.toThrow(
+    await expect(fixture.bookmarks.source.bookmark(separator.id)).rejects.toThrowLocalized(
       'Закладка недоступна',
     );
-    await expect(fixture.bookmarks.source.parent(separator.id)).rejects.toThrow('Папка');
+    await expect(fixture.bookmarks.source.parent(separator.id)).rejects.toThrowLocalized('Папка');
     await fixture.bookmarks.actions.reorder([b, a], [a, b], root);
     expect((await api.getChildren(root)).map((row) => row.id)).toEqual([b, separator.id, a]);
   });
@@ -92,12 +92,12 @@ describe('browser bookmarks source', () => {
     await api.removeTree(selected);
     const write = vi.spyOn(rootPort, 'setValue');
     vi.spyOn(settingsPort, 'getValue').mockRejectedValueOnce(new Error('Settings read failed'));
-    await expect(fixture.snapshots.load()).rejects.toThrow('Settings read failed');
+    await expect(fixture.snapshots.load()).rejects.toThrowLocalized('Settings read failed');
     expect(write).not.toHaveBeenCalled();
     expect(fixture.bookmarks.source.rootId).toBe(selected);
     expect(rootId).toBe(selected);
     vi.spyOn(db.assets, 'get').mockRejectedValueOnce(new Error('Wallpaper read failed'));
-    await expect(fixture.snapshots.load()).rejects.toThrow('Wallpaper read failed');
+    await expect(fixture.snapshots.load()).rejects.toThrowLocalized('Wallpaper read failed');
     expect(write).not.toHaveBeenCalled();
     expect(fixture.bookmarks.source.rootId).toBe(selected);
     expect(rootId).toBe(selected);
@@ -236,7 +236,7 @@ describe('browser bookmarks source', () => {
     expect(await fixture.bookmarks.source.search('match')).toEqual([]);
     await setup();
     vi.spyOn(api, 'getSubTree').mockRejectedValueOnce(new Error('read failed'));
-    await expect(fixture.bookmarks.source.search('match')).rejects.toThrow('read failed');
+    await expect(fixture.bookmarks.source.search('match')).rejects.toThrowLocalized('read failed');
   });
   it('preserves a valid saved source across updates and renames', async () => {
     await setup();
@@ -316,7 +316,7 @@ describe('browser bookmarks source', () => {
     vi.spyOn(rootPort, 'setValue').mockRejectedValueOnce(new Error('Storage failure'));
     await expect(
       fixture.preferences.saveSettings({ ...defaults, width: 50 }, new Blob(['new']), 'other'),
-    ).rejects.toThrow('Storage failure');
+    ).rejects.toThrowLocalized('Storage failure');
     expect(rootId).toBe(initial);
     expect(fixture.bookmarks.source.rootId).toBe(initial);
     expect((await settingsPort.getValue())?.value).toEqual(defaults);
@@ -329,13 +329,13 @@ describe('browser bookmarks source', () => {
     vi.spyOn(settingsPort, 'setValue').mockRejectedValueOnce(new Error('Settings failure'));
     await expect(
       fixture.preferences.saveSettings({ ...defaults, width: 50 }, undefined, 'other'),
-    ).rejects.toThrow('Settings failure');
+    ).rejects.toThrowLocalized('Settings failure');
     expect(write).not.toHaveBeenCalled();
     expect(rootId).toBe(initial);
     vi.spyOn(api, 'getTree').mockRejectedValueOnce(new Error('Permission denied'));
     await expect(
       fixture.preferences.saveSettings({ ...defaults }, undefined, 'other'),
-    ).rejects.toThrow('Permission denied');
+    ).rejects.toThrowLocalized('Permission denied');
     expect(rootId).toBe(initial);
   });
   it('allows child CRUD in system folders while protecting the system folder itself', async () => {
@@ -410,7 +410,7 @@ describe('browser bookmarks source', () => {
   });
   it('rejects unavailable API instead of presenting an empty source', async () => {
     vi.spyOn(api, 'getTree').mockRejectedValue(new Error('Permission denied'));
-    await expect(fixture.snapshots.initialize()).rejects.toThrow('Permission');
+    await expect(fixture.snapshots.initialize()).rejects.toThrowLocalized('Permission');
   });
   it('shows direct bookmarks without folders and with empty cache', async () => {
     await setup();
@@ -581,7 +581,7 @@ describe('browser bookmarks source', () => {
     expect(calls).not.toHaveBeenCalled();
     await expect(
       fixture.bookmarks.actions.reorderFolders([folder, second], [folder, second]),
-    ).rejects.toThrow('Список изменился');
+    ).rejects.toThrowLocalized('Список изменился');
     expect(calls).not.toHaveBeenCalled();
   });
   it('stops a partially completed reorder on API failure and rejects stale folder context', async () => {
@@ -593,9 +593,9 @@ describe('browser bookmarks source', () => {
       if (++count === 2) throw Error('partial');
       return move(id, destination);
     });
-    await expect(fixture.bookmarks.actions.reorder(ids.slice().reverse(), ids)).rejects.toThrow(
-      'partial',
-    );
+    await expect(
+      fixture.bookmarks.actions.reorder(ids.slice().reverse(), ids),
+    ).rejects.toThrowLocalized('partial');
     expect((await fixture.snapshots.load()).tabs.map((row) => row.id)).toEqual([
       ids[2],
       ids[0],
@@ -603,7 +603,7 @@ describe('browser bookmarks source', () => {
     ]);
     const parent = fixture.bookmarks.source.activeId;
     await fixture.bookmarks.actions.createFolder('Changed');
-    await expect(fixture.bookmarks.actions.reorder(ids, ids, parent)).rejects.toThrow(
+    await expect(fixture.bookmarks.actions.reorder(ids, ids, parent)).rejects.toThrowLocalized(
       'Папка изменилась',
     );
   });
@@ -764,7 +764,7 @@ describe('full backup resources and explicit destination', () => {
     await expect(fixture.backup.importData(data, 'gone')).rejects.toThrow();
     await expect(
       fixture.backup.importData(data, fixture.bookmarks.source.rootId!, { ...defaults, width: 70 }),
-    ).rejects.toThrow('другой вкладке');
+    ).rejects.toThrowLocalized('другой вкладке');
     expect(await api.getTree()).toEqual(before);
   });
   it('keeps created bookmarks when image storage fails and continues importing', async () => {
@@ -1142,5 +1142,5 @@ it('can prepare settings-only export even when the native tree exceeds the file 
     selectExport(prepared, { bookmarks: false, images: false, settings: true, background: false }),
   );
   expect(JSON.parse(text)).toMatchObject({ entries: [], settings: defaults });
-  await expect(serializeExport(prepared)).rejects.toThrow(String(backupLimits.entries));
+  await expect(serializeExport(prepared)).rejects.toThrowLocalized(String(backupLimits.entries));
 });

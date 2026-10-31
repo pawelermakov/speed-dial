@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { DialDatabase } from '../../../../../shared/infrastructure/database';
 import { MockBookmarks } from '../../../../../tests/helpers/bookmarksMock';
-import { t, LocalizedError } from '../../../../../services/i18n';
+import { t } from '../../../../../tests/helpers/i18n';
+import { LocalizedError } from '../../../../../shared/i18n/errors';
 import { normalizeUrl } from '../../../../../services/validation';
 import { withDataLock } from '../../../../../shared/infrastructure/browser/dataLock';
 import { createBookmarksModule, type BookmarksModule } from '../createBookmarksModule';
@@ -121,7 +122,7 @@ it('ignores unsuitable titles and external changes; persists provenance across m
       title: 'example.com',
       parentId: 'other',
     }),
-  ).rejects.toThrow('другом окне');
+  ).rejects.toThrowLocalized('другом окне');
 });
 it('consumes combined Chrome and split Firefox events without deleting our new fallback marker', async () => {
   for (const split of [false, true]) {

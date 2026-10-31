@@ -13,7 +13,7 @@ describe('data lock', () => {
       });
       throw new Error('failed');
     });
-    const failure = expect(first).rejects.toThrow('failed');
+    const failure = expect(first).rejects.toThrowLocalized('failed');
     const second = withDataLock(async () => {
       order.push('second');
       return 42;

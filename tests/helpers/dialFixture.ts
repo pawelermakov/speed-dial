@@ -10,7 +10,8 @@ import { createAppearanceService } from '../../modules/dial/modules/appearance';
 import { createBackgroundStorage } from '../../modules/dial/modules/appearance/adapters/storage';
 import { createBackupService } from '../../modules/dial/modules/backup/services/backup';
 import { createSnapshotReader } from '../../modules/dial/services/snapshot';
-import { t, LocalizedError, errorMessage } from '../../services/i18n';
+import { t } from './i18n';
+import { LocalizedError, errorMessage } from '../../shared/i18n/errors';
 import { normalizeUrl, validateSettings } from '../../services/validation';
 // Assemble the same feature implementations as production, without a legacy facade.
 export function createDialFixture(

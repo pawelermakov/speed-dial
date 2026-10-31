@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaults } from '../entities/models';
 import { validateSettings } from '../../../../../services/validation';
-import { errorMessage } from '../../../../../services/i18n';
+import { errorMessage } from '../../../../../shared/i18n/errors';
 import { useSettingsState } from '../composables/useSettingsState';
 const lifecycle = vi.hoisted(() => ({ unmount: [] as Array<() => void> }));
 vi.mock('vue', async () => ({

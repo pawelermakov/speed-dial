@@ -1,8 +1,9 @@
+import { t } from '../../../../../tests/helpers/i18n';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { defaults } from '../../settings';
 import { validateSettings } from '../../../../../services/validation';
 import { validSetting, syncPatch } from '../../settings/schema';
-import { mailEnabled, mailTooltip } from '../helpers/presentation';
+import { mailEnabled, getMailTranslates } from '../helpers/presentation';
 import { parseYandexMailCount, parseMailCount, MailError } from '../adapters/counters';
 import { createMailModule } from '../newtab';
 const unreadProvider = createMailModule().unread;
@@ -73,7 +74,7 @@ describe('mail indicators', () => {
     );
     await expect(unreadMail(new AbortController().signal)).rejects.toThrow();
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
-    await expect(unreadMail(new AbortController().signal)).rejects.toThrow('offline');
+    await expect(unreadMail(new AbortController().signal)).rejects.toThrowLocalized('offline');
   });
 });
 
@@ -173,3 +174,5 @@ describe('automatic Mail.ru account', () => {
     }
   });
 });
+
+const { mailTooltip } = getMailTranslates(t);

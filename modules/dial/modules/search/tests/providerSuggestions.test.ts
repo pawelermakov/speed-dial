@@ -1,4 +1,5 @@
-import { formatMessage } from '../../../../../services/i18n';
+import { testTranslations } from '../../../../../tests/helpers/i18n';
+import { formatMessage } from '../../../../../tests/helpers/i18n';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 import { useProviderSuggestions } from '../composables/useProviderSuggestions';
@@ -19,7 +20,12 @@ afterEach(() => {
 it('debounces input, calls only the selected provider and cancels stale requests', async () => {
   const query = ref(''),
     provider = ref<SearchProviderId>('google');
-  const dial = useProviderSuggestions(query, provider, { suggestions: state.fetch });
+  const dial = useProviderSuggestions(
+    query,
+    provider,
+    { suggestions: state.fetch },
+    testTranslations.language,
+  );
   let finish!: (rows: SearchSuggestion[]) => void;
   state.fetch.mockImplementationOnce(
     () =>
@@ -48,7 +54,12 @@ it('debounces input, calls only the selected provider and cancels stale requests
 it('does not send empty input, exposes errors and ignores late completions after teardown', async () => {
   const query = ref(''),
     provider = ref<SearchProviderId>('myshows'),
-    dial = useProviderSuggestions(query, provider, { suggestions: state.fetch });
+    dial = useProviderSuggestions(
+      query,
+      provider,
+      { suggestions: state.fetch },
+      testTranslations.language,
+    );
   query.value = ' ';
   await vi.advanceTimersByTimeAsync(300);
   expect(state.fetch).not.toHaveBeenCalled();
@@ -75,7 +86,12 @@ it('does not send empty input, exposes errors and ignores late completions after
 it('switching to bookmarks cancels remote work and never sends local queries', async () => {
   const query = ref(''),
     provider = ref<SearchProviderId>('google'),
-    dial = useProviderSuggestions(query, provider, { suggestions: state.fetch });
+    dial = useProviderSuggestions(
+      query,
+      provider,
+      { suggestions: state.fetch },
+      testTranslations.language,
+    );
   let finish!: (rows: SearchSuggestion[]) => void;
   state.fetch.mockImplementationOnce(
     () =>

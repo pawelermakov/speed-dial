@@ -1,18 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import {
-  defaultLanguage,
-  isLanguage,
-  language,
-  languages,
-  setLanguage,
-  t,
-  message,
-  formatMessage,
-  joinMessages,
-  LocalizedError,
-  errorMessage,
-} from '../services/i18n';
+import { defaultLanguage, isLanguage } from '../shared/i18n/contracts';
+import { language, languages, setLanguage, t, formatMessage } from './helpers/i18n';
+import { message, joinMessages } from '../shared/i18n/messages';
+import { LocalizedError, errorMessage } from '../shared/i18n/errors';
 import ru from '../locales/ru.json';
 import en from '../locales/en.json';
 import es from '../locales/es.json';
@@ -93,17 +84,32 @@ describe('i18n', () => {
     }
   });
   it('contains every authored translation key used by components and services', () => {
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory()
+          ? entry.name === 'tests'
+            ? []
+            : walk(dir + '/' + entry.name)
+          : /\.(ts|vue)$/.test(entry.name) && !entry.name.endsWith('.test.ts')
+            ? [dir + '/' + entry.name]
+            : [],
+      );
     const files = [
       'App.vue',
-      ...['components', 'services', 'utils', 'composables'].flatMap((dir) =>
-        readdirSync(dir)
-          .filter((name) => /\.(ts|vue)$/.test(name))
-          .map((name) => dir + '/' + name),
-      ),
+      ...[
+        'components',
+        'services',
+        'utils',
+        'composables',
+        'modules',
+        'shared',
+        'app',
+        'entrypoints',
+      ].flatMap(walk),
     ];
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
-      for (const match of source.matchAll(/\b(?:t|message)\('([^']+)'/g))
+      for (const match of source.matchAll(/(?:\bt|\$t|\bmessage)\('([^']+)'/g))
         expect(Object.hasOwn(ru, match[1]!), file + ': ' + match[1]).toBe(true);
     }
   });

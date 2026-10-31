@@ -1,4 +1,6 @@
-import { message, language, type MessageText } from '../../../../../services/i18n';
+import { useUiI18n } from '../../../../../shared/i18n';
+import { message } from '../../../../../shared/i18n/messages';
+import { type MessageText } from '../../../../../shared/i18n/contracts';
 import { ref, shallowRef, watch, onUnmounted, type Ref } from 'vue';
 import type { SearchProviderId, SearchSuggestion } from '../entities/models';
 import { useServices } from '../../../../../app/serviceContext';
@@ -8,6 +10,7 @@ export function useProviderSuggestions(
   query: Ref<string>,
   provider: Ref<SearchProviderId>,
   service: ReturnType<typeof createSearchService> = useServices().search,
+  language = useUiI18n().language,
 ) {
   const { suggestions: providerSuggestions } = service;
   const items = shallowRef<SearchSuggestion[]>([]),

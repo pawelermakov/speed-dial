@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { t } from '../../../../../services/i18n';
-import { weatherCities, weatherProviders } from '../helpers/links';
+import { useUiI18n } from '../../../../../shared/i18n';
+
+import { getWeatherTranslates } from '../helpers/links';
 import SwitchControl from '../../../../../components/SwitchControl.vue';
 import SelectChevron from '../../../../../components/SelectChevron.vue';
 import { ui } from '../../../../../utils/ui';
 import type { Settings } from '../../settings';
+const { t: $t } = useUiI18n();
+
+const { weatherCities, weatherProviders } = getWeatherTranslates($t);
 defineProps<{
   settings: Settings;
   busy: boolean;
@@ -13,16 +17,16 @@ defineProps<{
 </script>
 <template>
   <fieldset class="mb-5 min-w-0 weather-settings">
-    <legend class="font-bold mb-2">{{ t('weather.title') }}</legend>
+    <legend class="font-bold mb-2">{{ $t('weather.title') }}</legend>
     <SwitchControl
       :model-value="settings.weatherEnabled"
       :disabled="busy"
       class="settings-row"
       @update:model-value="(value) => updateSettings({ weatherEnabled: value })"
-      >{{ t('settings.weather.enabled') }}</SwitchControl
+      >{{ $t('settings.weather.enabled') }}</SwitchControl
     >
     <div v-if="settings.weatherEnabled" class="mt-3">
-      <label for="weather-city" class="block mb-2">{{ t('settings.weather.city') }}</label>
+      <label for="weather-city" class="block mb-2">{{ $t('settings.weather.city') }}</label>
       <div class="ui-select mb-3">
         <select
           id="weather-city"
@@ -40,7 +44,7 @@ defineProps<{
           </option></select
         ><SelectChevron />
       </div>
-      <label for="weather-provider" class="block mb-2">{{ t('settings.weather.provider') }}</label>
+      <label for="weather-provider" class="block mb-2">{{ $t('settings.weather.provider') }}</label>
       <div class="ui-select">
         <select
           id="weather-provider"

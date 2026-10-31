@@ -1,4 +1,6 @@
-import { t, message, LocalizedError } from '../../../../../services/i18n';
+import type { Translator } from '../../../../../shared/i18n/formatMessage';
+import { message } from '../../../../../shared/i18n/messages';
+import { LocalizedError } from '../../../../../shared/i18n/errors';
 import type { SearchProviderId, SearchSuggestion } from '../entities/models';
 import { kinopoiskQuery } from './kinopoiskQuery';
 
@@ -37,7 +39,7 @@ export function parseTextSuggestions(value: unknown): SearchSuggestion[] {
     }),
   );
 }
-export function parseImdbSuggestions(value: unknown): SearchSuggestion[] {
+export function parseImdbSuggestions(value: unknown, t: Translator): SearchSuggestion[] {
   const root = object(value);
   if (
     !root ||
@@ -70,7 +72,7 @@ export function parseImdbSuggestions(value: unknown): SearchSuggestion[] {
     }),
   );
 }
-export function parseMyShowsSuggestions(value: unknown): SearchSuggestion[] {
+export function parseMyShowsSuggestions(value: unknown, t: Translator): SearchSuggestion[] {
   const root = object(value);
   if (!root || root.jsonrpc !== '2.0' || root.error || !Array.isArray(root.result))
     return invalid();
@@ -94,7 +96,7 @@ export function parseMyShowsSuggestions(value: unknown): SearchSuggestion[] {
     }),
   );
 }
-export function parseKinopoiskSuggestions(value: unknown): SearchSuggestion[] {
+export function parseKinopoiskSuggestions(value: unknown, t: Translator): SearchSuggestion[] {
   const root = object(value),
     top = object(object(object(root?.data)?.suggest)?.top);
   if (!top || !Array.isArray(top.movies)) return invalid();

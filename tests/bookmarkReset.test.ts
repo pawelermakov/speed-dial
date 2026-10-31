@@ -28,7 +28,7 @@ it('rejects delayed images after moving or renaming and clears provenance on res
       new Blob(['x'], { type: 'image/png' }),
       expected,
     ),
-  ).rejects.toThrow('изменена');
+  ).rejects.toThrowLocalized('изменена');
   await fixture.backup.reset();
   expect(await fixture.bookmarks.actions.autoNameTicket(id)).toBeUndefined();
 });

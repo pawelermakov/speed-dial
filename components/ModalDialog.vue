@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { t } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
 import { onMounted, ref } from 'vue';
 import PanelHeader from './PanelHeader.vue';
 import { cycleDialogFocus } from '../utils/keyboard';
+const { t: $t } = useUiI18n();
+
 const props = defineProps<{ title: string; busy?: boolean; wide?: boolean; bookmark?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 const dialog = ref<HTMLDialogElement>();
@@ -33,7 +36,7 @@ function close(event?: Event) {
       class="modal relative m-auto p-0 border-0 max-h-[calc(100dvh-32px)] overflow-y-auto ui-glass"
       :class="{ wide, 'bookmark-dialog': bookmark }"
     >
-      <PanelHeader :title="title" :close-label="t('common.close')" :busy="busy" @close="close()" />
+      <PanelHeader :title="title" :close-label="$t('common.close')" :busy="busy" @close="close()" />
       <div class="p-5"><slot /></div>
     </section>
   </dialog>

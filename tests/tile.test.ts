@@ -1,3 +1,4 @@
+import { t } from './helpers/i18n';
 import { describe, expect, it } from 'vitest';
 import {
   fitTileFont,
@@ -34,15 +35,19 @@ describe('text bookmark tiles', () => {
     expect(faviconTileColor(new Uint8ClampedArray())).toBeUndefined();
   });
   it('uses only a normalized hostname and a safe fallback', () => {
-    expect(tileHostname('https://www.Example.com/a?q=x#b')).toBe('example.com');
-    expect(tileHostname('https://пример.рф')).toBe('xn--e1afmkfd.xn--p1ai');
-    expect(tileHostname('invalid')).toBe('Сайт');
-    expect(tileHostname('file:///tmp/a')).toBe('Сайт');
+    expect(tileHostname('https://www.Example.com/a?q=x#b', t('bookmarks.fallback.website'))).toBe(
+      'example.com',
+    );
+    expect(tileHostname('https://пример.рф', t('bookmarks.fallback.website'))).toBe(
+      'xn--e1afmkfd.xn--p1ai',
+    );
+    expect(tileHostname('invalid', t('bookmarks.fallback.website'))).toBe('Сайт');
+    expect(tileHostname('file:///tmp/a', t('bookmarks.fallback.website'))).toBe('Сайт');
   });
   it('keeps color independent of paths, titles, ids and folders', () => {
-    expect(tileColor(tileHostname('https://www.Example.com/a'))).toBe(
-      tileColor(tileHostname('http://example.com/b')),
-    );
+    expect(
+      tileColor(tileHostname('https://www.Example.com/a', t('bookmarks.fallback.website'))),
+    ).toBe(tileColor(tileHostname('http://example.com/b', t('bookmarks.fallback.website'))));
     expect(tileColor('example.com')).toBe('#754691');
   });
   it('generates diverse colors with text contrast of at least 4.5', () => {

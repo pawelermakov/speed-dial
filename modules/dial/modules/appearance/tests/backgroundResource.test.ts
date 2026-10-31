@@ -52,7 +52,7 @@ describe('background resource lifetime', () => {
     expect(publish.mock.calls).toHaveLength(2);
     expect(revoke).toHaveBeenCalledWith('blob:2');
     preload.mockRejectedValueOnce(new Error('bad image'));
-    await expect(resource.replace(new Blob(['bad']))).rejects.toThrow('bad image');
+    await expect(resource.replace(new Blob(['bad']))).rejects.toThrowLocalized('bad image');
     expect(revoke).not.toHaveBeenCalledWith('blob:3');
     resource.dispose();
     expect(revoke).toHaveBeenCalledWith('blob:3');

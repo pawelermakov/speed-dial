@@ -31,5 +31,5 @@ describe('current settings contract', () => {
 });
 
 it('rejects settings outside the current contract', () => {
-  expect(() => validateSettings({ unexpected: true })).toThrow('Неизвестный параметр');
+  expect(() => validateSettings({ unexpected: true })).toThrowLocalized('Неизвестный параметр');
 });

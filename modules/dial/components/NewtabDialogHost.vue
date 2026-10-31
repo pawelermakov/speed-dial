@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { formatMessage, joinMessages } from '../../../services/i18n';
+import { useUiI18n } from '../../../shared/i18n';
+import { joinMessages } from '../../../shared/i18n/messages';
 import { useScreen } from '../screenContext';
 import SettingsPanel from '../../../components/SettingsPanel.vue';
 import FolderDialog from '../../../components/FolderDialog.vue';
 import BookmarkDialog from '../../../components/BookmarkDialog.vue';
 import ConfirmDialog from '../../../components/ConfirmDialog.vue';
 import ContextMenu from '../../../components/ContextMenu.vue';
+const { formatMessage } = useUiI18n();
+
 const {
   dial,
   settings,

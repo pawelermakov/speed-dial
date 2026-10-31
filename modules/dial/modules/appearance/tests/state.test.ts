@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { useBackgroundState } from '../composables/useBackgroundState';
-import { errorMessage } from '../../../../../services/i18n';
+import { errorMessage } from '../../../../../shared/i18n/errors';
 const lifecycle = vi.hoisted(() => ({ unmount: [] as Array<() => void> }));
 vi.mock('vue', async () => ({
   ...(await vi.importActual('vue')),

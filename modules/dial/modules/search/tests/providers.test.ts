@@ -1,3 +1,4 @@
+import { t } from '../../../../../tests/helpers/i18n';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -7,9 +8,9 @@ import {
   parseMyShowsSuggestions,
   suggestionRequest,
 } from '../adapters/providers';
-import { searchProviders, searchUrl } from '../helpers/presentation';
+import { getSearchTranslates, searchUrl } from '../helpers/presentation';
 import { createSearchModule } from '../newtab';
-const providerSuggestions = createSearchModule().suggestions;
+const providerSuggestions = createSearchModule(t).suggestions;
 import { validateSettings } from '../../../../../services/validation';
 import { parseImport, serializeExport } from '../../backup/adapters/json';
 import { defaults } from '../../settings';
@@ -57,7 +58,7 @@ describe('provider contracts', () => {
     fetchMock.mockReset().mockResolvedValueOnce(new Response('', { status: 403 }));
     await expect(
       providerSuggestions('kinopoisk', 'Матрица', new AbortController().signal),
-    ).rejects.toThrow('HTTP 403');
+    ).rejects.toThrowLocalized('HTTP 403');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
   it('has web providers and a local bookmark mode and safe export defaults', async () => {
@@ -70,7 +71,9 @@ describe('provider contracts', () => {
       'MyShows',
     ]);
     expect(validateSettings({}).searchProvider).toBe('yandex');
-    expect(() => validateSettings({ searchProvider: 'unsupported' })).toThrow('источник поиска');
+    expect(() => validateSettings({ searchProvider: 'unsupported' })).toThrowLocalized(
+      'источник поиска',
+    );
     for (const { id } of searchProviders) {
       const data = {
         entries: [],
@@ -110,65 +113,74 @@ describe('provider contracts', () => {
     expect(() => parseTextSuggestions({})).toThrow();
   });
   it('parses real catalogue IDs, titles and years with constructed official URLs', () => {
-    expect(parseImdbSuggestions(fixture('imdb'))[0]).toMatchObject({
+    expect(parseImdbSuggestions(fixture('imdb'), t)[0]).toMatchObject({
       id: 'tt0133093',
       label: 'The Matrix',
       targetUrl: 'https://www.imdb.com/title/tt0133093/',
     });
-    expect(parseKinopoiskSuggestions(fixture('kinopoisk'))[0]).toMatchObject({
+    expect(parseKinopoiskSuggestions(fixture('kinopoisk'), t)[0]).toMatchObject({
       id: '301',
       label: 'Матрица',
       subtitle: '1999 · фильм',
       targetUrl: 'https://www.kinopoisk.ru/film/301/',
     });
-    expect(parseMyShowsSuggestions(fixture('myshows'))[0]).toMatchObject({
+    expect(parseMyShowsSuggestions(fixture('myshows'), t)[0]).toMatchObject({
       id: '187',
       targetUrl: 'https://myshows.me/view/187/',
     });
   });
   it('rejects foreign/malformed IDs and ignores supplied destination URLs', () => {
-    const rows = parseImdbSuggestions({
-      q: 'q',
-      d: [
-        { id: 'tt0133093', l: 'Matrix', url: 'https://evil.example/' },
-        { id: 'https://evil.example/', l: 'Bad' },
-        { id: 'nm0000206', l: 'Keanu Reeves' },
-        { id: 'tt1/../evil', l: 'Bad' },
-      ],
-    });
+    const rows = parseImdbSuggestions(
+      {
+        q: 'q',
+        d: [
+          { id: 'tt0133093', l: 'Matrix', url: 'https://evil.example/' },
+          { id: 'https://evil.example/', l: 'Bad' },
+          { id: 'nm0000206', l: 'Keanu Reeves' },
+          { id: 'tt1/../evil', l: 'Bad' },
+        ],
+      },
+      t,
+    );
     expect(rows.map((row) => row.targetUrl)).toEqual([
       'https://www.imdb.com/title/tt0133093/',
       'https://www.imdb.com/name/nm0000206/',
     ]);
     expect(
-      parseMyShowsSuggestions({
-        jsonrpc: '2.0',
-        result: [
-          { id: -1, title: 'Bad' },
-          { id: '187', title: 'Bad' },
-          { id: 187, title: 'Good', url: 'javascript:alert(1)' },
-        ],
-      }),
+      parseMyShowsSuggestions(
+        {
+          jsonrpc: '2.0',
+          result: [
+            { id: -1, title: 'Bad' },
+            { id: '187', title: 'Bad' },
+            { id: 187, title: 'Good', url: 'javascript:alert(1)' },
+          ],
+        },
+        t,
+      ),
     ).toEqual([
       { id: '187', label: 'Good', subtitle: 'сериал', targetUrl: 'https://myshows.me/view/187/' },
     ]);
     expect(
-      parseKinopoiskSuggestions({
-        data: {
-          suggest: {
-            top: {
-              movies: [{ movie: { id: 1, title: { russian: 'Bad' }, __typename: 'Person' } }],
+      parseKinopoiskSuggestions(
+        {
+          data: {
+            suggest: {
+              top: {
+                movies: [{ movie: { id: 1, title: { russian: 'Bad' }, __typename: 'Person' } }],
+              },
             },
           },
         },
-      }),
+        t,
+      ),
     ).toEqual([]);
   });
   it('accepts empty results but rejects malformed envelopes and limits labels/results', () => {
-    expect(parseImdbSuggestions({ q: 'nothing' })).toEqual([]);
-    expect(parseMyShowsSuggestions({ jsonrpc: '2.0', result: [] })).toEqual([]);
+    expect(parseImdbSuggestions({ q: 'nothing' }, t)).toEqual([]);
+    expect(parseMyShowsSuggestions({ jsonrpc: '2.0', result: [] }, t)).toEqual([]);
     for (const parse of [parseImdbSuggestions, parseKinopoiskSuggestions, parseMyShowsSuggestions])
-      expect(() => parse({ error: true })).toThrow();
+      expect(() => parse({ error: true }, t)).toThrow();
     expect(
       parseTextSuggestions(['q', Array.from({ length: 20 }, (_, i) => 'Result ' + i)]),
     ).toHaveLength(8);
@@ -269,3 +281,5 @@ it('movie sources require explicit opt-in', async () => {
     ).toMatchObject({ movieSearch: true, searchProvider });
   }
 });
+
+const { searchProviders } = getSearchTranslates(t);

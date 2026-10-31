@@ -15,7 +15,7 @@ import { useContextActions } from './useContextActions';
 import { usePageKeyboard } from './usePageKeyboard';
 export function useNewtabScreen() {
   const services = useServices();
-  const dial = useDial(services);
+  const dial = useDial(services, services.translations);
   const { bookmarks: bookmarkModule, lock } = services;
   useTheme(
     () => dial.snapshot.value.settings.theme,

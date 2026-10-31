@@ -74,8 +74,15 @@ DialDependencies; sync messages типизированы и отдельно п�
 - Repository и DialRepositoryPort удалены на этапе 8.2. useDial принадлежит
   dial/composables и получает отдельные порты source/actions, preferences,
   appearance и SnapshotReader. Старый путь useDial также запрещён линтером.
-- Текущий UI runtime переводов остаётся прежним. Переход на vue-i18n выполняется
-  отдельно по разделу 7.2 плана; словари остаются в корневой папке `locales/`.
+- На этапе 8.3 UI переведён на Vue I18n 11 (Composition API). Экземпляр принадлежит
+  newtab application, устанавливается до mount и освобождается при dispose.
+  Словари остаются только в корневой папке `locales/`.
+- UI использует useUiI18n/$t; обычные helpers получают переводчик явно.
+  contracts/messages/errors/formatMessage остаются чистыми. Background передаёт
+  DTO без загрузки Vue, переводчика и словарей. Production singleton отсутствует.
+- Плоские ключи разрешаются явно, plurals используют категории Intl.PluralRules.
+  Settings.language обновляет locale, document.lang и startup mirror.
+  JIT Vue I18n работает с прежней CSP; manifest messages генерируются отдельно WXT.
 
 ESLint проверяет чистоту новых entities и независимость shared от modules.
 Ограничения legacy-каталогов усиливаются при их переносе. Не добавлять новые
@@ -146,9 +153,8 @@ ESLint проверяет чистоту новых entities и независи
   и account-status reader через useServices; email остаётся только в памяти UI.
 - Portable locator и native folder rules опубликованы отдельными pure entries
   bookmarks/locators.ts и bookmarks/folders.ts, без импорта UI/фабрики bookmarks.
-- Schema helper пока использует legacy validateSettings. Старый runtime i18n и
-  этот мост нормализации остаются до отдельной миграции переводов/удаления legacy;
-  они не заменены вторым переводчиком. Compatibility aliases удалены на этапе 8.1.
+- Schema helper пока использует validateSettings. Мост нормализации сохраняется;
+  services/i18n удалён на этапе 8.3, compatibility aliases — на этапе 8.1.
 
 Тесты theme/background/appearance и settingsSync/accountStatus перенесены к
 владельцам. Новые тесты покрывают concurrent optimistic edits, flush связанных

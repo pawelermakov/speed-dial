@@ -1,4 +1,4 @@
-import { formatMessage } from '../../../../../services/i18n';
+import { formatMessage } from '../../../../../tests/helpers/i18n';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SettingsSync, type StorageArea } from '../services/coordinator';
 import type { SyncState } from '../entities/models';

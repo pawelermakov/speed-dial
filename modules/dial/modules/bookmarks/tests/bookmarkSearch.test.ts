@@ -1,4 +1,4 @@
-import { formatMessage } from '../../../../../services/i18n';
+import { formatMessage } from '../../../../../tests/helpers/i18n';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ref, shallowRef, nextTick } from 'vue';
 import { useBookmarkSearch } from '../composables/useBookmarkSearch';

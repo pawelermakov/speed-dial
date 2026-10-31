@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { useUiI18n } from '../shared/i18n';
+
 import type { Settings } from '../modules/dial/modules/settings';
-import { mailEnabled, mailProviders } from '../modules/dial/modules/mail/helpers/presentation';
+import { mailEnabled, getMailTranslates } from '../modules/dial/modules/mail/helpers/presentation';
 import MailIndicator from './MailIndicator.vue';
+const { t: $t } = useUiI18n();
+
+const { mailProviders } = getMailTranslates($t);
 defineProps<{ settings: Settings }>();
 </script>
 <template>

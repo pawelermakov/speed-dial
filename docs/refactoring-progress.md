@@ -501,3 +501,43 @@ CSS cascade/scoped audit прошёл; CSS и bootstrap не менялись. �
 Далее — миграция i18n по 7.2, полные межмодульные проверки и инфраструктура
 тестов с паритетом Chrome/Firefox по 7.4. Затем — окончательные suites,
 чистая установка/обновление и сравнение cold start с исходной точкой.
+
+## Этап 8.3 — Vue I18n
+
+Реализовано 31 октября 2026 года. Этап 8 продолжается.
+
+- Собственный services/i18n удалён. Vue I18n 11.4.16 устанавливается до mount;
+  отдельный контекст принадлежит newtab application и его lifecycle.
+  UI использует $t/useUiI18n; справочники и helpers получают переводчик.
+- Словари остаются только в locales/ru.json, en.json, es.json. Девять plural-групп
+  преобразованы в формат Vue I18n; сохранены базовые ключи, тексты и параметры.
+  Плоские ключи разрешаются явно, категории выбирает Intl.PluralRules.
+- DTO и ошибки не импортируют UI runtime. Error.message содержит диагностический
+  ключ, пользовательский текст форматируется на UI-границе. Background больше
+  не загружает Vue, Vue I18n и словари. ESLint запрещает обратные импорты.
+- Settings.language, startup mirror, document.lang, remote updates и обновление
+  открытого UI сохранены. Production singleton отсутствует.
+- Три новых теста проверяют независимость контекстов, startup mirror и 14 274
+  результата перевода по golden hashes прежнего runtime: 366 ключей, три языка,
+  13 значений count, включая дробные/отрицательные, и параметры с @{}|.
+  Прежние проверки ошибок явно проверяют локализованный текст через matcher.
+
+npm run check прошёл: форматирование, ESLint, Stylelint, TypeScript, 44 файла /
+328 тестов. Обе production-сборки успешны. Полные текущие browser suites прошли:
+Chrome 23, Firefox 21. Дополнительные UI-сценарии (11 Chrome, 1 Firefox) также
+прошли; вместе с пересечением browser suites проверены текущие UI-наборы 25/14.
+Устранение различий наборов и allowlist остаётся обязательным следующим шагом 7.4.
+
+Production audit подтвердил отсутствие тестов в bundles, Vue/Intlify/словарей/UI
+и WXT storage в background, сохранение lazy backup/capture. Background
+Chrome/Firefox: 120963 / 120617 байт (−98479 к 8.2). Стартовый newtab:
+458610 / 458240 (+46743); новый UI runtime увеличивает стартовый chunk.
+Lazy backup service 3746, dialog 21102, capture 1849, Kinopoisk 612, constants 72.
+CSS прежний (57907 + 2600 байт); глобальный cascade и все scoped rules совпадают.
+Оба manifest и все browser locale messages побайтно совпадают с 8.2.
+CSP и permissions не менялись; JIT Vue I18n проверен в production обоих браузеров.
+Изменение bytes не является сравнением скорости cold start.
+
+Далее — полные архитектурные границы, тестовая инфраструктура и равнозначное
+покрытие Chrome/Firefox по 7.4. Финальные suites, установка/обновление и
+сравнительный cold start обязательны до завершения этапа 8.

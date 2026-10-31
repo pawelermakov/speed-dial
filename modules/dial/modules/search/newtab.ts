@@ -1,5 +1,6 @@
+import type { Translator } from '../../../../shared/i18n/formatMessage';
 import { createSearchService } from './services/suggestions';
-import { LocalizedError } from '../../../../services/i18n';
+import { LocalizedError } from '../../../../shared/i18n/errors';
 import { createLazyLoader } from '../../../../shared/helpers/lazy';
 import {
   suggestionRequest,
@@ -9,7 +10,7 @@ import {
   parseKinopoiskSuggestions,
   parseMyShowsSuggestions,
 } from './adapters/providers';
-export function createSearchModule() {
+export function createSearchModule(t: Translator) {
   const network = createLazyLoader(async () => {
     const { createKinopoiskNetwork } = await import('./adapters/kinopoiskNetwork');
     return createKinopoiskNetwork();
@@ -24,9 +25,9 @@ export function createSearchModule() {
     error: (message) => new LocalizedError(message),
     parse: {
       text: parseTextSuggestions,
-      imdb: parseImdbSuggestions,
-      kinopoisk: parseKinopoiskSuggestions,
-      myshows: parseMyShowsSuggestions,
+      imdb: (value) => parseImdbSuggestions(value, t),
+      kinopoisk: (value) => parseKinopoiskSuggestions(value, t),
+      myshows: (value) => parseMyShowsSuggestions(value, t),
     },
   });
   return { ...service, dispose: network.dispose };

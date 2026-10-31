@@ -32,7 +32,8 @@
   },
   "dependencies": {
     "dexie": "^4.2.0",
-    "vue": "^3.5.29"
+    "vue": "^3.5.29",
+    "vue-i18n": "11.4.16"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

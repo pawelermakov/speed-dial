@@ -1,4 +1,5 @@
-import { message, LocalizedError } from '../../../../../services/i18n';
+import { message } from '../../../../../shared/i18n/messages';
+import { LocalizedError } from '../../../../../shared/i18n/errors';
 import type { DialDatabase } from '../../../../../shared/infrastructure/database';
 import type { AssetsPort } from '../services/interfaces';
 import type { BookmarkAssets } from '../entities/models';

@@ -1,11 +1,7 @@
-import {
-  t,
-  joinMessages,
-  message,
-  LocalizedError,
-  errorMessage,
-  type MessageText,
-} from '../../../../../services/i18n';
+import { useUiI18n } from '../../../../../shared/i18n';
+import { joinMessages, message } from '../../../../../shared/i18n/messages';
+import { LocalizedError, errorMessage } from '../../../../../shared/i18n/errors';
+import { type MessageText } from '../../../../../shared/i18n/contracts';
 import { computed, nextTick, onMounted, ref, shallowRef } from 'vue';
 
 import { folderOptionLabels } from '../../bookmarks/folders';
@@ -35,6 +31,8 @@ export interface BackupDialogProps {
   resetData: () => Promise<void>;
 }
 export function useBackupDialog(props: BackupDialogProps) {
+  const { t } = useUiI18n();
+
   const stage = ref<'home' | 'export' | 'import' | 'reset' | 'result'>('home'),
     busy = ref(false),
     status = ref<MessageText>(''),

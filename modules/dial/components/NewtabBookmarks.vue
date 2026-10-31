@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { t, formatMessage } from '../../../services/i18n';
+import { useUiI18n } from '../../../shared/i18n';
+
 import { useScreen } from '../screenContext';
 import FolderTabs from '../../../components/FolderTabs.vue';
 import BookmarkGrid from '../../../components/BookmarkGrid.vue';
 import EmptyState from '../../../components/EmptyState.vue';
+const { t: $t, formatMessage } = useUiI18n();
+
 const {
   dial,
   search,
@@ -41,9 +44,9 @@ const { motionEnabled } = presentation;
 <template>
   <div class="bookmark-area flex flex-col flex-1">
     <div v-if="!loading && !snapshot.rootId" class="surface-empty text-center my-8">
-      <p>{{ t('bookmarks.source.choose_in_settings') }}</p>
+      <p>{{ $t('bookmarks.source.choose_in_settings') }}</p>
       <button class="mt-3" :disabled="disabled" @click="openSettings">
-        {{ t('settings.open') }}
+        {{ $t('settings.open') }}
       </button>
     </div>
     <template v-else-if="!loading">
@@ -82,14 +85,14 @@ const { motionEnabled } = presentation;
       >
         <p v-if="searching && searchError" role="alert" class="surface-empty text-center my-4">
           {{ formatMessage(searchError) }}
-          <button @click.stop="revision++">{{ t('common.retry') }}</button>
+          <button @click.stop="revision++">{{ $t('common.retry') }}</button>
         </p>
         <EmptyState
           v-else-if="showEmptySearch"
           class="bookmark-search-empty my-6"
-          :title="t('search.bookmarks.empty.title')"
-          :description="t('search.bookmarks.empty.description')"
-          :action-label="t('search.clear')"
+          :title="$t('search.bookmarks.empty.title')"
+          :description="$t('search.bookmarks.empty.description')"
+          :action-label="$t('search.clear')"
           symbol="search"
           announce
           :disabled="disabled"

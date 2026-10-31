@@ -21,7 +21,7 @@ it('continues serial execution and releases capacity after a rejected job', asyn
     url: 'https://example.com',
   });
   const first = queue(request('first'), 1, signal);
-  const rejected = expect(first).rejects.toThrow('failed');
+  const rejected = expect(first).rejects.toThrowLocalized('failed');
   const rest = Array.from({ length: 7 }, (_, i) => queue(request(String(i)), 1, signal));
   expect(await queue(request('overflow'), 1, signal)).toHaveProperty('error');
   expect(execute).toHaveBeenCalledTimes(1);

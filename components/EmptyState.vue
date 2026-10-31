@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { formatMessage } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
 import { useId } from 'vue';
+const { formatMessage } = useUiI18n();
+
 defineProps<{
   title: string;
   description: string;

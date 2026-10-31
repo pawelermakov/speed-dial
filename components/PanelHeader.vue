@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { formatMessage } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
+const { formatMessage } = useUiI18n();
+
 defineProps<{ title: string; closeLabel: string; busy?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 </script>

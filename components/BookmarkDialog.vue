@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { t, formatMessage, type MessageText } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+import { type MessageText } from '../shared/i18n/contracts';
 import SelectChevron from './SelectChevron.vue';
 import { ui } from '../utils/ui';
 import { computed, ref } from 'vue';
@@ -8,6 +9,8 @@ import type { Bookmark, Folder } from '../modules/dial/modules/bookmarks';
 import SwitchControl from './SwitchControl.vue';
 import ModalDialog from './ModalDialog.vue';
 import InfoTooltip from './InfoTooltip.vue';
+const { t: $t, formatMessage } = useUiI18n();
+
 const props = defineProps<{
   bookmark?: Bookmark;
   folders: Folder[];
@@ -60,7 +63,7 @@ function submit() {
 <template>
   <ModalDialog
     id="bookmark-modal"
-    :title="bookmark ? t('bookmarks.edit.title') : t('bookmarks.add.title')"
+    :title="bookmark ? $t('bookmarks.edit.title') : $t('bookmarks.add.title')"
     bookmark
     :busy="busy"
     @close="emit('close')"
@@ -71,7 +74,7 @@ function submit() {
       @submit.prevent="submit"
     >
       <div>
-        <label for="bookmark-url" class="block mb-1">{{ t('bookmarks.fields.url') }}</label>
+        <label for="bookmark-url" class="block mb-1">{{ $t('bookmarks.fields.url') }}</label>
         <input
           id="bookmark-url"
           v-model="url"
@@ -86,7 +89,7 @@ function submit() {
         />
       </div>
       <div>
-        <label for="bookmark-title" class="block mb-1">{{ t('bookmarks.fields.name') }}</label>
+        <label for="bookmark-title" class="block mb-1">{{ $t('bookmarks.fields.name') }}</label>
         <input
           id="bookmark-title"
           v-model="title"
@@ -96,7 +99,7 @@ function submit() {
         />
       </div>
       <div>
-        <label for="bookmark-folder" class="block mb-1">{{ t('bookmarks.fields.folder') }}</label>
+        <label for="bookmark-folder" class="block mb-1">{{ $t('bookmarks.fields.folder') }}</label>
         <div class="ui-select">
           <select
             id="bookmark-folder"
@@ -116,20 +119,20 @@ function submit() {
         </p>
       </div>
       <SwitchControl v-if="!bookmark" v-model="capture" :disabled="busy" class="capture-option">
-        {{ t('thumbnails.capture.label') }}
+        {{ $t('thumbnails.capture.label') }}
         <template #label-extra
           ><InfoTooltip
             id="bookmark-capture-info"
-            :label="t('thumbnails.capture.help_label')"
+            :label="$t('thumbnails.capture.help_label')"
             target="#bookmark-modal"
-            >{{ t('thumbnails.capture.help') }}</InfoTooltip
+            >{{ $t('thumbnails.capture.help') }}</InfoTooltip
           ></template
         >
       </SwitchControl>
       <p v-if="error" role="alert">{{ formatMessage(error) }}</p>
-      <p v-if="busy" role="status">{{ t('common.saving') }}</p>
+      <p v-if="busy" role="status">{{ $t('common.saving') }}</p>
       <button type="submit" class="button" :class="ui.button" :disabled="busy || !validUrl">
-        <span class="ui-action-label">{{ bookmark ? t('common.save') : t('common.add') }}</span>
+        <span class="ui-action-label">{{ bookmark ? $t('common.save') : $t('common.add') }}</span>
       </button>
     </form>
   </ModalDialog>

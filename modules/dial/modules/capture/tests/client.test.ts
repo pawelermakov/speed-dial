@@ -74,7 +74,9 @@ describe('capture client ports', () => {
     });
     state.connect.mockReturnValue(connection);
     const client = createCaptureClient();
-    await expect(client.requestThumbnail('https://example.com/')).rejects.toThrow('post failed');
+    await expect(client.requestThumbnail('https://example.com/')).rejects.toThrowLocalized(
+      'post failed',
+    );
     expect(vi.getTimerCount()).toBe(0);
     expect(connection.onMessage.listeners.size).toBe(0);
     client.dispose();

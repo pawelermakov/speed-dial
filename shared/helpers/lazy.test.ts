@@ -9,7 +9,7 @@ describe('application lazy ownership', () => {
     const loader = createLazyLoader(load);
     const first = loader.get();
     expect(loader.get()).toBe(first);
-    await expect(first).rejects.toThrow('load failed');
+    await expect(first).rejects.toThrowLocalized('load failed');
     expect(await loader.get()).toEqual({ id: 2 });
     expect(await loader.get()).toEqual({ id: 2 });
     expect(load).toHaveBeenCalledTimes(2);
@@ -22,7 +22,7 @@ describe('application lazy ownership', () => {
       })
       .mockResolvedValueOnce(1);
     const loader = createLazyLoader(load);
-    await expect(loader.get()).rejects.toThrow('failed');
+    await expect(loader.get()).rejects.toThrowLocalized('failed');
     expect(await loader.get()).toBe(1);
   });
   it.each([false, true])(
@@ -43,7 +43,7 @@ describe('application lazy ownership', () => {
       if (whileLoading) {
         loader.dispose();
         finish(module);
-        await expect(promise).rejects.toThrow('disposed');
+        await expect(promise).rejects.toThrowLocalized('disposed');
       } else {
         finish(module);
         await promise;
@@ -51,7 +51,7 @@ describe('application lazy ownership', () => {
       }
       loader.dispose();
       expect(release).toHaveBeenCalledExactlyOnceWith(module);
-      await expect(loader.get()).rejects.toThrow('disposed');
+      await expect(loader.get()).rejects.toThrowLocalized('disposed');
     },
   );
 });

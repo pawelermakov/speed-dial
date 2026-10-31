@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { t, formatMessage } from '../../../../../services/i18n';
+import { useUiI18n } from '../../../../../shared/i18n';
+
 import ModalDialog from '../../../../../components/ModalDialog.vue';
 import SelectChevron from '../../../../../components/SelectChevron.vue';
 import { ui } from '../../../../../utils/ui';
 import { useBackupDialog, type BackupDialogProps } from '../composables/useBackupDialog';
+const { t: $t, formatMessage } = useUiI18n();
+
 const props = defineProps<BackupDialogProps>();
 const emit = defineEmits<{ close: [] }>();
 const {
@@ -44,20 +47,20 @@ defineExpose({
 });
 </script>
 <template>
-  <ModalDialog :title="t('backup.title')" :busy="busy" wide @close="emit('close')">
+  <ModalDialog :title="$t('backup.title')" :busy="busy" wide @close="emit('close')">
     <div class="data-management flex flex-col gap-4 [overflow-wrap:anywhere]">
       <input
         ref="fileInput"
         class="hidden"
         type="file"
         accept=".json,application/json"
-        :aria-label="t('backup.file.label')"
+        :aria-label="$t('backup.file.label')"
         @change="read"
       />
       <template v-if="stage === 'home'">
         <button
           ref="homeAction"
-          :aria-label="t('backup.export.title')"
+          :aria-label="$t('backup.export.title')"
           type="button"
           class="data-action secondary"
           :class="ui.button"
@@ -68,14 +71,14 @@ defineExpose({
             <path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5" />
           </svg>
           <span
-            ><strong>{{ t('backup.export.title') }}</strong
+            ><strong>{{ $t('backup.export.title') }}</strong
             ><span class="text-[var(--text-secondary)]">{{
-              t('backup.export.description')
+              $t('backup.export.description')
             }}</span></span
           >
         </button>
         <button
-          :aria-label="t('backup.import.title')"
+          :aria-label="$t('backup.import.title')"
           type="button"
           class="data-action secondary"
           :class="ui.button"
@@ -86,18 +89,18 @@ defineExpose({
             <path d="M12 16V4m-4 4 4-4 4 4M4 16v5h16v-5" />
           </svg>
           <span
-            ><strong>{{ t('backup.import.title') }}</strong
+            ><strong>{{ $t('backup.import.title') }}</strong
             ><span class="text-[var(--text-secondary)]">{{
-              t('backup.import.description')
+              $t('backup.import.description')
             }}</span></span
           >
         </button>
         <p v-if="folderError || !folders.length" class="text-[var(--text-secondary)] text-sm">
-          {{ formatMessage(folderError) || t('backup.import.folder_required_for_images') }}
+          {{ formatMessage(folderError) || $t('backup.import.folder_required_for_images') }}
         </p>
         <div class="border-t border-[var(--ui-border)] pt-4">
           <button
-            :aria-label="t('backup.reset.title')"
+            :aria-label="$t('backup.reset.title')"
             type="button"
             class="data-action danger w-full"
             :class="ui.button"
@@ -113,9 +116,9 @@ defineExpose({
               <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" />
             </svg>
             <span
-              ><strong>{{ t('backup.reset.title') }}</strong
+              ><strong>{{ $t('backup.reset.title') }}</strong
               ><span class="text-[var(--text-secondary)]">{{
-                t('backup.reset.bookmarks_kept')
+                $t('backup.reset.bookmarks_kept')
               }}</span></span
             >
           </button>
@@ -123,23 +126,23 @@ defineExpose({
       </template>
       <template v-else-if="stage === 'export'">
         <h3 ref="heading" tabindex="-1" class="font-semibold outline-none">
-          {{ t('backup.export.preview.title') }}
+          {{ $t('backup.export.preview.title') }}
         </h3>
         <fieldset class="backup-options export-summary" :disabled="busy">
-          <legend class="sr-only">{{ t('backup.export.preview.selection_label') }}</legend>
+          <legend class="sr-only">{{ $t('backup.export.preview.selection_label') }}</legend>
           <label v-for="option in options" :key="option.key" class="backup-option"
             ><input v-model="selection[option.key]" type="checkbox" /><span
               >{{ option.label
               }}<span v-if="option.key === 'bookmarks'" class="backup-detail"
-                >{{ t('backup.preview.bookmarks') }} {{ counts.bookmarks }}
-                {{ t('backup.preview.folders') }} {{ counts.folders }}</span
+                >{{ $t('backup.preview.bookmarks') }} {{ counts.bookmarks }}
+                {{ $t('backup.preview.folders') }} {{ counts.folders }}</span
               ><span v-else-if="option.key === 'images'" class="backup-detail"
-                >{{ t('backup.preview.thumbnails') }} {{ counts.thumbnails }}
-                {{ t('backup.preview.favicons') }} {{ counts.favicons }}</span
+                >{{ $t('backup.preview.thumbnails') }} {{ counts.thumbnails }}
+                {{ $t('backup.preview.favicons') }} {{ counts.favicons }}</span
               ><span
                 v-else-if="option.key === 'background' && !prepared?.data.background"
                 class="backup-detail"
-                >{{ t('background.none') }}</span
+                >{{ $t('background.none') }}</span
               ></span
             ></label
           >
@@ -148,7 +151,7 @@ defineExpose({
           v-if="selection.images && !selection.bookmarks"
           class="text-[var(--text-secondary)] text-sm"
         >
-          {{ t('backup.images_only.description') }}
+          {{ $t('backup.images_only.description') }}
         </p>
         <div class="flex gap-2">
           <button
@@ -158,7 +161,7 @@ defineExpose({
             :disabled="busy"
             @click="back"
           >
-            {{ t('common.back') }}</button
+            {{ $t('common.back') }}</button
           ><button
             type="button"
             class="flex-1 whitespace-nowrap"
@@ -166,16 +169,16 @@ defineExpose({
             :disabled="busy || !hasSelection"
             @click="exportFile"
           >
-            {{ t('backup.export.action') }}
+            {{ $t('backup.export.action') }}
           </button>
         </div>
       </template>
       <template v-else-if="stage === 'import' && data">
         <h3 ref="heading" tabindex="-1" class="font-semibold outline-none">
-          {{ t('backup.import.preview.title') }}
+          {{ $t('backup.import.preview.title') }}
         </h3>
         <fieldset class="backup-options import-summary" :disabled="busy">
-          <legend class="sr-only">{{ t('backup.import.preview.selection_label') }}</legend>
+          <legend class="sr-only">{{ $t('backup.import.preview.selection_label') }}</legend>
           <label
             v-for="option in options"
             :key="option.key"
@@ -190,18 +193,18 @@ defineExpose({
             <span
               >{{ option.label
               }}<span v-if="!available[option.key]" class="backup-detail">{{
-                t('backup.preview.not_in_file')
+                $t('backup.preview.not_in_file')
               }}</span
               ><span v-else-if="option.key === 'bookmarks'" class="backup-detail"
-                >{{ t('backup.preview.bookmarks') }} {{ counts.bookmarks }}
-                {{ t('backup.preview.folders') }} {{ counts.folders }}</span
+                >{{ $t('backup.preview.bookmarks') }} {{ counts.bookmarks }}
+                {{ $t('backup.preview.folders') }} {{ counts.folders }}</span
               ><span v-else-if="option.key === 'images'" class="backup-detail"
-                >{{ t('backup.preview.thumbnails') }} {{ counts.thumbnails }}
-                {{ t('backup.preview.favicons') }} {{ counts.favicons }}</span
+                >{{ $t('backup.preview.thumbnails') }} {{ counts.thumbnails }}
+                {{ $t('backup.preview.favicons') }} {{ counts.favicons }}</span
               ><span
                 v-else-if="option.key === 'background' && !data.background"
                 class="backup-detail"
-                >{{ t('background.none') }}</span
+                >{{ $t('background.none') }}</span
               ></span
             >
           </label>
@@ -211,12 +214,12 @@ defineExpose({
           role="alert"
           class="text-[var(--danger)] text-sm"
         >
-          {{ formatMessage(folderError) || t('backup.import.folder_required') }}
+          {{ formatMessage(folderError) || $t('backup.import.folder_required') }}
         </p>
         <label v-if="needsDestination" for="import-destination">{{
           selection.bookmarks
-            ? t('backup.import.destination.add')
-            : t('backup.import.destination.find')
+            ? $t('backup.import.destination.add')
+            : $t('backup.import.destination.find')
         }}</label>
         <div v-if="needsDestination" class="ui-select">
           <select id="import-destination" v-model="destination" :disabled="busy" :class="ui.input">
@@ -233,7 +236,7 @@ defineExpose({
             :disabled="busy"
             @click="back"
           >
-            {{ t('common.back') }}</button
+            {{ $t('common.back') }}</button
           ><button
             type="button"
             class="flex-1 whitespace-nowrap"
@@ -246,21 +249,21 @@ defineExpose({
             "
             @click="importFile"
           >
-            {{ t('backup.import.action') }}
+            {{ $t('backup.import.action') }}
           </button>
         </div>
       </template>
       <template v-else-if="stage === 'reset'">
         <h3 ref="heading" tabindex="-1" class="font-semibold outline-none">
-          {{ t('backup.reset.confirmation.title') }}
+          {{ $t('backup.reset.confirmation.title') }}
         </h3>
-        <p>{{ t('backup.reset.confirmation.description') }}</p>
+        <p>{{ $t('backup.reset.confirmation.description') }}</p>
         <p class="text-[var(--text-secondary)] text-sm">
-          {{ t('backup.reset.confirmation.sync_warning') }}
+          {{ $t('backup.reset.confirmation.sync_warning') }}
         </p>
         <div class="flex gap-2">
           <button type="button" class="flex-1" :class="ui.button" :disabled="busy" @click="back">
-            {{ t('common.cancel') }}</button
+            {{ $t('common.cancel') }}</button
           ><button
             type="button"
             class="danger flex-1"
@@ -268,7 +271,7 @@ defineExpose({
             :disabled="busy"
             @click="reset"
           >
-            {{ t('backup.reset.action') }}
+            {{ $t('backup.reset.action') }}
           </button>
         </div>
       </template>
@@ -310,7 +313,7 @@ defineExpose({
           </p>
         </div>
         <button ref="done" type="button" class="mt-1" :class="ui.button" @click="emit('close')">
-          {{ t('common.done') }}
+          {{ $t('common.done') }}
         </button>
       </template>
       <p

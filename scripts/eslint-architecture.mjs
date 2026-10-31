@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 // feature-local services with the same basename remain available.
 const retired = [
   'types/models',
+  'services/i18n',
   'services/repository',
   'composables/useDial',
   'services/autoNames',

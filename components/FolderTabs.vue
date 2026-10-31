@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { t } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import type { Folder } from '../modules/dial/modules/bookmarks';
 import { contextKey, plainNavigation } from '../utils/keyboard';
 import { insertedOrder } from '../modules/dial/modules/bookmarks/helpers/reorder';
+const { t: $t } = useUiI18n();
+
 const props = defineProps<{
   contextId?: string;
   revision: number;
@@ -184,7 +187,7 @@ function key(event: KeyboardEvent, folder: Folder) {
     @contextmenu.stop.prevent="emit('background', $event)"
     @dragover.prevent
     @drop.prevent.stop
-    :aria-label="t('folders.title')"
+    :aria-label="$t('folders.title')"
     class="folder-tabs flex items-center gap-2 min-w-0 w-full"
   >
     <div

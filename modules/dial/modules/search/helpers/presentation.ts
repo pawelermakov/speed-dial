@@ -1,29 +1,34 @@
-import { t, message, LocalizedError } from '../../../../../services/i18n';
+import { message } from '../../../../../shared/i18n/messages';
+import { LocalizedError } from '../../../../../shared/i18n/errors';
 import type { SearchProviderId } from '../entities/models';
-export const searchProviders: ReadonlyArray<{ id: SearchProviderId; label: string }> = [
-  {
-    id: 'yandex',
-    get label() {
-      return t('search.providers.yandex');
+import type { Translator } from '../../../../../shared/i18n/formatMessage';
+export function getSearchTranslates(t: Translator) {
+  const searchProviders: ReadonlyArray<{ id: SearchProviderId; label: string }> = [
+    {
+      id: 'yandex',
+      get label() {
+        return t('search.providers.yandex');
+      },
     },
-  },
-  { id: 'google', label: 'Google' },
-  {
-    id: 'bookmarks',
-    get label() {
-      return t('bookmarks.title');
+    { id: 'google', label: 'Google' },
+    {
+      id: 'bookmarks',
+      get label() {
+        return t('bookmarks.title');
+      },
     },
-  },
-  {
-    id: 'kinopoisk',
-    get label() {
-      return t('search.providers.kinopoisk');
+    {
+      id: 'kinopoisk',
+      get label() {
+        return t('search.providers.kinopoisk');
+      },
     },
-  },
-  { id: 'imdb', label: 'IMDb' },
-  { id: 'myshows', label: 'MyShows' },
-];
+    { id: 'imdb', label: 'IMDb' },
+    { id: 'myshows', label: 'MyShows' },
+  ];
 
+  return { searchProviders };
+}
 export function searchUrl(provider: SearchProviderId, query: string): string {
   const q = query.trim();
   switch (provider) {

@@ -1,4 +1,6 @@
-import { isLanguage, message, LocalizedError, type MessageText } from './i18n';
+import { isLanguage, type MessageText } from '../shared/i18n/contracts';
+import { message } from '../shared/i18n/messages';
+import { LocalizedError } from '../shared/i18n/errors';
 import {
   weatherCityDefinitions as weatherCities,
   weatherProviderDefinitions as weatherProviders,

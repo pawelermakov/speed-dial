@@ -1,3 +1,4 @@
+import { createTranslationContext } from '../shared/i18n';
 import { browser } from 'wxt/browser';
 import { createLazyLoader } from '../shared/helpers/lazy';
 import { storage } from 'wxt/utils/storage';
@@ -9,9 +10,9 @@ import { createBrowserEvents } from '../modules/dial/adapters/browserEvents';
 import { createSnapshotReader } from '../modules/dial/services/snapshot';
 import type { CaptureBookmarksPort } from '../modules/dial/modules/capture';
 import { createBookmarksModule } from '../modules/dial/modules/bookmarks';
-import { t, LocalizedError } from '../services/i18n';
+import { LocalizedError } from '../shared/i18n/errors';
 import { normalizeUrl, validateSettings } from '../services/validation';
-import { errorMessage } from '../services/i18n';
+import { errorMessage } from '../shared/i18n/errors';
 import { createSettingsService } from '../modules/dial/modules/settings';
 import { createAppearanceService } from '../modules/dial/modules/appearance';
 import { createBackgroundStorage } from '../modules/dial/modules/appearance/adapters/storage';
@@ -24,7 +25,8 @@ import { createSearchModule } from '../modules/dial/modules/search/newtab';
 import { createMailModule } from '../modules/dial/modules/mail/newtab';
 import type { DialDependencies } from '../modules/dial/services/application';
 
-export function createNewtabApplication() {
+export function createNewtabApplication(translations = createTranslationContext()) {
+  const { t } = translations;
   const db = new DialDatabase();
   const syncRequest = createSyncClient(createBrowserSyncTransport(browser));
   const syncState = createSyncStateStorage();
@@ -88,8 +90,9 @@ export function createNewtabApplication() {
     (module) => module.dispose(),
   );
   let disposed = false;
-  const search = createSearchModule();
+  const search = createSearchModule(t);
   const application = {
+    translations,
     search,
     mail: createMailModule(),
     syncState,
@@ -122,6 +125,7 @@ export function createNewtabApplication() {
       events.dispose();
       updates.dispose();
       db.close();
+      translations.dispose();
     },
   };
   return application satisfies DialDependencies & { dispose(): void };

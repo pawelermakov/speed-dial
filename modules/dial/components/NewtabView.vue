@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { t, formatMessage, joinMessages } from '../../../services/i18n';
+import { useUiI18n } from '../../../shared/i18n';
+import { joinMessages } from '../../../shared/i18n/messages';
 
 import { provideScreen } from '../screenContext';
 import { useNewtabScreen } from '../composables/useNewtabScreen';
 import NewtabToolbar from './NewtabToolbar.vue';
 import NewtabBookmarks from './NewtabBookmarks.vue';
 import NewtabDialogHost from './NewtabDialogHost.vue';
+const { t: $t, formatMessage } = useUiI18n();
+
 const screen = useNewtabScreen();
 provideScreen(screen);
 const { dial, settings, presentation, contextActions } = screen;
@@ -55,7 +58,7 @@ const { showContext } = contextActions;
       <span>{{ formatMessage(notice) }}</span
       ><button
         class="ui-hover rounded-full"
-        :aria-label="t('notifications.dismiss')"
+        :aria-label="$t('notifications.dismiss')"
         @click="notice = ''"
       >
         ×

@@ -1,5 +1,3 @@
-import { setLanguage } from '../../../../../services/i18n';
-import { storedSettings } from '../../settings/schema';
 import type { browser } from 'wxt/browser';
 import type { DataLock } from '../../../../../shared/infrastructure/browser/interfaces';
 import { SettingsSync } from '../services/coordinator';
@@ -26,14 +24,9 @@ export function startSettingsSync(api: typeof browser, lock: DataLock) {
       }
     },
   });
-  const ready = api.storage.local
-    .get('settings')
-    .then((saved) => {
-      if (disposed) return;
-      setLanguage(
-        storedSettings((saved.settings as { value?: unknown } | undefined)?.value).language,
-      );
-      return coordinator.initialize();
+  const ready = Promise.resolve()
+    .then(() => {
+      if (!disposed) return coordinator.initialize();
     })
     .catch(() => {});
   const onMessage: Parameters<typeof api.runtime.onMessage.addListener>[0] = (message, sender) => {
@@ -83,11 +76,6 @@ export function startSettingsSync(api: typeof browser, lock: DataLock) {
     area,
   ) => {
     if (disposed) return;
-    if (area === 'local' && changes.settings)
-      setLanguage(
-        storedSettings((changes.settings.newValue as { value?: unknown } | undefined)?.value)
-          .language,
-      );
     if (area === 'sync')
       void ready
         .then(() => {

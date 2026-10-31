@@ -78,7 +78,7 @@ describe('service responses', () => {
     for (const count of [-1, '-5', '', ' ', '5x', '1.5', '1e3', null, NaN, 1.5, '9007199254740992'])
       expect(() => parseMailCount({ data: { mail_cnt: count } })).toThrow();
     expect(() => parseMailCount(null)).toThrow();
-    expect(() => parseMailCount({ status: 'noauth', data: { mail_cnt: 0 } })).toThrow(
+    expect(() => parseMailCount({ status: 'noauth', data: { mail_cnt: 0 } })).toThrowLocalized(
       'Нет авторизации',
     );
   });

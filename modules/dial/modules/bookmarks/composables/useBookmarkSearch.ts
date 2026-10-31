@@ -1,4 +1,6 @@
-import { errorMessage, message, type MessageText } from '../../../../../services/i18n';
+import { errorMessage } from '../../../../../shared/i18n/errors';
+import { message } from '../../../../../shared/i18n/messages';
+import { type MessageText } from '../../../../../shared/i18n/contracts';
 import { ref, shallowRef, watch, onUnmounted, type Ref } from 'vue';
 import type { Bookmark, BookmarkSearchView } from '../entities/models';
 import type { BookmarkSearchPort } from '../services/interfaces';

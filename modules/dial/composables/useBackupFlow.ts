@@ -1,4 +1,6 @@
-import { message, LocalizedError, type MessageText } from '../../../services/i18n';
+import { message } from '../../../shared/i18n/messages';
+import { LocalizedError } from '../../../shared/i18n/errors';
+import { type MessageText } from '../../../shared/i18n/contracts';
 import { ref, shallowRef, onUnmounted } from 'vue';
 import type DataManagementDialogComponent from '../../../modules/dial/modules/backup/components/DataManagementDialog.vue';
 import type { BackupSelection, ImportData, ImportReport, PreparedExport } from '../modules/backup';

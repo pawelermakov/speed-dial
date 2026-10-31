@@ -1,4 +1,5 @@
-import { message, LocalizedError } from '../../../../../services/i18n';
+import { message } from '../../../../../shared/i18n/messages';
+import { LocalizedError } from '../../../../../shared/i18n/errors';
 import { browser } from 'wxt/browser';
 import type { CaptureRequest, CaptureResponse } from '../entities/models';
 import { imageFromDataUrl } from '../../../../../services/images';

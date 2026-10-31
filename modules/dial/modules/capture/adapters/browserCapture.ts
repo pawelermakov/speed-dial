@@ -1,4 +1,5 @@
-import { message, errorMessage, LocalizedError } from '../../../../../services/i18n';
+import { message } from '../../../../../shared/i18n/messages';
+import { errorMessage, LocalizedError } from '../../../../../shared/i18n/errors';
 import { browser } from 'wxt/browser';
 import { normalizeUrl, safeFavicon } from '../../../../../services/validation';
 

@@ -1,4 +1,6 @@
-import { message, LocalizedError, type MessageText } from './i18n';
+import { message } from '../shared/i18n/messages';
+import { LocalizedError } from '../shared/i18n/errors';
+import { type MessageText } from '../shared/i18n/contracts';
 const maxImageBytes = 20 * 1024 * 1024;
 export function imageFromDataUrl(
   value: unknown,

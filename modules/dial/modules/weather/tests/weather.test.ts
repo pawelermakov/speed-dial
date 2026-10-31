@@ -1,5 +1,6 @@
+import { t } from '../../../../../tests/helpers/i18n';
 import { describe, expect, it } from 'vitest';
-import { weatherCities, weatherProviders, forecastLink } from '../helpers/links';
+import { getWeatherTranslates } from '../helpers/links';
 import { validateSettings } from '../../../../../services/validation';
 import { defaults } from '../../settings';
 import { parseImport, serializeExport } from '../../backup/adapters/json';
@@ -103,3 +104,5 @@ describe('compact forecast links', () => {
     expect(validSetting('weatherProvider', 'evil')).toBe(false);
   });
 });
+
+const { weatherCities, weatherProviders, forecastLink } = getWeatherTranslates(t);

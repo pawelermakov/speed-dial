@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { t, formatMessage, languages, type MessageText } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+import { type MessageText } from '../shared/i18n/contracts';
 import type { Settings } from '../modules/dial/modules/settings';
 import SelectChevron from './SelectChevron.vue';
 import SwitchControl from './SwitchControl.vue';
@@ -13,6 +14,8 @@ import {
   useSettingsForm,
   type SettingsFormProps,
 } from '../modules/dial/modules/settings/composables/useSettingsForm';
+const { t: $t, formatMessage, languages } = useUiI18n();
+
 const props = defineProps<SettingsFormProps>();
 const emit = defineEmits<{ close: []; manage: []; error: [message: MessageText] }>();
 const {
@@ -47,7 +50,7 @@ defineExpose({ flush });
     id="settings-modal"
     ref="settingsDialog"
     class="settings-overlay ui-overlay fixed inset-0 z-20 w-full h-full max-w-none max-h-none m-0 border-0 p-0 text-[var(--ui-text)] backdrop:bg-transparent"
-    :aria-label="t('settings.title')"
+    :aria-label="$t('settings.title')"
     aria-modal="true"
     @keydown.tab="cycleDialogFocus($event, settingsDialog)"
     @cancel.prevent.stop="close"
@@ -55,11 +58,11 @@ defineExpose({ flush });
   >
     <aside
       class="settings fixed top-0 right-0 h-full w-[min(380px,100vw)] px-4 ui-glass overflow-clip flex flex-col"
-      :aria-label="t('settings.title')"
+      :aria-label="$t('settings.title')"
     >
       <PanelHeader
-        :title="t('settings.title')"
-        :close-label="t('settings.close')"
+        :title="$t('settings.title')"
+        :close-label="$t('settings.close')"
         class="settings-header -mx-4 z-20"
         @close="close"
       />
@@ -68,7 +71,7 @@ defineExpose({ flush });
         <form class="settings-form flex flex-col flex-1 min-w-0 text-sm" @submit.prevent>
           <div class="mb-5">
             <label for="interface-language" class="block mb-2">{{
-              t('settings.language.label')
+              $t('settings.language.label')
             }}</label>
             <div class="ui-select">
               <select
@@ -89,8 +92,8 @@ defineExpose({ flush });
             </div>
           </div>
           <fieldset class="mb-5 min-w-0">
-            <legend class="font-bold mb-2">{{ t('settings.appearance.title') }}</legend>
-            <label for="theme-mode" class="block mb-2">{{ t('settings.theme.label') }}</label>
+            <legend class="font-bold mb-2">{{ $t('settings.appearance.title') }}</legend>
+            <label for="theme-mode" class="block mb-2">{{ $t('settings.theme.label') }}</label>
             <div class="ui-select">
               <select
                 id="theme-mode"
@@ -103,16 +106,16 @@ defineExpose({ flush });
                   })
                 "
               >
-                <option value="system">{{ t('settings.theme.system') }}</option>
-                <option value="light">{{ t('settings.theme.light') }}</option>
-                <option value="dark">{{ t('settings.theme.dark') }}</option></select
+                <option value="system">{{ $t('settings.theme.system') }}</option>
+                <option value="light">{{ $t('settings.theme.light') }}</option>
+                <option value="dark">{{ $t('settings.theme.dark') }}</option></select
               ><SelectChevron />
             </div>
             <div class="mt-4" role="group" aria-labelledby="background-label">
-              <p id="background-label" class="mb-2">{{ t('background.title') }}</p>
+              <p id="background-label" class="mb-2">{{ $t('background.title') }}</p>
               <div class="flex justify-between items-center gap-2">
                 <input
-                  :aria-label="t('background.change')"
+                  :aria-label="$t('background.change')"
                   id="background"
                   :class="ui.fileInput"
                   type="file"
@@ -120,14 +123,14 @@ defineExpose({ flush });
                   :disabled="busy || reading"
                   @change="file"
                 /><label :class="ui.fileButton" for="background">{{
-                  t('common.choose_file')
+                  $t('common.choose_file')
                 }}</label>
                 <button
                   v-if="hasBackground"
                   type="button"
                   class="size-8 shrink-0 inline-flex items-center justify-center rounded-[var(--ui-radius)] ui-hover"
-                  :aria-label="t('background.remove')"
-                  :title="t('background.remove')"
+                  :aria-label="$t('background.remove')"
+                  :title="$t('background.remove')"
                   :disabled="busy || reading"
                   @click="track(changeBackground(null))"
                 >
@@ -146,14 +149,14 @@ defineExpose({ flush });
                 </button>
               </div>
               <p v-if="reading" role="status" class="mt-2">
-                {{ t('background.status.processing') }}
+                {{ $t('background.status.processing') }}
               </p>
             </div>
           </fieldset>
           <fieldset class="mb-5 min-w-0">
-            <legend class="font-bold mb-2">{{ t('bookmarks.title') }}</legend>
+            <legend class="font-bold mb-2">{{ $t('bookmarks.title') }}</legend>
             <label for="bookmark-folder" class="block mb-2">{{
-              t('settings.bookmarks.folder')
+              $t('settings.bookmarks.folder')
             }}</label>
             <div class="ui-select mb-3">
               <select
@@ -167,8 +170,8 @@ defineExpose({ flush });
                 <option v-if="selectedFolder && !selectedChoice" :value="selectedFolder" disabled>
                   {{
                     folderLoading
-                      ? t('folders.status.loading')
-                      : t('folders.status.selected_unavailable')
+                      ? $t('folders.status.loading')
+                      : $t('folders.status.selected_unavailable')
                   }}
                 </option>
                 <option
@@ -184,10 +187,10 @@ defineExpose({ flush });
             <p v-if="syncState?.folder" class="mb-3 text-sm" role="status">
               {{ formatMessage(syncState.folder) }}
             </p>
-            <p v-if="folderLoading" role="status">{{ t('folders.status.loading') }}</p>
+            <p v-if="folderLoading" role="status">{{ $t('folders.status.loading') }}</p>
             <p v-if="folderError" role="alert" class="text-red-800">
               {{ formatMessage(folderError) }}
-              <button type="button" @click="loadFolders">{{ t('common.retry') }}</button>
+              <button type="button" @click="loadFolders">{{ $t('common.retry') }}</button>
             </p>
             <SwitchControl
               v-for="field in switchFields"
@@ -200,7 +203,7 @@ defineExpose({ flush });
             >
           </fieldset>
           <fieldset class="mb-5 min-w-0">
-            <legend class="font-bold mb-2">{{ t('settings.grid.title') }}</legend>
+            <legend class="font-bold mb-2">{{ $t('settings.grid.title') }}</legend>
             <div v-for="field in numberFields" :key="field.key" class="mb-3">
               <label class="settings-row flex justify-between items-center gap-2"
                 >{{ field.label
@@ -239,17 +242,17 @@ defineExpose({ flush });
               :disabled="busy"
               class="settings-row"
               @update:model-value="(value) => updateSettings({ verticalCenter: value })"
-              >{{ t('settings.grid.vertical_center') }}</SwitchControl
+              >{{ $t('settings.grid.vertical_center') }}</SwitchControl
             >
           </fieldset>
           <fieldset class="mb-5 min-w-0">
             <legend class="font-bold mb-2">
-              {{ t('settings.mail.title') }}
+              {{ $t('settings.mail.title') }}
               <InfoTooltip
                 target="#settings-modal"
                 id="mail-settings-info"
-                :label="t('settings.mail.help_label')"
-                >{{ t('settings.mail.help') }}</InfoTooltip
+                :label="$t('settings.mail.help_label')"
+                >{{ $t('settings.mail.help') }}</InfoTooltip
               >
             </legend>
             <SwitchControl
@@ -257,21 +260,21 @@ defineExpose({ flush });
               :disabled="busy"
               class="settings-row"
               @update:model-value="(value) => updateSettings({ mailruEnabled: value })"
-              >{{ t('settings.mail.mailru') }}</SwitchControl
+              >{{ $t('settings.mail.mailru') }}</SwitchControl
             >
             <SwitchControl
               :model-value="settings.gmailEnabled"
               :disabled="busy"
               class="settings-row"
               @update:model-value="(value) => updateSettings({ gmailEnabled: value })"
-              >{{ t('settings.mail.gmail') }}</SwitchControl
+              >{{ $t('settings.mail.gmail') }}</SwitchControl
             >
             <SwitchControl
               :model-value="settings.yandexMailEnabled"
               :disabled="busy"
               class="settings-row"
               @update:model-value="(value) => updateSettings({ yandexMailEnabled: value })"
-              >{{ t('settings.mail.yandex') }}</SwitchControl
+              >{{ $t('settings.mail.yandex') }}</SwitchControl
             >
           </fieldset>
           <WeatherSettings :settings="settings" :busy="busy" :update-settings="updateSettings" />
@@ -279,7 +282,7 @@ defineExpose({ flush });
             {{ formatMessage(error || operationError) }}
           </p>
           <fieldset class="settings-bottom mt-auto min-w-0">
-            <legend class="font-bold mb-2">{{ t('settings.data.title') }}</legend>
+            <legend class="font-bold mb-2">{{ $t('settings.data.title') }}</legend>
             <button
               type="button"
               class="button secondary w-full"
@@ -287,7 +290,7 @@ defineExpose({ flush });
               :disabled="busy || reading"
               @click="action"
             >
-              <span class="ui-action-label">{{ t('backup.title') }}</span>
+              <span class="ui-action-label">{{ $t('backup.title') }}</span>
             </button>
           </fieldset>
         </form>

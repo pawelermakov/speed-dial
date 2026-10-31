@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { t } from '../../../../../services/i18n';
+import { t } from '../../../../../tests/helpers/i18n';
 import { folderChoices as choices, folderOptionLabels, defaultFolderId } from '../helpers/folders';
 import type { BookmarkNode } from '../entities/models';
 const folderChoices = (tree: BookmarkNode[]) => choices(tree, t);

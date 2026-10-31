@@ -1,11 +1,7 @@
-import {
-  setLanguage,
-  language,
-  message,
-  LocalizedError,
-  errorMessage,
-  type MessageText,
-} from '../../../services/i18n';
+import { useUiI18n, type TranslationContext } from '../../../shared/i18n';
+import { message } from '../../../shared/i18n/messages';
+import { LocalizedError, errorMessage } from '../../../shared/i18n/errors';
+import { type MessageText } from '../../../shared/i18n/contracts';
 import { ref, shallowRef, computed, watch, onMounted, onUnmounted } from 'vue';
 import { defaults } from '../modules/settings';
 import { type Snapshot } from '..';
@@ -15,7 +11,11 @@ import { useServices } from '../../../app/serviceContext';
 import { useSettingsState } from '../modules/settings/composables/useSettingsState';
 import { useBackgroundState } from '../modules/appearance/composables/useBackgroundState';
 
-export function useDial(dependencies: DialDependencies = useServices()) {
+export function useDial(
+  dependencies: DialDependencies = useServices(),
+  translations: Pick<TranslationContext, 'language' | 'setLanguage'> = useUiI18n(),
+) {
+  const { language, setLanguage } = translations;
   const {
     bookmarks: { source, actions },
     snapshots,

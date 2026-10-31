@@ -1,4 +1,5 @@
-import { formatMessage } from '../services/i18n';
+import { testTranslations } from './helpers/i18n';
+import { formatMessage } from './helpers/i18n';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { watch } from 'vue';
 import type { DialDependencies, DialUpdate } from '../modules/dial';
@@ -110,7 +111,7 @@ afterEach(() => {
 });
 describe('browser event refresh lifecycle', () => {
   it('publishes a refreshed snapshot once so synchronous search watchers do not run twice', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     const changed = vi.fn();
     const stop = watch(dial.snapshot, changed, { flush: 'sync' });
@@ -121,7 +122,7 @@ describe('browser event refresh lifecycle', () => {
     stop();
   });
   it('refreshes asset-only broadcasts without invalidating a drag, but invalidates structural updates', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     state.load.mockClear();
     broadcast({ type: 'updated', assets: true });
@@ -144,7 +145,7 @@ describe('browser event refresh lifecycle', () => {
           finish = resolve;
         }),
     );
-    const dial = useDial(dependencies),
+    const dial = useDial(dependencies, testTranslations),
       startup = state.mounted[0]!();
     await vi.advanceTimersByTimeAsync(0);
     expect(dial.loading.value).toBe(true);
@@ -163,14 +164,14 @@ describe('browser event refresh lifecycle', () => {
     );
     const current = new Blob(['current']);
     state.load.mockResolvedValue({ ...snapshot('Initial'), background: current });
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     finish(new Blob(['old']));
     await Promise.resolve();
     expect(dial.snapshot.value.background).toBe(current);
   });
   it('saves current fields and rolls back failed writes', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     preferences.patchSettings = vi.fn().mockResolvedValue({ ...defaults, width: 75 });
     expect(await dial.updateSettings({ width: 75 })).toBe(true);
@@ -182,7 +183,7 @@ describe('browser event refresh lifecycle', () => {
   it('a failed background write preserves the current image and exposes a persistent error', async () => {
     const initial = { ...snapshot('Initial'), background: new Blob(['old image']) };
     state.load.mockResolvedValueOnce(initial);
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     appearance.save = vi.fn().mockRejectedValue(new Error('disk full'));
     expect(await dial.changeBackground(new Blob(['new image']))).toBe(false);
@@ -190,7 +191,7 @@ describe('browser event refresh lifecycle', () => {
     expect(formatMessage(dial.settingErrors.value.background)).toContain('Фон');
   });
   it('does not let an earlier failed field write undo a later edit or unrelated fields', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     let rejectOld!: (error: Error) => void;
     preferences.patchSettings = vi
@@ -211,7 +212,7 @@ describe('browser event refresh lifecycle', () => {
     expect(dial.settingErrors.value).toEqual({});
   });
   it('rolls a failed latest field back and retains its named error', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     preferences.patchSettings = vi.fn().mockRejectedValue(new Error('storage failed'));
     expect(await dial.updateSettings({ width: 80 })).toBe(false);
@@ -224,7 +225,7 @@ describe('browser event refresh lifecycle', () => {
   it('saves the search provider without reloading assets or disabling the page', async () => {
     const save = vi.fn(async (patch: Partial<typeof defaults>) => ({ ...defaults, ...patch }));
     preferences.patchSettings = save;
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     const before = dial.snapshot.value;
     state.load.mockClear();
@@ -242,7 +243,7 @@ describe('browser event refresh lifecycle', () => {
     expect(state.load).not.toHaveBeenCalled();
   });
   it('disabling bookmark search saves its web fallback with the same patch', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     dial.snapshot.value = {
       ...dial.snapshot.value,
@@ -260,7 +261,7 @@ describe('browser event refresh lifecycle', () => {
   it.each(['kinopoisk', 'imdb', 'myshows'] as const)(
     'disabling movie search saves a fallback for %s',
     async (searchProvider) => {
-      const dial = useDial(dependencies);
+      const dial = useDial(dependencies, testTranslations);
       await state.mounted[0]!();
       dial.snapshot.value = {
         ...dial.snapshot.value,
@@ -273,7 +274,7 @@ describe('browser event refresh lifecycle', () => {
     },
   );
   it('coalesces fast bookmark events and unsubscribes on teardown', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     state.load.mockClear().mockResolvedValue(snapshot('External'));
     for (let i = 0; i < 15; i++) state.listeners.forEach((callback) => callback());
@@ -284,7 +285,7 @@ describe('browser event refresh lifecycle', () => {
     expect(state.listeners.size).toBe(0);
   });
   it('slow older reads cannot overwrite a newer view', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     let resolveOld!: (value: ReturnType<typeof snapshot>) => void;
     state.load
@@ -302,7 +303,7 @@ describe('browser event refresh lifecycle', () => {
     expect(dial.snapshot.value.tabs[0]?.title).toBe('New');
   });
   it('mutation failure rereads actual browser state', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     state.load.mockResolvedValue(snapshot('Actual'));
     expect(
@@ -314,7 +315,7 @@ describe('browser event refresh lifecycle', () => {
     expect(dial.notice.value).toBe('move failed');
   });
   it('does not publish a read after unmount', async () => {
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     let finish!: (value: ReturnType<typeof snapshot>) => void;
     state.load.mockImplementationOnce(
@@ -334,8 +335,8 @@ describe('browser event refresh lifecycle', () => {
       ...dependencies,
       snapshots: { ...snapshots, load: vi.fn(async () => snapshot('Second')) },
     };
-    const first = useDial(dependencies),
-      second = useDial(other);
+    const first = useDial(dependencies, testTranslations),
+      second = useDial(other, testTranslations);
     await state.mounted[0]!();
     await state.mounted[1]!();
     expect(first.snapshot.value.tabs[0]?.title).toBe('Initial');
@@ -352,7 +353,7 @@ describe('browser event refresh lifecycle', () => {
           finish = resolve;
         }),
     );
-    useDial(dependencies);
+    useDial(dependencies, testTranslations);
     const startup = state.mounted[0]!();
     state.unmounted.forEach((callback) => callback());
     finish();
@@ -371,7 +372,7 @@ describe('browser event refresh lifecycle', () => {
       return stopSettings;
     };
     dependencies.root.watch = () => stopRoot;
-    const dial = useDial(dependencies);
+    const dial = useDial(dependencies, testTranslations);
     await state.mounted[0]!();
     dependencies.settings.getValue = () =>
       new Promise((resolve) => {

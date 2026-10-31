@@ -1,4 +1,4 @@
-import type { MessageText } from '../../../../../services/i18n';
+import type { MessageText } from '../../../../../shared/i18n/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   backupLimits,
@@ -67,7 +67,7 @@ describe('complete backup contract', () => {
     expect(text).not.toMatch(/bookmarkId|rootFolderId|faviconColor|token|syncing/);
   });
   it.each([99, null])('rejects unsupported version %s', (version) => {
-    expect(() => parseImport(backup({ version }))).toThrow('версии 3');
+    expect(() => parseImport(backup({ version }))).toThrowLocalized('версии 3');
   });
   it.each([
     'data:image/svg+xml;base64,PHN2Zz4=',
@@ -80,9 +80,11 @@ describe('complete backup contract', () => {
   });
   it('checks actual raster bytes and decode errors before confirmation', async () => {
     const data = parseImport(backup({ background: 'data:image/png;base64,' + btoa('<svg/>') }));
-    await expect(validateImportImages(data)).rejects.toThrow('растровому');
+    await expect(validateImportImages(data)).rejects.toThrowLocalized('растровому');
     vi.mocked(createImageBitmap).mockRejectedValueOnce(Error('decode'));
-    await expect(validateImportImages({ ...data, background: image() })).rejects.toThrow('decode');
+    await expect(validateImportImages({ ...data, background: image() })).rejects.toThrowLocalized(
+      'decode',
+    );
   });
   it('rejects excessive pixels and closes the decoder', async () => {
     const close = vi.fn();
@@ -93,7 +95,7 @@ describe('complete backup contract', () => {
     } as unknown as ImageBitmap);
     await expect(
       validateImportImages({ entries: [], settings: defaults, background: image() }),
-    ).rejects.toThrow('мегапикселей');
+    ).rejects.toThrowLocalized('мегапикселей');
     expect(close).toHaveBeenCalled();
   });
   it('skips corrupt optional resources with an explicit warning', async () => {
@@ -130,7 +132,7 @@ describe('complete backup contract', () => {
       expect(() => parseImport(backup(patch))).toThrow();
   });
   it('bounds text bytes and binary resources', () => {
-    expect(() => parseImport(' '.repeat(backupLimits.file + 1))).toThrow('40 МБ');
+    expect(() => parseImport(' '.repeat(backupLimits.file + 1))).toThrowLocalized('40 МБ');
     expect(() =>
       parseImport(
         backup({
@@ -181,7 +183,7 @@ it('roundtrips omitted sections without adding defaults or clearing wallpaper', 
     expect(Object.hasOwn(json, 'background')).toBe(Object.hasOwn(data, 'background'));
     expect(restored.bookmarks).toBe(data.bookmarks);
   }
-  expect(() => parseImport(backup({ bookmarks: 'no' }))).toThrow('состав');
+  expect(() => parseImport(backup({ bookmarks: 'no' }))).toThrowLocalized('состав');
 });
 
 it('selects sections from a fixed preview without mutating it or including excluded payloads', async () => {

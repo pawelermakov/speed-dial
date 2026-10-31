@@ -1,4 +1,6 @@
-import { message, LocalizedError, type MessageText } from '../../../../../services/i18n';
+import { message } from '../../../../../shared/i18n/messages';
+import { LocalizedError } from '../../../../../shared/i18n/errors';
+import { type MessageText } from '../../../../../shared/i18n/contracts';
 import { defaults } from '../../settings';
 import { type BackupBookmark, type BackupSelection, type ImportData } from '..';
 import { blobToDataUrl } from '../../../../../services/images';

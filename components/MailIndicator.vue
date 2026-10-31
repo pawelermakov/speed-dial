@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { t } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
 import { computed, toRef } from 'vue';
-import { mailTooltip, type mailProviders } from '../modules/dial/modules/mail/helpers/presentation';
+import {
+  getMailTranslates,
+  type MailProviderDefinition,
+} from '../modules/dial/modules/mail/helpers/presentation';
 import { useMailCounter } from '../modules/dial/modules/mail/composables/useMailCounter';
 import { useServices } from '../app/serviceContext';
-const props = defineProps<{ provider: (typeof mailProviders)[number] }>();
+const { t: $t } = useUiI18n();
+
+const { mailTooltip } = getMailTranslates($t);
+const props = defineProps<{ provider: MailProviderDefinition }>();
 const { count, status } = useMailCounter(
   toRef(() => props.provider.id),
   useServices().mail,
@@ -21,11 +28,11 @@ const tooltip = computed(() => mailTooltip(props.provider.name, status.value));
       class="mail relative flex size-12 items-center justify-center"
       :href="provider.href"
       :aria-label="
-        t('mail.accessibility.open_with_status', {
+        $t('mail.accessibility.open_with_status', {
           provider_name: provider.name,
           status:
             status === 'ready' && count !== null
-              ? t('mail.accessibility.unread_count', { count: count })
+              ? $t('mail.accessibility.unread_count', { count: count })
               : ' — ' + tooltip,
         })
       "

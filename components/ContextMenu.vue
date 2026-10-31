@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { t } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
 import { ref, nextTick, onMounted, onUnmounted } from 'vue';
 import type { Bookmark, Folder } from '../modules/dial/modules/bookmarks';
+const { t: $t } = useUiI18n();
+
 const props = defineProps<{
   x: number;
   y: number;
@@ -62,10 +65,10 @@ function keys(event: KeyboardEvent) {
       role="menu"
       :aria-label="
         folder
-          ? t('context.folder.label')
+          ? $t('context.folder.label')
           : bookmark
-            ? t('context.bookmark.label')
-            : t('context.page.label')
+            ? $t('context.bookmark.label')
+            : $t('context.page.label')
       "
       class="context ui-glass fixed w-max min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto"
       :style="{ left: left + 'px', top: top + 'px' }"
@@ -73,7 +76,7 @@ function keys(event: KeyboardEvent) {
     >
       <template v-if="folder">
         <button tabindex="-1" role="menuitem" @click="emit('action', 'edit')">
-          {{ t('folders.edit.title') }}
+          {{ $t('folders.edit.title') }}
         </button>
         <button
           tabindex="-1"
@@ -81,7 +84,7 @@ function keys(event: KeyboardEvent) {
           :disabled="!canMoveLeft"
           @click="emit('action', 'move-left')"
         >
-          {{ t('context.move_left') }}
+          {{ $t('context.move_left') }}
         </button>
         <button
           tabindex="-1"
@@ -89,23 +92,23 @@ function keys(event: KeyboardEvent) {
           :disabled="!canMoveRight"
           @click="emit('action', 'move-right')"
         >
-          {{ t('context.move_right') }}
+          {{ $t('context.move_right') }}
         </button>
         <hr class="context-divider" role="separator" />
         <button class="destructive" tabindex="-1" role="menuitem" @click="emit('action', 'delete')">
-          {{ t('folders.delete.action') }}
+          {{ $t('folders.delete.action') }}
         </button>
       </template>
       <template v-else-if="bookmark">
         <button tabindex="-1" role="menuitem" @click="emit('action', 'open')">
-          {{ t('context.open_in_new_tab') }}
+          {{ $t('context.open_in_new_tab') }}
         </button>
         <hr class="context-divider" role="separator" />
         <button tabindex="-1" role="menuitem" @click="emit('action', 'edit')">
-          {{ t('bookmarks.edit.title') }}
+          {{ $t('bookmarks.edit.title') }}
         </button>
         <button tabindex="-1" role="menuitem" @click="emit('action', 'thumbnail')">
-          {{ t('thumbnails.update.action') }}
+          {{ $t('thumbnails.update.action') }}
         </button>
         <button
           tabindex="-1"
@@ -113,7 +116,7 @@ function keys(event: KeyboardEvent) {
           :disabled="!canMoveLeft"
           @click="emit('action', 'move-left')"
         >
-          {{ t('context.move_left') }}
+          {{ $t('context.move_left') }}
         </button>
         <button
           tabindex="-1"
@@ -121,23 +124,23 @@ function keys(event: KeyboardEvent) {
           :disabled="!canMoveRight"
           @click="emit('action', 'move-right')"
         >
-          {{ t('context.move_right') }}
+          {{ $t('context.move_right') }}
         </button>
         <hr class="context-divider" role="separator" />
         <button class="destructive" tabindex="-1" role="menuitem" @click="emit('action', 'delete')">
-          {{ t('bookmarks.delete.action') }}
+          {{ $t('bookmarks.delete.action') }}
         </button>
       </template>
       <template v-else>
         <button tabindex="-1" role="menuitem" @click="emit('action', 'add')">
-          {{ t('bookmarks.add.action') }}
+          {{ $t('bookmarks.add.action') }}
         </button>
         <button tabindex="-1" role="menuitem" @click="emit('action', 'folder')">
-          {{ t('folders.add.title') }}
+          {{ $t('folders.add.title') }}
         </button>
         <hr class="context-divider" role="separator" />
         <button tabindex="-1" role="menuitem" @click="emit('action', 'settings')">
-          {{ t('settings.title') }}
+          {{ $t('settings.title') }}
         </button>
       </template>
     </div>

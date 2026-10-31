@@ -1,4 +1,5 @@
-import { message, errorMessage } from '../../../services/i18n';
+import { message } from '../../../shared/i18n/messages';
+import { errorMessage } from '../../../shared/i18n/errors';
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
 import {
   cacheBackgroundPreview,

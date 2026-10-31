@@ -18,7 +18,15 @@ export default defineConfig({
         });
     },
   },
-  vite: () => ({ plugins: [tailwindcss()] }),
+  vite: () => ({
+    define: {
+      __VUE_I18N_LEGACY_API__: false,
+      __VUE_I18N_FULL_INSTALL__: true,
+      __INTLIFY_DROP_MESSAGE_COMPILER__: false,
+      __INTLIFY_PROD_DEVTOOLS__: false,
+    },
+    plugins: [tailwindcss()],
+  }),
   manifest: ({ browser }) => ({
     name: manifest.name,
     description: manifest.description,

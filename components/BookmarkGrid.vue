@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { t } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
 import { watch, nextTick, onMounted, onUnmounted, ref, computed } from 'vue';
 import { BookmarkImages } from '../utils/bookmarkImages';
 import type { Bookmark } from '../modules/dial/modules/bookmarks';
@@ -9,6 +10,8 @@ import { contextKey, gridFocusIndex, plainNavigation } from '../utils/keyboard';
 import { useBookmarkGridDrag } from '../modules/dial/modules/bookmarks/composables/useBookmarkGridDrag';
 import type { BookmarkGridProps } from '../modules/dial/modules/bookmarks/composables/gridTypes';
 import { tileHostname, tileColor, fitTileColumns } from '../utils/tile';
+const { t: $t } = useUiI18n();
+
 const props = defineProps<BookmarkGridProps>();
 const emit = defineEmits<{
   add: [];
@@ -46,7 +49,7 @@ const columns = computed(() =>
 const tileAppearance = computed(() =>
   Object.fromEntries(
     props.tabs.map((tab) => {
-      const hostname = tileHostname(tab.url);
+      const hostname = tileHostname(tab.url, $t('bookmarks.fallback.website'));
       return [tab.id, { hostname, color: tab.faviconColor ?? tileColor(hostname) }];
     }),
   ),
@@ -151,7 +154,7 @@ function key(event: KeyboardEvent, tab: Bookmark) {
 <template>
   <section
     ref="grid"
-    :aria-label="t('bookmarks.grid.label')"
+    :aria-label="$t('bookmarks.grid.label')"
     :aria-busy="preparing"
     class="grid bookmarks grid-cols-[repeat(var(--columns),minmax(0,1fr))] mx-auto"
     :style="{
@@ -239,9 +242,9 @@ function key(event: KeyboardEvent, tab: Bookmark) {
     </a>
     <div v-if="!searching && !tabs.length" class="bookmark-empty col-span-full">
       <EmptyState
-        :title="t('bookmarks.empty.title')"
-        :description="t('bookmarks.empty.description')"
-        :action-label="t('bookmarks.add.action')"
+        :title="$t('bookmarks.empty.title')"
+        :description="$t('bookmarks.empty.description')"
+        :action-label="$t('bookmarks.add.action')"
         symbol="bookmark"
         :disabled="disabled"
         @action="emit('add')"
@@ -252,7 +255,7 @@ function key(event: KeyboardEvent, tab: Bookmark) {
       :inert="dragId !== null"
       :style="{ visibility: dragId !== null ? 'hidden' : undefined }"
       class="add-card relative block min-w-0"
-      :aria-label="t('bookmarks.add.action')"
+      :aria-label="$t('bookmarks.add.action')"
       :disabled="disabled || dragId !== null"
       @click="emit('add')"
     >

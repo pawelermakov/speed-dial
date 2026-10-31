@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { t, formatMessage } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import InfoTooltip from './InfoTooltip.vue';
 import { ui } from '../utils/ui';
@@ -7,6 +8,8 @@ import type { SyncStatus } from '../modules/dial/modules/sync';
 import { useServices } from '../app/serviceContext';
 const { syncRequest, syncState: stateItem, getSyncStatus: syncStatus } = useServices();
 import type { SyncState } from '../modules/dial/modules/sync/entities/models';
+const { t: $t, formatMessage } = useUiI18n();
+
 defineProps<{ tooltipTarget?: string }>();
 const status = ref<SyncStatus>('unknown'),
   checking = ref(false),
@@ -18,32 +21,32 @@ const unwatch = stateItem.watch((value) => {
 let generation = 0;
 const labels = {
   get enabled() {
-    return t('sync.status.enabled');
+    return $t('sync.status.enabled');
   },
   get disabled() {
-    return t('sync.status.disabled');
+    return $t('sync.status.disabled');
   },
   get unknown() {
-    return t('sync.status.unknown');
+    return $t('sync.status.unknown');
   },
   get unavailable() {
-    return t('sync.status.unavailable');
+    return $t('sync.status.unavailable');
   },
 };
 const info = computed(
   () =>
     ({
       get enabled() {
-        return t('sync.help.chrome_enabled');
+        return $t('sync.help.chrome_enabled');
       },
       get disabled() {
-        return t('sync.help.chrome_disabled');
+        return $t('sync.help.chrome_disabled');
       },
       get unknown() {
-        return t('sync.help.chrome_unknown');
+        return $t('sync.help.chrome_unknown');
       },
       get unavailable() {
-        return t('sync.help.firefox');
+        return $t('sync.help.firefox');
       },
     })[status.value],
 );
@@ -80,10 +83,10 @@ onUnmounted(() => {
 });
 </script>
 <template>
-  <section class="relative mb-5 text-base" :aria-label="t('sync.title')">
+  <section class="relative mb-5 text-base" :aria-label="$t('sync.title')">
     <div class="flex items-center gap-2 mb-2">
-      <h3 class="text-base leading-7 font-bold">{{ t('sync.title') }}</h3>
-      <InfoTooltip :target="tooltipTarget" id="sync-info" :label="t('sync.help.label')">{{
+      <h3 class="text-base leading-7 font-bold">{{ $t('sync.title') }}</h3>
+      <InfoTooltip :target="tooltipTarget" id="sync-info" :label="$t('sync.help.label')">{{
         info
       }}</InfoTooltip>
     </div>
@@ -131,8 +134,8 @@ onUnmounted(() => {
         {{
           email ||
           (status === 'unavailable'
-            ? t('sync.firefox.check_settings')
-            : t('sync.account.unavailable'))
+            ? $t('sync.firefox.check_settings')
+            : $t('sync.account.unavailable'))
         }}
       </p>
     </div>
@@ -146,16 +149,16 @@ onUnmounted(() => {
         :disabled="checking"
         @click="check"
       >
-        <span class="ui-action-label">{{ t('common.retry') }}</span>
+        <span class="ui-action-label">{{ $t('common.retry') }}</span>
       </button>
     </div>
     <div v-if="state?.confirm" class="sync-notice ui-caption mt-3">
-      <p>{{ t('sync.confirmation.description') }}</p>
+      <p>{{ $t('sync.confirmation.description') }}</p>
       <div class="grid gap-2 mt-3">
         <button type="button" class="sync-action" :class="ui.button" @click="confirm(true)">
-          <span class="ui-action-label">{{ t('sync.confirmation.use_local') }}</span></button
+          <span class="ui-action-label">{{ $t('sync.confirmation.use_local') }}</span></button
         ><button type="button" class="sync-action" :class="ui.button" @click="confirm(false)">
-          <span class="ui-action-label">{{ t('sync.confirmation.use_defaults') }}</span>
+          <span class="ui-action-label">{{ $t('sync.confirmation.use_defaults') }}</span>
         </button>
       </div>
     </div>

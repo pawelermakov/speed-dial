@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { formatMessage, t } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+
 import { watch, ref, onUnmounted, computed, nextTick, onMounted } from 'vue';
 import { isMovieProvider } from '../modules/dial/modules/search';
 import type { SearchProviderId, SearchSuggestion } from '../modules/dial/modules/search';
-import { searchProviders, searchUrl } from '../modules/dial/modules/search/helpers/presentation';
+import {
+  getSearchTranslates,
+  searchUrl,
+} from '../modules/dial/modules/search/helpers/presentation';
 import { useProviderSuggestions } from '../modules/dial/modules/search/composables/useProviderSuggestions';
+const { formatMessage, t: $t } = useUiI18n();
+
+const { searchProviders } = getSearchTranslates($t);
 const props = defineProps<{
   provider: SearchProviderId;
   modelValue: string;
@@ -84,8 +91,8 @@ watch(selected, async (index) => {
     list.scrollTop = item.offsetTop + item.offsetHeight - list.clientHeight;
 });
 const { items, error, loaded } = useProviderSuggestions(query, provider);
-const inputLabel = computed(() => t(`search.${provider.value}.label`));
-const inputPlaceholder = computed(() => t(`search.${provider.value}.placeholder`));
+const inputLabel = computed(() => $t(`search.${provider.value}.label`));
+const inputPlaceholder = computed(() => $t(`search.${provider.value}.placeholder`));
 let saveGeneration = 0;
 watch(
   [() => props.provider, () => props.bookmarkSearch, () => props.movieSearch],
@@ -209,7 +216,7 @@ function key(event: KeyboardEvent) {
     />
     <div class="search-provider ui-select ui-select--embedded relative min-w-0 shrink-0">
       <select
-        :aria-label="t('search.provider.label')"
+        :aria-label="$t('search.provider.label')"
         :value="provider"
         :disabled="disabled"
         class="ui-control h-full w-full"
@@ -243,7 +250,7 @@ function key(event: KeyboardEvent) {
       v-if="query"
       type="button"
       class="search-clear ui-hover shrink-0 inline-flex items-center justify-center"
-      :aria-label="t('search.query.clear')"
+      :aria-label="$t('search.query.clear')"
       :disabled="disabled"
       @click="clearQuery"
     >
@@ -262,10 +269,10 @@ function key(event: KeyboardEvent) {
     </button>
     <button
       class="search-submit ui-button shrink-0"
-      :aria-label="t('search.submit')"
+      :aria-label="$t('search.submit')"
       :disabled="disabled || !query.trim()"
     >
-      <span>{{ t('search.submit') }}</span
+      <span>{{ $t('search.submit') }}</span
       ><svg
         viewBox="0 0 24 24"
         width="20"
@@ -286,7 +293,7 @@ function key(event: KeyboardEvent) {
       :style="dropdownStyle"
       class="suggestions search-dropdown absolute text-base z-5 ui-glass overflow-y-auto"
       role="listbox"
-      :aria-label="t('search.suggestions.label')"
+      :aria-label="$t('search.suggestions.label')"
     >
       <li
         v-for="(item, index) in items"
@@ -311,7 +318,7 @@ function key(event: KeyboardEvent) {
       role="status"
       :style="dropdownStyle"
       class="search-dropdown absolute z-5 ui-glass px-4 py-2 text-sm overflow-y-auto"
-      >{{ formatMessage(error) || t('search.suggestions.empty') }}</span
+      >{{ formatMessage(error) || $t('search.suggestions.empty') }}</span
     >
   </form>
 </template>

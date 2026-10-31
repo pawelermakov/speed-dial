@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { defaults } from '../entities/models';
 import { createSettingsService } from '../services/settings';
 import { validateSettings } from '../../../../../services/validation';
-import { LocalizedError, errorMessage, formatMessage } from '../../../../../services/i18n';
+import { LocalizedError, errorMessage } from '../../../../../shared/i18n/errors';
+import { formatMessage } from '../../../../../tests/helpers/i18n';
 import { message } from '../../../../../shared/i18n/messages';
 import type { BackgroundAsset } from '../../appearance';
 describe('settings persistence ports', () => {
@@ -40,10 +41,10 @@ describe('settings persistence ports', () => {
         errorText: errorMessage,
       });
       const failure = service.saveSettings({ ...defaults, width: 80 }, new Blob(['new']), 'other');
-      await expect(failure).rejects.toThrow('source failed');
+      await expect(failure).rejects.toThrowLocalized('source failed');
       expect(stored.value).toEqual(defaults);
       if (failRollback)
-        await expect(failure).rejects.toThrow(
+        await expect(failure).rejects.toThrowLocalized(
           formatMessage(message('settings.errors.partial_restore')),
         );
       else expect(background).toBe(original);

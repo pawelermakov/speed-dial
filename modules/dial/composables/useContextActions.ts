@@ -1,4 +1,5 @@
-import { message, LocalizedError, errorMessage } from '../../../services/i18n';
+import { message } from '../../../shared/i18n/messages';
+import { LocalizedError, errorMessage } from '../../../shared/i18n/errors';
 import { computed } from 'vue';
 import { browser } from 'wxt/browser';
 import { insertedOrder } from '../modules/bookmarks/helpers/reorder';

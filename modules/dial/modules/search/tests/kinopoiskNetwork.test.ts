@@ -42,7 +42,7 @@ describe('Kinopoisk Origin rule', () => {
   it('waits for installation, shares concurrent setup and retries after failure', async () => {
     const { prepareKinopoiskNetwork } = await import('../adapters/kinopoiskNetwork');
     api.updateSessionRules.mockRejectedValueOnce(new Error('permission denied'));
-    await expect(prepareKinopoiskNetwork()).rejects.toThrow('permission denied');
+    await expect(prepareKinopoiskNetwork()).rejects.toThrowLocalized('permission denied');
     await Promise.all([prepareKinopoiskNetwork(), prepareKinopoiskNetwork()]);
     expect(api.updateSessionRules).toHaveBeenCalledTimes(2);
     expect(api.updateSessionRules.mock.calls[1]?.[0]).toMatchObject({

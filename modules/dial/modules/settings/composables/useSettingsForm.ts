@@ -1,11 +1,7 @@
-import {
-  t,
-  language,
-  message,
-  LocalizedError,
-  errorMessage,
-  type MessageText,
-} from '../../../../../services/i18n';
+import { useUiI18n } from '../../../../../shared/i18n';
+import { message } from '../../../../../shared/i18n/messages';
+import { LocalizedError, errorMessage } from '../../../../../shared/i18n/errors';
+import { type MessageText } from '../../../../../shared/i18n/contracts';
 import { reactive, ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { browser } from 'wxt/browser';
 import { useServices } from '../../../../../app/serviceContext';
@@ -30,6 +26,8 @@ export interface SettingsFormEmit {
   (event: 'error', message: MessageText): void;
 }
 export function useSettingsForm(props: SettingsFormProps, emit: SettingsFormEmit) {
+  const { t, language } = useUiI18n();
+
   const {
     bookmarks: { source },
     syncRequest,

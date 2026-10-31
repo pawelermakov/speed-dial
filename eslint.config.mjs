@@ -5,6 +5,12 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import architecture from './scripts/eslint-architecture.mjs';
 
+const uiI18nPattern = {
+  regex: '(?:^|/)shared/i18n(?:/(?:index|createI18n|injection))?(?:[.]ts)?$',
+  message:
+    'UI translation context belongs to the newtab application; use pure i18n contracts/messages/errors here.',
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -62,9 +68,10 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
-          paths: ['vue', 'dexie'],
+          paths: ['vue', 'dexie', 'vue-i18n'],
           patterns: [
             'vue/**',
+            'vue-i18n/**',
             'wxt',
             'wxt/**',
             '**/services/**',
@@ -83,14 +90,20 @@ export default tseslint.config(
     rules: { 'no-restricted-imports': ['error', { patterns: ['**/modules/**'] }] },
   },
   {
-    files: ['shared/i18n/contracts.ts', 'shared/i18n/messages.ts'],
+    files: [
+      'shared/i18n/contracts.ts',
+      'shared/i18n/messages.ts',
+      'shared/i18n/errors.ts',
+      'shared/i18n/formatMessage.ts',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: ['vue', 'dexie'],
+          paths: ['vue', 'dexie', 'vue-i18n', './index', './createI18n', './injection', '../i18n'],
           patterns: [
             'vue/**',
+            'vue-i18n/**',
             'wxt',
             'wxt/**',
             '**/modules/**',
@@ -122,7 +135,10 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': [
         'error',
-        { paths: ['vue'], patterns: ['**/components/**', '**/*.vue'] },
+        {
+          paths: ['vue', 'vue-i18n'],
+          patterns: [{ group: ['vue-i18n/**', '**/components/**', '**/*.vue'] }, uiI18nPattern],
+        },
       ],
     },
   },
@@ -135,13 +151,19 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
-          paths: ['vue', 'dexie', 'wxt'],
+          paths: ['vue', 'dexie', 'wxt', 'vue-i18n'],
           patterns: [
-            'vue/**',
-            'wxt/**',
-            '**/adapters/**',
-            '**/services/i18n',
-            '**/services/validation',
+            {
+              group: [
+                'vue/**',
+                'vue-i18n/**',
+                'wxt/**',
+                '**/adapters/**',
+                '**/services/i18n',
+                '**/services/validation',
+              ],
+            },
+            uiI18nPattern,
           ],
         },
       ],

@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { t } from '../../../services/i18n';
+import { useUiI18n } from '../../../shared/i18n';
+
 import { useScreen } from '../screenContext';
 import SearchBar from '../../../components/SearchBar.vue';
 import WeatherWidget from '../../../components/WeatherWidget.vue';
 import MailIndicators from '../../../components/MailIndicators.vue';
+const { t: $t } = useUiI18n();
+
 const { dial, search, settings, backup, disabled } = useScreen();
 const { snapshot, changeSearchProvider } = dial;
 const { searchText, searchControl, focusSearchResult } = search;
@@ -37,8 +40,8 @@ const { mailRevision } = backup;
       <MailIndicators :key="mailRevision" :settings="snapshot.settings" />
       <button
         class="settings-trigger ui-folder inline-flex size-12 items-center justify-center"
-        :aria-label="t('settings.title')"
-        :title="t('settings.title')"
+        :aria-label="$t('settings.title')"
+        :title="$t('settings.title')"
         aria-haspopup="dialog"
         :aria-expanded="settingsOpen"
         :aria-controls="settingsOpen ? 'settings-modal' : undefined"

@@ -52,7 +52,7 @@ describe('theme startup and persistence', () => {
     for (const saved of [null, 'system', 'unknown', {}])
       expect(start(saved, true).dataset.theme).toBe('dark');
     expect(start('light', true, undefined, true).dataset.theme).toBe('dark');
-    expect(() => validateSettings({ theme: 'unknown' })).toThrow('тема');
+    expect(() => validateSettings({ theme: 'unknown' })).toThrowLocalized('тема');
     expect(defaults.theme).toBe('system');
   });
   it('keeps valid wallpaper previews intact in dark mode and rejects malformed previews', () => {

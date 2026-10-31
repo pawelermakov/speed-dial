@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { t, formatMessage, type MessageText } from '../services/i18n';
+import { useUiI18n } from '../shared/i18n';
+import { type MessageText } from '../shared/i18n/contracts';
 import { useId } from 'vue';
 import ModalDialog from './ModalDialog.vue';
 import { ui } from '../utils/ui';
+const { t: $t, formatMessage } = useUiI18n();
+
 const props = defineProps<{
   title: MessageText;
   message: MessageText;
@@ -32,7 +35,7 @@ function escape(event: KeyboardEvent) {
     <div class="flex flex-col gap-4 text-base [overflow-wrap:anywhere]">
       <p :id="messageId">{{ formatMessage(message) }}</p>
       <p v-if="error" role="alert">{{ formatMessage(error) }}</p>
-      <p v-if="busy" role="status">{{ t('common.working') }}</p>
+      <p v-if="busy" role="status">{{ $t('common.working') }}</p>
       <div class="grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -41,7 +44,7 @@ function escape(event: KeyboardEvent) {
           :disabled="busy"
           @click="emit('close')"
         >
-          <span class="ui-action-label">{{ t('common.cancel') }}</span>
+          <span class="ui-action-label">{{ $t('common.cancel') }}</span>
         </button>
         <button
           type="button"
