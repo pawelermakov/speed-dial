@@ -29,7 +29,7 @@
     "test": "node scripts/test.mjs unit",
     "test:browser": "node scripts/test.mjs browser",
     "test:ui": "node scripts/test.mjs ui",
-    "test:live": "node scripts/search-providers.mjs --live"
+    "test:live": "node tests/browser/search/search-providers.mjs --live"
   },
   "dependencies": {
     "dexie": "^4.2.0",

@@ -725,3 +725,30 @@ it('applies a remotely selected language without echoing the setting', async () 
   expect(settings(f.local).language).toBe('es');
   expect(f.sync.set).not.toHaveBeenCalled();
 });
+
+it('does not reapply a stale retry snapshot after a queued local write finishes', async () => {
+  const key = syncPrefix + 'language';
+  const f = fixture(localSettings({ language: 'ru' }), { [key]: 'ru' }, null);
+  await f.c.initialize();
+  f.local.values.settings = localSettings({ language: 'es' }).settings;
+  await f.c.changed({ language: 'es' });
+  let release!: (values: Record<string, unknown>) => void;
+  let started!: () => void;
+  const reading = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  f.sync.get.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+        started();
+      }),
+  );
+  const retry = f.c.retry();
+  await reading;
+  const flush = f.c.flush();
+  release({ [key]: 'ru' });
+  await Promise.all([retry, flush]);
+  expect(settings(f.local).language).toBe('es');
+  expect(f.sync.values[key]).toBe('es');
+});

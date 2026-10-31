@@ -200,7 +200,7 @@
   background: transparent;
   color: var(--ui-text);
 }
-.page[data-keyboard-focus] .context button:focus-visible:not(:disabled) {
+.page[data-keyboard-focus] .context button:focus:not(:disabled) {
   outline-offset: -2px;
 }
 .context-divider {

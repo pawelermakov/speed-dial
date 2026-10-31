@@ -75,6 +75,15 @@ test('tests and composition roots can wire concrete implementations', () => {
     );
 });
 
+test('test runner may load its registry while production roots cannot load tests', () => {
+  assert.deepEqual(lint("import { suites } from '../tests/scenarios.mjs'", 'scripts/test.mjs'), []);
+  assert.equal(
+    lint("import { suites } from '../tests/scenarios.mjs'", 'app/createNewtabApplication.ts')
+      .length,
+    1,
+  );
+});
+
 test('pure layers reject runtime dependencies but retain type-only ports', () => {
   for (const layer of ['entities', 'helpers', 'services']) {
     const file = `modules/dial/modules/settings/${layer}/sample.ts`;

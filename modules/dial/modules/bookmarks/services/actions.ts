@@ -1,6 +1,6 @@
 import { message } from '../../../../../shared/i18n/messages';
 import type { DataLock } from '../../../../../shared/infrastructure/browser/interfaces';
-import type { BookmarkNode } from '../entities/models';
+import type { AutoNameTicket, BookmarkNode } from '../entities/models';
 import type {
   AssetsPort,
   AutoNamesPort,
@@ -37,7 +37,7 @@ export class BookmarkActions {
   private async markAutoName(
     bookmarkId: string,
     url: string,
-    pendingEdit?: { url: boolean; title: boolean },
+    pendingEdit?: AutoNameTicket['pendingEdit'],
   ) {
     // Optional provenance: failure must never turn a saved bookmark into a failed submit.
     await this.metadata
@@ -77,6 +77,8 @@ export class BookmarkActions {
         await this.markAutoName(id, url, {
           url: before.url !== url,
           title: before.title !== nextTitle,
+          previousUrl: before.url,
+          previousTitle: before.title,
         });
     }
     try {

@@ -21,13 +21,19 @@ export class AutoNameStore implements AutoNamesPort {
       if (
         marker?.pendingEdit &&
         (marker.pendingEdit.url || marker.pendingEdit.title) &&
-        (change.url === undefined || change.url === marker.url) &&
-        (change.title === undefined || change.title === new URL(marker.url).hostname)
+        (change.url === undefined ||
+          change.url === marker.url ||
+          (marker.pendingEdit.url && change.url === marker.pendingEdit.previousUrl)) &&
+        (change.title === undefined ||
+          change.title === new URL(marker.url).hostname ||
+          (marker.pendingEdit.title && change.title === marker.pendingEdit.previousTitle))
       ) {
-        // Firefox may deliver URL and title as separate events.
+        // Firefox may split fields; Chrome may first report the new title with
+        // the previous URL. Consume only fields that reached their final value.
         const pendingEdit = {
-          url: marker.pendingEdit.url && change.url === undefined,
-          title: marker.pendingEdit.title && change.title === undefined,
+          ...marker.pendingEdit,
+          url: marker.pendingEdit.url && change.url !== marker.url,
+          title: marker.pendingEdit.title && change.title !== new URL(marker.url).hostname,
         };
         await this.db.autoNames.update(id, { pendingEdit });
       } else await this.db.autoNames.delete(id);

@@ -223,43 +223,44 @@ export class SettingsSync {
   }
   remote(changes: Record<string, { newValue?: unknown }>) {
     const epoch = this.epoch;
-    return this.serial(async () => {
-      if (epoch !== this.epoch) return;
-      const apply: Record<string, unknown> = {};
-      for (const [key, change] of Object.entries(changes)) {
-        if (key !== folderKey && !settingKeys.some((field) => syncPrefix + field === key)) continue;
-        if (equal(this.cloud[key], change.newValue)) continue;
-        this.cloud[key] = change.newValue;
-        if (change.newValue !== undefined) {
-          if (key === folderKey && !validLocator(change.newValue)) {
-            await this.publish({
-              get folder() {
-                return message('sync.folder.invalid_path');
-              },
-            });
-            continue;
-          }
-          if (
-            key !== folderKey &&
-            !validSetting(key.slice(syncPrefix.length) as keyof Settings, change.newValue)
-          )
-            continue;
+    return this.serial(() => this.applyRemote(changes, epoch));
+  }
+  private async applyRemote(changes: Record<string, { newValue?: unknown }>, epoch: number) {
+    if (epoch !== this.epoch) return;
+    const apply: Record<string, unknown> = {};
+    for (const [key, change] of Object.entries(changes)) {
+      if (key !== folderKey && !settingKeys.some((field) => syncPrefix + field === key)) continue;
+      if (equal(this.cloud[key], change.newValue)) continue;
+      this.cloud[key] = change.newValue;
+      if (change.newValue !== undefined) {
+        if (key === folderKey && !validLocator(change.newValue)) {
+          await this.publish({
+            get folder() {
+              return message('sync.folder.invalid_path');
+            },
+          });
+          continue;
         }
-        // An arriving remote update supersedes an older queued value of this field.
-        delete this.pending[key];
-        apply[key] = change.newValue;
+        if (
+          key !== folderKey &&
+          !validSetting(key.slice(syncPrefix.length) as keyof Settings, change.newValue)
+        )
+          continue;
       }
-      await this.apply(syncPatch(apply));
-      if (epoch !== this.epoch) return;
-      if (settingKeys.every((key) => validSetting(key, this.cloud[syncPrefix + key])))
-        await this.publish({ confirm: false });
-      if (Object.hasOwn(apply, folderKey)) {
-        this.folderEpoch++;
-        this.selectedId = null;
-        this.manualFolder = false;
-        await this.restoreFolder();
-      }
-    });
+      // An arriving remote update supersedes an older queued value of this field.
+      delete this.pending[key];
+      apply[key] = change.newValue;
+    }
+    await this.apply(syncPatch(apply));
+    if (epoch !== this.epoch) return;
+    if (settingKeys.every((key) => validSetting(key, this.cloud[syncPrefix + key])))
+      await this.publish({ confirm: false });
+    if (Object.hasOwn(apply, folderKey)) {
+      this.folderEpoch++;
+      this.selectedId = null;
+      this.manualFolder = false;
+      await this.restoreFolder();
+    }
   }
   private async restoreFolder() {
     const value = this.cloud[folderKey];
@@ -449,19 +450,22 @@ export class SettingsSync {
     if (epoch !== this.epoch) return;
     if (current !== this.accountId) await this.accountChanged();
     else {
-      const values = await this.serial(async () => {
+      await this.serial(async () => {
+        let values: Record<string, unknown>;
         try {
-          return await this.ports.sync.get(null);
+          values = await this.ports.sync.get(null);
         } catch (error) {
           await this.failure(error);
-          return null;
+          return;
         }
+        // Apply the read in the same queue turn: a flush must not publish a newer
+        // local value between reading this snapshot and comparing it with cloud.
+        await this.applyRemote(
+          Object.fromEntries(Object.entries(values).map(([key, newValue]) => [key, { newValue }])),
+          epoch,
+        );
       });
       if (epoch !== this.epoch) return;
-      if (values)
-        await this.remote(
-          Object.fromEntries(Object.entries(values).map(([key, newValue]) => [key, { newValue }])),
-        );
     }
     await this.bookmarksChanged();
     await this.flush();

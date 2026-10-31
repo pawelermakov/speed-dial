@@ -128,6 +128,15 @@ npm run lint:styles:fix
 
 Перед браузерными тестами выполните `npx playwright install chromium firefox`. Чтобы проверить одну платформу, добавьте `-- --chrome-only` или `-- --firefox-only` к команде браузерных или UI-тестов. Тесты используют отдельные профили.
 
+Сценарии находятся в `tests/browser/` и `tests/ui/`, общий реестр —
+`tests/scenarios.mjs`. Один сценарий после сборки можно запустить напрямую:
+`node tests/browser/weather/weather-widget.mjs --firefox-only`.
+`npm run test:browser -- --list` и `npm run test:ui -- --list` показывают команды.
+Выбранный сценарий со сборкой и проверкой отчёта:
+`npm run test:browser -- --firefox-only --scenario=theme-startup`.
+Текущее покрытие браузеров ещё различается; все известные пробелы перечислены
+в [матрице проверок](docs/browser-test-matrix.md).
+
 Проверка реальных поисковых сервисов требует сети и готовых сборок обоих браузеров:
 
 ```sh

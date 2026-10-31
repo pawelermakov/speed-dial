@@ -147,26 +147,26 @@ input.file-input:enabled + label.ui-control:hover:not(:active) {
     .close,
     .search-clear,
     .info-help > button
-  ):focus-visible:not(:disabled) {
+  ):focus:not(:disabled) {
   box-shadow: 0 0 0 4px var(--focus-halo);
 }
 
 /* Keep the focus boundary legible against both bright and dark tile images. */
-.page[data-keyboard-focus] .bookmark:focus-visible {
+.page[data-keyboard-focus] .bookmark:focus {
   outline: 2px solid #fff;
   outline-offset: -4px;
 }
-.page[data-keyboard-focus] .context button:focus-visible {
+.page[data-keyboard-focus] .context button:focus {
   background: var(--surface-floating-emphasis);
   color: var(--highlight-text);
 }
 @media (forced-colors: active) {
-  .page[data-keyboard-focus] .bookmark:focus-visible {
+  .page[data-keyboard-focus] .bookmark:focus {
     outline-color: Highlight;
   }
 }
 
-.page[data-keyboard-focus] .bookmark:focus-visible::before {
+.page[data-keyboard-focus] .bookmark:focus::before {
   content: '';
   position: absolute;
   inset: 2px;
@@ -179,7 +179,7 @@ input.file-input:enabled + label.ui-control:hover:not(:active) {
   z-index: 2;
 }
 @media (forced-colors: active) {
-  .page[data-keyboard-focus] .bookmark:focus-visible::before {
+  .page[data-keyboard-focus] .bookmark:focus::before {
     border-color: Highlight;
     box-shadow: none;
   }

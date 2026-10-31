@@ -149,3 +149,33 @@ it('preserves pending automatic names and assets when only the folder changes', 
   expect((await module.actions.autoNameTicket(id))?.token).toBe(ticket?.token);
   expect((await module.source.node(id)).parentId).toBe(folder.id);
 });
+it('preserves automatic titles through native intermediate URL/title change events', async () => {
+  for (const titleFirst of [true, false]) {
+    const id = await module.actions.add({ url: 'old.example', title: '' });
+    await module.actions.edit(id, 'https://new.example/', 'old.example', undefined, false);
+    const ticket = await module.actions.autoNameTicket(id);
+    await module.autoNames.invalidate(
+      id,
+      titleFirst
+        ? { title: 'new.example', url: 'https://old.example/' }
+        : { title: 'old.example', url: 'https://new.example/' },
+    );
+    expect((await module.actions.autoNameTicket(id))?.token).toBe(ticket?.token);
+    await module.autoNames.invalidate(id, { title: 'new.example', url: 'https://new.example/' });
+    expect((await module.actions.autoNameTicket(id))?.token).toBe(ticket?.token);
+    await module.actions.applyCapturedTitle(
+      id,
+      'https://new.example/',
+      'Native captured title',
+      ticket,
+    );
+    expect((await module.source.node(id)).title).toBe('Native captured title');
+  }
+});
+it('still invalidates provenance for an external change during a pending URL edit', async () => {
+  const id = await module.actions.add({ url: 'old.example', title: '' });
+  await module.actions.edit(id, 'https://new.example/', 'old.example', undefined, false);
+  await module.autoNames.invalidate(id, { title: 'new.example', url: 'https://old.example/' });
+  await module.autoNames.invalidate(id, { title: 'External title', url: 'https://old.example/' });
+  expect(await module.actions.autoNameTicket(id)).toBeUndefined();
+});

@@ -286,16 +286,87 @@ capture client/workflow в обоих браузерах. В стартовом 
 npm run check
 npm run build
 npm run build:firefox
-# Unit-тесты модуля sync:
+# Unit-тесты модуля bookmarks:
 npm test -- modules/dial/modules/bookmarks
 # Один существующий browser-сценарий; предварительно собрать оба браузера:
-node scripts/weather-widget.mjs --chrome-only
-node scripts/weather-widget.mjs --firefox-only
+node tests/browser/weather/weather-widget.mjs --chrome-only
+node tests/browser/weather/weather-widget.mjs --firefox-only
+# Один сценарий через runner со сборкой и контролем обязательных cases:
+npm run test:browser -- --firefox-only --scenario=theme-startup
+# Одна из пяти Chrome-частей общего CI-набора без повторов browser/UI:
+node scripts/test.mjs ci --chrome-only --shard=1/5
+# Посмотреть состав части без сборки и выполнения:
+node scripts/test.mjs ci --firefox-only --shard=1/5 --list
 ```
 
 Vitest обнаруживает tests в `tests/`, `modules/`, `shared/` и `app/`.
 Корневые межмодульные тесты пока сохраняются на прежнем месте. Данные, ключи
 storage/sync, схема `SpeedDialX` v3, backup JSON и browser IDs не меняются.
+
+Browser-сценарии находятся в `tests/browser/<feature>/`, визуальные/accessibility
+сценарии — в `tests/ui/`. Один файл может входить в обе suites через общий реестр
+`tests/scenarios.mjs`; scripts/test.mjs только формирует команды и запускает их.
+Browser helpers находятся в tests/browser/helpers, provider fixtures — у search.
+ESLint учитывает browser globals в новых MJS paths. Проверки реестра обнаруживают
+потерянные/незарегистрированные сценарии, duplicate IDs/paths и сломанные импорты.
+CI использует объединение browser/UI: общий сценарий выполняется один раз на
+платформу. Пять частей каждого браузера распределяются по ориентировочной длительности
+из Ubuntu Actions; новые сценарии без замера также обязательно включаются.
+Тесты проверяют полное покрытие без пересечений для любого допустимого числа
+частей и реальные CLI-команды обеих платформ. Локальные browser/UI команды
+сохраняют прежний состав. Каждая CI job устанавливает только свой браузер;
+новый push отменяет устаревший запуск того же workflow/ref.
+Браузерные jobs зависят от checks: форматирование, lint, типы, unit-тесты и обе
+сборки должны пройти до запуска браузеров. При ошибке checks браузерные jobs
+не выполняются.
+Runner проверяет свежие обязательные отчёты внутри каждой части. Части без
+report-bearing сценариев могут не создавать coverage artifact; это не отменяет
+проверку case contracts у исполняемых сценариев.
+Из scripts/test.mjs разрешён импорт тестового реестра; production roots по-прежнему
+не могут импортировать tests. Текущие пробелы и ветки обеих платформ описаны в
+[матрице покрытия](docs/browser-test-matrix.md), включая live и optional assertions.
+
+Theme-startup использует общий driver и один check с десятью обязательными cases.
+Gate находится только в копии production HTML: bootstrap/CSS исполняются до
+release app entry, затем mount обязателен. Для Firefox helper принимает путь
+изолированной сборки; прежние callers используют прежний default.
+Runner проверяет свежий UUID и полный case list. CI сохраняет только строгий
+coverage JSON без путей и error text. Включение reduced-transparency feature-pref
+в Firefox явно отмечается; отдельно проверяется native availability/fallback.
+Остальные сценарии ещё переходят на этот контракт. Полный паритет не достигнут.
+
+I18n использует общий observer в копии extension HTML до app entry на обеих
+платформах. Production bootstrap, CSS, manifest и app chunks не меняются.
+Проверка стартового языка требует непустой trace при первой загрузке и после
+reload; отсутствующий observer или неверный язык завершают сценарий ошибкой.
+Для Chrome и Firefox общий набор ru-RU/es-MX/de-DE/es-ES/fr-FR, включая прежние
+односторонние fixtures. Все пять locale cases обязательны в свежем отчёте runner.
+Снимки включают региональный язык в имя и не перезаписываются между fixtures.
+
+Wallpaper-startup также использует общий check и копию HTML с gated app entry.
+Тестовый prelude до production bootstrap собирает ошибки и позволяет удержать
+реальную blob decode promise до явного release. Проверяются preview без Vue,
+прозрачность слоёв во время decode, готовый оригинал, замена/удаление и stale
+cache cleanup. Обязательны четыре cases и три свежих PNG на каждой платформе.
+Загрузка PNG идёт через native file input: Playwright setInputFiles в Chrome и
+WebDriver ElementSendKeys с локальным путём в Firefox. Прямой записи тестового
+фона в IndexedDB нет; production scripts, CSS и manifest не изменяются.
+
+Text-tiles использует общий check с прежними Chrome asset/ICO fixtures. Один
+prelude до app startup сохраняет slow decoder и frame trace цвета/preview на
+обеих платформах. Проверяются valid/corrupt thumbnails, безопасные hostname/labels,
+стабильность при reload и rename, девять сочетаний width/columns и одинаковые
+RGB реальных ICO. Четыре cases и десять свежих PNG обязательны. Для component
+snapshot driver поддерживает native element screenshot с проверкой размеров;
+обычные снимки окна сохраняют прежний вызов.
+
+На этапе 8.7 weather/mail/scroll/confirmation/empty-states переведены на
+runSharedScenario с обязательными media/offline/screenshot adapters. Одинаковые
+core assertions и accessibility checks выполняются в обоих браузерах. Screenshot
+adapter удаляет прежний PNG, проверяет новый header/размеры и учитывает artifactCount;
+runner требует 15/5/2/6/11 снимков соответственно. Пути снимков не попадают в
+coverage JSON. Native Firefox offline подтверждается через navigator.onLine,
+media preferences — через matchMedia. Полный список незакрытых пробелов — в матрице.
 
 Полный паритет browser/UI/live-покрытия — обязательная отдельная работа по
 разделу 7.4 плана. Существующий Firefox allowlist пока сохраняется; успешный

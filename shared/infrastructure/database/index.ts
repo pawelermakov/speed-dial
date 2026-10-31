@@ -6,7 +6,7 @@ export class DialDatabase extends Dexie {
       bookmarkId: string;
       url: string;
       token: string;
-      pendingEdit?: { url: boolean; title: boolean };
+      pendingEdit?: { url: boolean; title: boolean; previousUrl?: string; previousTitle?: string };
     },
     string
   >;

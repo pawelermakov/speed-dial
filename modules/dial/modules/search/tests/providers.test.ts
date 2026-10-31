@@ -16,12 +16,7 @@ import { parseImport, serializeExport } from '../../backup/adapters/json';
 import { defaults } from '../../settings';
 import { type SearchProviderId } from '..';
 const fixture = (name: string) =>
-  JSON.parse(
-    readFileSync(
-      new URL('../../../../../tests/fixtures/search-providers/' + name + '.json', import.meta.url),
-      'utf8',
-    ),
-  );
+  JSON.parse(readFileSync(new URL('./fixtures/' + name + '.json', import.meta.url), 'utf8'));
 vi.mock('../adapters/kinopoiskNetwork', () => ({
   createKinopoiskNetwork: () => vi.fn(async () => {}),
 }));

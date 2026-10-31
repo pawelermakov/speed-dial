@@ -9,7 +9,8 @@ const publicEntries = new Set(['bookmarks/folders', 'bookmarks/locators', 'setti
 
 export function boundaryViolation(importer, source, typeOnly = false) {
   const from = normalize(relative(root, importer));
-  if (test(from)) return;
+  // This executable is test infrastructure even though npm invokes it from scripts/.
+  if (test(from) || from === 'scripts/test.mjs') return;
   const pure = /^modules\/.*\/(?:entities|helpers|services)\//.test(from);
   if (!typeOnly && (pure || /\/composables\//.test(from)) && /^(?:wxt|dexie)(?:\/|$)/.test(source))
     return 'Receive browser and database dependencies through ports.';

@@ -181,9 +181,9 @@
     color: HighlightText;
   }
   .page[data-keyboard-focus]
-    :is(button, input, select, textarea, a, [tabindex]):focus-visible:not(:disabled),
-  .page[data-keyboard-focus] .switch-input:focus-visible + .switch-track,
-  .page[data-keyboard-focus] .peer:focus-visible + label {
+    :is(button, input, select, textarea, a, [tabindex]):focus:not(:disabled),
+  .page[data-keyboard-focus] .switch-input:focus + .switch-track,
+  .page[data-keyboard-focus] .peer:focus + label {
     outline: 2px solid Highlight;
   }
   .search .search-submit:enabled:hover,

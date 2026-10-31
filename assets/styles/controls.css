@@ -171,17 +171,16 @@
 .page :is(button, input, select, textarea, a, [tabindex]):focus {
   outline: none;
 }
-.page[data-keyboard-focus]
-  :is(button, input, select, textarea, a, [tabindex]):focus-visible:not(:disabled),
-.page[data-keyboard-focus] .switch-input:focus-visible + .switch-track,
-.page[data-keyboard-focus] .peer:focus-visible + label {
+.page[data-keyboard-focus] :is(button, input, select, textarea, a, [tabindex]):focus:not(:disabled),
+.page[data-keyboard-focus] .switch-input:focus + .switch-track,
+.page[data-keyboard-focus] .peer:focus + label {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
-.page[data-keyboard-focus] .folder-tabs .ui-folder:focus-visible {
+.page[data-keyboard-focus] .folder-tabs .ui-folder:focus {
   outline-offset: -3px;
 }
-.page[data-keyboard-focus] .bookmark:focus-visible:not(:disabled) {
+.page[data-keyboard-focus] .bookmark:focus:not(:disabled) {
   outline-offset: -3px;
 }
 .page :is(button, input, select, textarea):disabled {

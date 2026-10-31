@@ -579,3 +579,272 @@ CSS cascade и все scoped rules совпадают с baseline, размер�
 
 Следующая часть — реорганизация тестов и матрица фактического покрытия по 7.4,
 затем устранение всех browser/UI/live-пробелов и Firefox allowlist.
+
+## Этап 8.5 — матрица и перенос browser/UI-сценариев
+
+Реализовано 31 октября 2026 года. Это организационная часть 7.4;
+рефакторинг тестов и обязательный паритет браузеров ещё не завершены.
+
+- До переноса создана docs/browser-test-matrix.md по фактическим веткам,
+  optional adapters, assertions и live-режиму. Матрица содержит все 34 уникальных
+  scenario IDs и ожидаемые различия native APIs. У Firefox 12 отсутствующих
+  реализаций и 16 сценариев с различиями assertions/visual artifacts; ещё шесть
+  используют общий check без найденных односторонних проверок. В том числе
+  выявлены пустой startup language trace, пропущенный offline, forced colors,
+  screenshots, native downloads/file input и сокращённые feature-сценарии.
+- Перенесены 37 MJS-файлов: сценарии в tests/browser/<feature> и tests/ui,
+  общие browser helpers в tests/browser/helpers. Firefox smoke остаётся частью
+  extension smoke, а не новым отдельным сценарием. Compatibility scripts не оставлены.
+- tests/scenarios.mjs хранит suite membership и пути. Общие browser/UI сценарии
+  включаются одним файлом; scripts/test.mjs содержит только orchestration.
+  Команды npm test/test:browser/test:ui/test:live, browser flags, порядок запуска
+  и исходное ограничение Firefox сохранены. Allowlist удалится после реализации
+  полного паритета, а не за счёт успешного no-op или запуска Chrome вместо Firefox.
+- Пять search provider fixtures перенесены к владельцу search вместе с source
+  notes. Unit и browser чтение обновлены; shared favicon fixtures остались в tests.
+  Live использует тот же provider entry, сеть на этом шаге отдельно не запускалась.
+- ESLint учитывает browser globals новых MJS paths. Узкое исключение для
+  scripts/test.mjs разрешает тестовому runner импорт реестра; production → tests
+  остаётся запрещённым и проверяется отдельным negative test.
+- Добавлены четыре проверки реестра: существование/уникальность сценариев,
+  отсутствие незарегистрированных browser/UI файлов, относительные imports,
+  live entry и наличие локальных provider fixtures. Они выполняются в check/CI.
+  Остальная организация unit/integration tests и минимизация setup ещё предстоят.
+
+Механическая сверка подтвердила неизменность AST всех 37 перенесённых scripts
+после нормализации только import/fixture paths, syntax validation, прежние семь
+вариантов --list и побайтную сохранность пяти provider fixtures. Assertions,
+fixtures и browser branches не переписаны и не ослаблены.
+
+check прошёл: форматирование, ESLint, Stylelint, 15 архитектурных/registry тестов,
+production graph, TypeScript и 328 unit-тестов в 44 файлах. Обе production-сборки
+успешны; все 18 файлов каждой сборки побайтно совпали с 8.4, включая chunks,
+CSS, bootstrap, manifest и browser locales. Test-only код не добавил production bytes.
+
+Полные текущие browser suites прошли: Chrome 23, Firefox 21 (вне песочницы).
+Дополнительные UI-сценарии прошли: Chrome 11, Firefox 1; вместе с общими browser
+сценариями выполнены текущие UI-наборы 25/14. Прогоны подтверждают сохранность
+переноса, но не устранение пробелов из матрицы. Local reports/verification
+сохранены в .browser-test/stage8-5-*.
+
+Далее — общий driver/cases и закрытие всех отсутствующих и частичных Firefox
+проверок, одинаковые live cases, обязательные отчёты и устранение allowlist.
+Полное завершение 7.4 требует обновлённой матрицы без незакрытых пробелов.
+
+## Этап 8.6 — паритет startup-тем
+
+Реализована отдельная часть 31 октября 2026 года. Полный паритет по 7.4 и
+рефакторинг тестов не завершены; native bookmark-drag Firefox остаётся открытым.
+
+- theme-startup теперь выполняет один общий check на обеих платформах: десять
+  обязательных cases. Сохранены четыре сочетания user mode / OS theme до mount,
+  wallpaper shade, color-scheme/background, реальная вторая вкладка, focus,
+  contrast, reduced transparency и forced colors. Добавлен native capability case.
+- Общий driver использует Chrome/Marionette adapters. В копии production HTML
+  app script остаётся инертным до release; bootstrap/CSS и все payload-файлы
+  прежние. Отсутствующий/неоднозначный entry вызывает ошибку, mount после release
+  обязателен. Production entry/manifest не изменяются. Firefox helper получил
+  optional extension path с прежним default; legacy themes Firefox также прошёл.
+- Firefox без feature-pref не даёт reduced-transparency signal: проверяются
+  native query и прежняя translucent surface/backdrop. Затем только в тестовом
+  профиле включается feature и повторно разбирается тот же CSS; opaque branch
+  проходит те же assertions, что Chrome. Доступность/включение явно отражены
+  boolean metadata, не выдаются за поддержку OS-сигнала обычным Firefox.
+- Runner поддерживает --scenario=<id>, отказывает неизвестным/не реализованным
+  на платформе scenarios и проверяет свежий UUID, status и точный case list.
+  Отсутствующие, повторённые или stale cases не засчитываются как успех.
+  CI сохраняет только coverage JSON фиксированной схемы: IDs, UUID, status,
+  cases и boolean flags; пути и error text исключены и запрещены тестом схемы.
+- Исследован native drag Firefox. Trusted dragstart получается, но native
+  drop/reorder в проверенных headless backends не завершились. Эти прогоны не
+  засчитаны как успех; обходы не включены в рабочий код. Chrome bookmark-drag
+  восстановлен побайтно, Firefox не добавлен в его support list. Diagnostic trace
+  находится в .browser-test/stage8-6-native-drag-diagnostic.log; матрица сохраняет пробел.
+
+check прошёл: форматирование, ESLint, Stylelint, 21 архитектурная/registry/gate
+проверка, production graph, TypeScript и 328 unit-тестов в 44 файлах. End-to-end
+runner --scenario=theme-startup прошёл в Chrome и Firefox с десятью cases и
+валидацией свежих отчётов. Обе production-сборки прошли; все 18 файлов каждой
+побайтно совпадают с 8.4/8.5. Полные browser/UI suites на этом шаге не повторялись.
+
+Реестр теперь содержит browser 23/22 и UI 25/15. Это списки реализации, а не
+доказательство полного равенства assertions. Матрица: 11 отсутствующих Firefox
+реализаций и 16 частичных; следующий шаг — native drag backend и остальные
+UI/browser/live пробелы. Коммит этого шага не означает завершение этапа 8.
+
+## Этап 8.7 — общие accessibility/offline/screenshot проверки
+
+Реализовано 31 октября 2026 года. Закрыты пять частичных Firefox-пробелов:
+weather-widget, mail-indicators, scroll-stability, confirmation-dialogs, empty-states.
+Полный паритет по 7.4 и этап 8 ещё не завершены.
+
+- Обе платформы используют один check и runSharedScenario. Отдельные Chrome/Firefox
+  wrappers удалены; key/pointer/hover/wheel/resize/media/offline/screenshot операции
+  находятся в общем driver с минимальными browser adapters. Старый wheel settling
+  interval сохранён. Начальные media conditions задаются одинаково.
+- Все 92 прежних assert calls общих core-функций сохранены — проверено по AST.
+  Chrome-only forced-colors focus/motion/mask assertions перенесены в общий код.
+  Mail использует прежний Gmail fixture. Native Firefox offline проверяется
+  navigator.onLine, media conditions — matchMedia. Styles/status не подменяются.
+- Удалены optional guards media/offline/shot/screenshot и default no-op shot.
+  Firefox теперь проходит weather offline branch, focus/motion mail/weather,
+  forced-colors mask scroll и empty-state focus; confirmation/empty screenshots
+  обязательны. Успешный запуск требует всех десяти case IDs пяти сценариев.
+- Проверяются 39 свежих PNG на платформу: weather 15, mail 5, scroll 2,
+  confirmation 6, empty 11. Старый файл удаляется до capture; новый обязан иметь
+  PNG header и ненулевые размеры. artifactCount проверяется по контракту и
+  включён в строгий coverage JSON без путей/diagnostics. CI сохраняет отчёты
+  этих пяти сценариев по явным безопасным путям, как theme-startup.
+- Два новых инфраструктурных теста проверяют case/artifact contracts обеих
+  платформ и отказ на пропуск, повтор, неверное число/тип artifacts, path metadata.
+
+check прошёл: форматирование, ESLint, Stylelint, 23 инфраструктурных/архитектурных
+проверки, production graph, TypeScript и 328 unit-тестов в 44 файлах. Все пять
+сценариев прошли в Chrome и Firefox с одинаковыми 10 cases и 39 PNG. Theme-startup
+повторно прошёл на обеих платформах после расширения media driver. Полные suites
+на этом шаге отдельно не повторялись. Обе production-сборки успешны; все 18 файлов
+каждой побайтно совпадают с 8.4/8.5/8.6, production-код не менялся.
+
+Реестр остаётся browser 23/22, UI 25/15. По матрице остаются 11 отсутствующих
+Firefox реализаций и 11 частичных; native bookmark-drag в их числе. Live-сеть на
+этом шаге не запускалась. Прогоны и AST/report verification сохранены локально
+в .browser-test/stage8-7-*.
+
+## Этап 8.8 — паритет локализации при старте
+
+Реализовано 31 октября 2026 года. Закрыт частичный Firefox-пробел i18n;
+полный паритет по 7.4 и этап 8 ещё не завершены.
+
+- Вместо Chrome-only addInitScript обе платформы получают один observer до
+  production app entry в изолированной копии HTML. Bootstrap, CSS, manifest,
+  app chunks и остальные production-файлы сохранены. Observer восстанавливается
+  при настоящем reload и наблюдает также изменения title attribute.
+- Проверки первого запуска и сохранённого испанского языка после reload требуют
+  непустой trace. Отсутствующий observer, пустой/sparse trace и неверный язык
+  не засчитываются как успех. Прежняя vacuous every-проверка заменена;
+  остальные 18 assert-вызовов общего check сохранены по AST-сверке.
+- Chrome и Firefox проходят один check для ru-RU/es-MX/de-DE/es-ES/fr-FR.
+  Сохранено объединение всех прежних региональных fixtures обеих платформ.
+  Runner требует пять точных locale cases со свежим UUID; CI загружает этот
+  отчёт по явному пути и прежней безопасной схеме. Имена screenshots включают
+  tag, поэтому шесть снимков каждого fixture не перезаписывают соседние.
+- Общий extension driver получил locale option с прежним ru-RU default.
+  Отдельные i18n browser wrappers удалены. Оценка длительности i18n в scheduler
+  увеличена для пяти fixtures, чтобы сохранить распределение нагрузки.
+
+Локально check прошёл: 31 инфраструктурная/архитектурная проверка, TypeScript,
+328 unit-тестов в 44 файлах, lint/style/format. I18n runner прошёл в Chrome и
+Firefox со всеми пятью locale cases. Обе сборки успешны; проверены все 18 файлов
+каждого инструментированного fixture. Итоговый коммит должен пройти полный CI
+перед завершением шага. Прогоны сохранены в .browser-test/stage8-8-*.
+
+Реестр остаётся browser 23/22, UI 25/15. В матрице остаются 11 отсутствующих
+Firefox-реализаций и 10 частичных; native bookmark-drag остаётся открытым.
+Live-сеть на этом шаге не запускалась.
+
+## Этап 8.9 — паритет стартового фона
+
+Реализовано 31 октября 2026 года. Закрыт частичный Firefox-пробел wallpaper-startup;
+полный паритет по 7.4 и этап 8 ещё не завершены.
+
+- Две независимые browser-ветки заменены одним check с полным прежним Chrome
+  поведением: preview до приложения, отсутствие Vue до release, удержанная
+  декодировка оригинала, прозрачность слоёв и opacity до/после decode, fixed
+  positioning, отсутствие fade, лимит размера preview, замена, удаление и
+  очистка устаревшего preview без IndexedDB image.
+- Тестовая копия HTML сохраняет production bootstrap/CSS/app payload. Prelude
+  перед bootstrap собирает ошибки и unhandled rejections на каждом reload;
+  decode hook сохраняет реальный decoder и его ошибки. Unit-проверки требуют
+  завершения реальной decode promise и явного release; обычные/data images и
+  последующие blob images не блокируются.
+- На обеих платформах PNG 1920×1080 загружается через native file input.
+  Общий driver получил setInputFiles adapter; Firefox использует WebDriver
+  ElementSendKeys с реальным локальным файлом вместо синтетического File или
+  прежней прямой записи assets в IndexedDB.
+- Runner требует четыре case IDs и три свежих PNG на браузер. Старые snapshots
+  удаляются перед capture, проверяются PNG header и ненулевые размеры.
+  CI получает фиксированный безопасный JSON по явному пути.
+
+Локально check прошёл: 35 инфраструктурных/архитектурных проверок, TypeScript,
+328 unit-тестов в 44 файлах, lint/style/format. Wallpaper-startup runner прошёл
+в Chrome и Firefox: одинаковые четыре cases и три screenshots. Обе сборки
+успешны. Полные suites локально на этом шаге не повторялись; CI запускается
+после push. Прогоны сохранены в .browser-test/stage8-9-*.
+
+Реестр остаётся browser 23/22, UI 25/15. В матрице остаются 11 отсутствующих
+Firefox-реализаций и 9 частичных; native bookmark-drag остаётся открытым.
+Live-сеть на этом шаге не запускалась.
+
+## Этап 8.10 — паритет текстовых плиток
+
+Реализовано 31 октября 2026 года. Закрыт частичный Firefox-пробел text-tiles;
+полный паритет по 7.4 и этап 8 ещё не завершены.
+
+- Chrome/Firefox выполняют один check. Прежние Chrome asset, rename и ICO
+  fixture callbacks перенесены без изменения данных и операций, кроме доступа
+  к browser/chrome API. Сохранены favicon-only, valid/corrupt thumbnails,
+  отсутствие caption у текстовой плитки, normalized hostname, безопасный title,
+  цвета и их равенство, стабильность при reload и rename, наблюдение коротких
+  text fallbacks, размеры/nowrap/font constraints девяти layouts, оба ICO RGB
+  и белый текст после двух reload. Firefox-only hostname assertion включён в
+  общий check. Полнота не заменена одним успешным exit code.
+- Общий prelude перед production bootstrap сохраняет медленный decoder 100 ms
+  и frame sampler; исходный интервал наблюдения 250 ms сохранён. Записываются
+  ошибки/unhandled rejections на каждом reload. Обе платформы отключают внешнюю
+  сеть через native offline adapter; assets/ICO остаются локальными fixtures.
+- Driver поддерживает movePointer и optional element screenshot: Chrome locator
+  screenshot, Firefox native TakeScreenshot с element ID. Для снимка сетки PNG
+  dimensions сверяются с её bounding rect; остальные девять — снимки окна.
+  Перед capture старые PNG удаляются, header и ненулевые размеры обязательны.
+- Runner требует четыре точных case IDs и десять artifacts на браузер. CI
+  загружает отчёт по явному пути и прежней безопасной схеме. Три инфраструктурных
+  теста проверяют sampler, slow decode, ранний prelude и полноту report contract.
+
+Локально check прошёл: 38 инфраструктурных/архитектурных проверок, TypeScript,
+328 unit-тестов в 44 файлах, lint/style/format. Text-tiles runner прошёл в Chrome
+и Firefox: четыре cases и десять screenshots. Обе сборки успешны. Полные suites
+локально не повторялись; CI запускается после push. Прогоны сохранены в
+.browser-test/stage8-10-*.
+
+Реестр остаётся browser 23/22, UI 25/15. В матрице остаются 11 отсутствующих
+Firefox-реализаций и 8 частичных; native bookmark-drag остаётся открытым.
+Live-сеть на этом шаге не запускалась.
+
+## 8.11. Полный общий набор Chrome и Firefox
+
+Все 34 сценария используют одинаковый полный реестр и обязательные case
+contracts. Закрыты 11 отсутствующих Firefox-реализаций и восемь сокращённых
+веток: native drag, UI/style/accessibility/startup, download/import в чистый
+профиль, folder/dialog/provider проверки, autosave, sync и smoke. Сохранены
+Firefox-only проверки, перенесённые в общий check с явными assertions для
+различий нативных API. Сокращённый firefox-smoke удалён. CI загружает все
+34 валидируемых отчёта; архитектурные проверки запрещают пробелы реестра,
+contracts и списка артефактов.
+
+Общий драйвер использует настоящий Marionette input, BiDi network interception,
+native download/file input, независимые вкладки/профили и точные узкие viewport.
+Firefox native HTML5 drag завершается через текущую browser drag session после
+настоящего pointer-down/move; trusted events и persisted order проверяются
+отдельно от сохранённых синтетических regression fixtures. В startup сохранены
+проверки реальных screenshot clips и fractional DPR. Профильные runtime-запросы
+в fixtures завершаются до закрытия вкладки, ошибки приложения не фильтруются.
+
+Обнаруженные общими тестами исправления приложения:
+
+- Tooltip остаётся в viewport после native wheel, включая короткое окно.
+- Keyboard focus использует уже существующий app modality flag и сохраняет
+  кольца в Firefox после программного focus; pointer modality очищает этот flag.
+- Auto-name ticket переживает промежуточные title/URL события Chrome при
+  редактировании между разными доменами. Два unit regression tests сохраняют
+  строгую инвалидизацию при внешней смене заголовка. Тип записи IndexedDB
+  синхронизирован с моделью; формат хранилища и версия базы не меняются.
+
+TypeScript, 330 unit-тестов в 44 файлах, 39 архитектурных проверок, lint и
+stylelint прошли. Полный локальный набор прошёл: 34/34 в Chrome и 34/34 в Firefox, по 205
+контрольных точек и 331 свежему PNG. После исправления error collector
+Firefox themes повторён отдельно, остальные сценарии продолжены с валидацией
+свежих отчётов. Сверены одинаковые ordered cases и artifact counts всех
+68 отчётов. CI по просьбе пользователя не ожидается.
+Live-проверка выполнена по шесть запросов на браузер: Firefox 6 PASS,
+Chrome 4 PASS и два MyShows BLOCKED (HTTP 502/HTML); детерминированные
+provider fixtures прошли в обоих браузерах.

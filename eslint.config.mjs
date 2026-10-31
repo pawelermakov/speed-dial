@@ -29,7 +29,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   ...vue.configs['flat/essential'],
   {
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'tests/{browser,ui}/**/*.mjs'],
     languageOptions: { globals: { ...globals.webextensions } },
   },
   {

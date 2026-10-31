@@ -12,7 +12,16 @@ function keepOpen() {
 }
 function scheduleClose() {
   keepOpen();
-  closeTimer = setTimeout(close, 150);
+  closeTimer = setTimeout(() => {
+    if (!interacting()) close();
+  }, 150);
+}
+function interacting() {
+  return (
+    root.value?.matches(':hover') ||
+    tooltip.value?.matches(':hover') ||
+    root.value?.contains(document.activeElement)
+  );
 }
 async function show() {
   keepOpen();
@@ -45,11 +54,13 @@ async function show() {
     available = upwards ? above : below;
   // In very short windows, allow overlap with the trigger rather than clip the text.
   if (available < 48) return;
+  const maxHeight = Math.min(available, Math.max(0, viewportHeight - 32));
+  const top = upwards ? rect.top - 8 - Math.min(height, maxHeight) : rect.bottom + 8;
   position.value = {
     left: `${left}px`,
     width: `${width}px`,
-    maxHeight: `${available}px`,
-    top: `${upwards ? rect.top - 8 - Math.min(height, available) : rect.bottom + 8}px`,
+    maxHeight: `${maxHeight}px`,
+    top: `${Math.max(viewportTop + 16, Math.min(top, viewportTop + viewportHeight - 16 - Math.min(height, maxHeight)))}px`,
   };
 }
 function close() {
@@ -59,12 +70,7 @@ function close() {
 }
 function scrolled(event: Event) {
   if (event.target === tooltip.value) return;
-  if (
-    root.value?.matches(':hover') ||
-    tooltip.value?.matches(':hover') ||
-    root.value?.contains(document.activeElement)
-  )
-    void show();
+  if (interacting()) void show();
   else close();
 }
 function escape(event: KeyboardEvent) {

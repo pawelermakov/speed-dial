@@ -1,4 +1,4 @@
-name: Checks
+name: CI
 
 on:
   push:
@@ -7,40 +7,110 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
+    name: Code checks and extension builds
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm run build
-      - run: npm run build:firefox
+      - name: Install dependencies
+        run: npm ci
+      - name: Check formatting, lint, types and unit tests
+        run: npm run check
+      - name: Build Chrome extension
+        run: npm run build
+      - name: Build Firefox extension
+        run: npm run build:firefox
 
   browsers:
+    name: ${{ matrix.label }} tests — part ${{ matrix.shard }} of ${{ matrix.shards }}
+    needs: checks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         browser: [chrome, firefox]
-        suite: [browser, ui]
+        shard: [1, 2, 3, 4, 5]
+        include:
+          - browser: chrome
+            label: Chrome
+            engine: chromium
+            shards: 5
+          - browser: firefox
+            label: Firefox
+            engine: firefox
+            shards: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox
-      - run: npm run test:${{ matrix.suite }} -- --${{ matrix.browser }}-only
-      - uses: actions/upload-artifact@v4
+      - name: Install dependencies
+        run: npm ci
+      - name: Install ${{ matrix.label }} test browser and system libraries
+        run: npx playwright install --with-deps ${{ matrix.engine }}
+      - name: Build extension and run browser/UI scenarios
+        run: node scripts/test.mjs ci --${{ matrix.browser }}-only --shard=${{ matrix.shard }}/${{ matrix.shards }}
+      # Only fixed case IDs, platform, UUID, status, artifact counts and boolean media flags.
+      # The report schema rejects paths, diagnostics and arbitrary metadata.
+      - uses: actions/upload-artifact@v7
+        name: Upload scenario coverage reports
+        if: ${{ always() && hashFiles(format('.browser-test/parity-reports/*-{0}.json', matrix.browser)) != '' }}
+        with:
+          name: ci-${{ matrix.browser }}-${{ matrix.shard }}-coverage
+          path: |
+            .browser-test/parity-reports/themes-${{ matrix.browser }}.json
+            .browser-test/parity-reports/movie-search-${{ matrix.browser }}.json
+            .browser-test/parity-reports/unified-search-${{ matrix.browser }}.json
+            .browser-test/parity-reports/browser-parity-${{ matrix.browser }}.json
+            .browser-test/parity-reports/keyboard-navigation-${{ matrix.browser }}.json
+            .browser-test/parity-reports/vertical-center-${{ matrix.browser }}.json
+            .browser-test/parity-reports/smoke-${{ matrix.browser }}.json
+            .browser-test/parity-reports/settings-sync-${{ matrix.browser }}.json
+            .browser-test/parity-reports/settings-autosave-${{ matrix.browser }}.json
+            .browser-test/parity-reports/search-providers-${{ matrix.browser }}.json
+            .browser-test/parity-reports/folder-interaction-${{ matrix.browser }}.json
+            .browser-test/parity-reports/bookmark-dialogs-${{ matrix.browser }}.json
+            .browser-test/parity-reports/appearance-${{ matrix.browser }}.json
+            .browser-test/parity-reports/data-management-${{ matrix.browser }}.json
+            .browser-test/parity-reports/bookmark-drag-${{ matrix.browser }}.json
+            .browser-test/parity-reports/startup-motion-${{ matrix.browser }}.json
+            .browser-test/parity-reports/design-system-states-${{ matrix.browser }}.json
+            .browser-test/parity-reports/bookmark-styles-${{ matrix.browser }}.json
+            .browser-test/parity-reports/toolbar-styles-${{ matrix.browser }}.json
+            .browser-test/parity-reports/search-styles-${{ matrix.browser }}.json
+            .browser-test/parity-reports/design-system-consistency-${{ matrix.browser }}.json
+            .browser-test/parity-reports/apple-guidelines-audit-${{ matrix.browser }}.json
+            .browser-test/parity-reports/focus-styles-${{ matrix.browser }}.json
+            .browser-test/parity-reports/folder-scroll-layout-${{ matrix.browser }}.json
+            .browser-test/parity-reports/glass-motion-${{ matrix.browser }}.json
+            .browser-test/parity-reports/text-tiles-${{ matrix.browser }}.json
+            .browser-test/parity-reports/wallpaper-startup-${{ matrix.browser }}.json
+            .browser-test/parity-reports/i18n-${{ matrix.browser }}.json
+            .browser-test/parity-reports/weather-widget-${{ matrix.browser }}.json
+            .browser-test/parity-reports/mail-indicators-${{ matrix.browser }}.json
+            .browser-test/parity-reports/scroll-stability-${{ matrix.browser }}.json
+            .browser-test/parity-reports/confirmation-dialogs-${{ matrix.browser }}.json
+            .browser-test/parity-reports/empty-states-${{ matrix.browser }}.json
+            .browser-test/parity-reports/theme-startup-${{ matrix.browser }}.json
+          # Shards without reports skip this step. Reports required by each
+          # scenario are independently validated by the test runner.
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@v7
+        name: Upload failure diagnostics
         if: failure()
         with:
-          name: ${{ matrix.suite }}-${{ matrix.browser }}-results
+          name: ci-${{ matrix.browser }}-${{ matrix.shard }}-results
           path: .browser-test/
           include-hidden-files: true
           retention-days: 3

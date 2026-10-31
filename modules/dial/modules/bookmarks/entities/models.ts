@@ -54,7 +54,7 @@ export interface AutoNameTicket {
   bookmarkId: string;
   url: string;
   token: string;
-  pendingEdit?: { url: boolean; title: boolean };
+  pendingEdit?: { url: boolean; title: boolean; previousUrl?: string; previousTitle?: string };
 }
 export interface BookmarksView {
   tabs: Bookmark[];
