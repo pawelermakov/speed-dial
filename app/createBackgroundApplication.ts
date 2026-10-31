@@ -1,15 +1,22 @@
 import { browser } from 'wxt/browser';
 import { DialDatabase } from '../shared/infrastructure/database';
 import { withDataLock } from '../shared/infrastructure/browser/dataLock';
-import { createCaptureQueue } from '../services/capture';
+import { createLazyLoader } from '../shared/helpers/lazy';
+import { message as messageText } from '../shared/i18n/messages';
+import type { CaptureHandler } from '../modules/dial/modules/capture';
 import type { CaptureRequest } from '../modules/dial/modules/capture';
+import { createCaptureQueue } from '../modules/dial/modules/capture/adapters/browserCapture';
 import { startSettingsSync } from '../modules/dial/modules/sync/adapters/background';
 import { invalidateAutoName } from '../services/autoNames';
 
-export function createBackgroundApplication() {
+export function createBackgroundApplication(
+  // Background is a single MV3-compatible bundle. Defer the queue factory,
+  // while newtab can fetch its optional UI/client chunks on demand.
+  loadCapture: () => Promise<CaptureHandler> = () => Promise.resolve(createCaptureQueue()),
+) {
   const db = new DialDatabase();
   const sync = startSettingsSync(browser, withDataLock);
-  const capture = createCaptureQueue();
+  const capture = createLazyLoader(loadCapture);
   const connections = new Set<() => void>();
   let disposed = false;
   const changed: Parameters<typeof browser.bookmarks.onChanged.addListener>[0] = (id, change) => {
@@ -52,15 +59,28 @@ export function createBackgroundApplication() {
       )
         return;
       received = true;
-      void capture(request, port.sender.tab.id, cancellation.signal).then((response) => {
-        if (!cancellation.signal.aborted) {
+      const originTab = port.sender.tab.id;
+      const reply = (response: import('../modules/dial/modules/capture').CaptureResponse) => {
+        if (!cancellation.signal.aborted && !disposed) {
           try {
             port.postMessage(response);
           } catch {
             disconnect();
           }
         }
-      });
+      };
+      void capture
+        .get()
+        .then(async (execute) => {
+          if (cancellation.signal.aborted || disposed) return;
+          reply(await execute(request, originTab, cancellation.signal));
+        })
+        .catch(() => {
+          reply({
+            requestId: request.requestId,
+            error: messageText('capture.errors.background_interrupted'),
+          });
+        });
     };
     connections.add(disconnect);
     port.onDisconnect.addListener(disconnect);
@@ -77,6 +97,7 @@ export function createBackgroundApplication() {
       browser.bookmarks.onRemoved.removeListener(removed);
       browser.runtime.onConnect.removeListener(connected);
       for (const disconnect of [...connections]) disconnect();
+      capture.dispose();
       sync.dispose();
       db.close();
     },

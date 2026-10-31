@@ -47,7 +47,9 @@ vi.mock('../shared/infrastructure/database', () => ({
 vi.mock('../modules/dial/modules/sync/adapters/background', () => ({
   startSettingsSync: () => ({ dispose: state.stopSync }),
 }));
-vi.mock('../services/capture', () => ({ createCaptureQueue: () => state.capture }));
+vi.mock('../modules/dial/modules/capture/adapters/browserCapture', () => ({
+  createCaptureQueue: () => state.capture,
+}));
 vi.mock('../services/autoNames', () => ({ invalidateAutoName: state.invalidate }));
 const applications: Array<ReturnType<typeof createBackgroundApplication>> = [];
 function port(
@@ -94,7 +96,7 @@ describe('background application lifecycle', () => {
     const request = { type: 'capture', requestId: 'r', url: 'https://example.com/' };
     good.onMessage.emit(request);
     good.onMessage.emit(request);
-    await Promise.resolve();
+    await vi.dynamicImportSettled();
     expect(state.capture).toHaveBeenCalledTimes(1);
     expect(state.capture).toHaveBeenCalledWith(request, 7, expect.any(AbortSignal));
     expect(good.postMessage).toHaveBeenCalledWith({ requestId: 'r' });
@@ -115,6 +117,7 @@ describe('background application lifecycle', () => {
     const active = port();
     state.connected.emit(active);
     active.onMessage.emit({ type: 'capture', requestId: 'r', url: 'https://example.com/' });
+    await vi.dynamicImportSettled();
     const signal = state.capture.mock.calls[0]![2];
     expect(signal.aborted).toBe(false);
     app.dispose();
@@ -130,5 +133,48 @@ describe('background application lifecycle', () => {
     expect(state.connected.listeners.size).toBe(0);
     expect(state.close).toHaveBeenCalledTimes(1);
     expect(state.stopSync).toHaveBeenCalledTimes(1);
+  });
+  it('does not start capture after disconnect while preparing the handler', async () => {
+    let finish!: (capture: typeof state.capture) => void;
+    const loader = vi.fn(
+      () =>
+        new Promise<typeof state.capture>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const app = createBackgroundApplication(loader);
+    applications.push(app);
+    const waiting = port();
+    state.connected.emit(waiting);
+    waiting.onMessage.emit({ type: 'capture', requestId: 'r', url: 'https://example.com/' });
+    await Promise.resolve();
+    waiting.onDisconnect.emit();
+    finish(state.capture);
+    await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(state.capture).not.toHaveBeenCalled();
+    expect(waiting.postMessage).not.toHaveBeenCalled();
+  });
+  it('shares the capture handler and retries failed initialization', async () => {
+    const loader = vi
+      .fn<() => Promise<typeof state.capture>>()
+      .mockRejectedValueOnce(new Error('load failed'))
+      .mockResolvedValue(state.capture);
+    const app = createBackgroundApplication(loader);
+    applications.push(app);
+    const first = port();
+    state.connected.emit(first);
+    first.onMessage.emit({ type: 'capture', requestId: 'r', url: 'https://example.com/' });
+    await vi.waitFor(() => expect(first.postMessage).toHaveBeenCalled());
+    expect(state.capture).not.toHaveBeenCalled();
+    for (let index = 0; index < 2; index++) {
+      const next = port();
+      state.connected.emit(next);
+      next.onMessage.emit({ type: 'capture', requestId: 'r', url: 'https://example.com/' });
+      await vi.waitFor(() => expect(next.postMessage).toHaveBeenCalled());
+    }
+    expect(loader).toHaveBeenCalledTimes(2);
+    expect(state.capture).toHaveBeenCalledTimes(2);
   });
 });

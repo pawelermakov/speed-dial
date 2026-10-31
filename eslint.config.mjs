@@ -129,7 +129,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ['modules/dial/modules/{bookmarks,settings,appearance,sync}/services/**/*.ts'],
+    files: [
+      'modules/dial/modules/{bookmarks,settings,appearance,sync,backup,capture}/services/**/*.ts',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',

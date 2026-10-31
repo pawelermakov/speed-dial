@@ -1,4 +1,4 @@
-import type { MessageText } from '../services/i18n';
+import type { MessageText } from '../../../../../services/i18n';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   backupLimits,
@@ -6,8 +6,8 @@ import {
   selectExport,
   serializeExport,
   validateImportImages,
-} from '../services/importExport';
-import { defaults } from '../types/models';
+} from '../adapters/json';
+import { defaults } from '../../../../../types/models';
 const png =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 const image = () =>

@@ -399,5 +399,6 @@
   "weather.forecast.label": "Pronóstico del tiempo — {city_name} · {provider_name}",
   "weather.open_service": "Abrir servicio",
   "weather.providers.yandex": "Yandex Weather",
-  "weather.title": "Tiempo"
+  "weather.title": "Tiempo",
+  "backup.errors.load_failed": "No se pudo abrir la gestión de datos. Inténtalo de nuevo."
 }

@@ -399,5 +399,6 @@
   "weather.forecast.label": "Weather forecast — {city_name} · {provider_name}",
   "weather.open_service": "Open service",
   "weather.providers.yandex": "Yandex Weather",
-  "weather.title": "Weather"
+  "weather.title": "Weather",
+  "backup.errors.load_failed": "Could not open data management. Try again."
 }

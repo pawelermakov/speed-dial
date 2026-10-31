@@ -7,26 +7,22 @@ import {
   LocalizedError,
   errorMessage,
   type MessageText,
-} from '../services/i18n';
+} from '../../../../../services/i18n';
 import { computed, nextTick, onMounted, ref, shallowRef } from 'vue';
-import ModalDialog from './ModalDialog.vue';
-import SelectChevron from './SelectChevron.vue';
-import { folderOptionLabels } from '../services/bookmarks';
-import { ui } from '../utils/ui';
-import {
-  backupLimits,
-  downloadExport,
-  parseImport,
-  validateImportImages,
-} from '../services/importExport';
-import { allBackupSections, type BackupSelection } from '../types/models';
+import ModalDialog from '../../../../../components/ModalDialog.vue';
+import SelectChevron from '../../../../../components/SelectChevron.vue';
+import { folderOptionLabels } from '../../../../../services/bookmarks';
+import { ui } from '../../../../../utils/ui';
+import { backupLimits, parseImport, validateImportImages } from '../adapters/json';
+import { downloadExport } from '../adapters/download';
+import { allBackupSections, type BackupSelection } from '../../../../../types/models';
 import type {
   FolderChoice,
   ImportData,
   ImportReport,
   PreparedExport,
   Settings,
-} from '../types/models';
+} from '../../../../../types/models';
 const props = defineProps<{
   rootId: string | null;
   settings: Settings;

@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { createLazyLoader } from '../shared/helpers/lazy';
 import { storage } from 'wxt/utils/storage';
 import { DialDatabase } from '../shared/infrastructure/database';
 import { withDataLock } from '../shared/infrastructure/browser/dataLock';
@@ -51,11 +52,21 @@ export function createNewtabApplication() {
   });
   const updates = createUpdatesChannel();
   const events = createBrowserEvents(browser);
+  const backupUI = createLazyLoader(() => import('../modules/dial/modules/backup/newtab'));
+  const captureUI = createLazyLoader(
+    () =>
+      import('../modules/dial/modules/capture/newtab').then((module) =>
+        module.createCaptureModule({ bookmarks: repository, faviconBlob }),
+      ),
+    (module) => module.dispose(),
+  );
   let disposed = false;
   const application = {
     syncState,
     getSyncStatus: () => syncStatus(),
     repository,
+    getBackup: () => backupUI.get(),
+    getCapture: () => captureUI.get(),
     settings,
     root,
     updates,
@@ -69,6 +80,9 @@ export function createNewtabApplication() {
     dispose() {
       if (disposed) return;
       disposed = true;
+      captureUI.dispose();
+      backupUI.dispose();
+      repository.dispose();
       events.dispose();
       updates.dispose();
       db.close();

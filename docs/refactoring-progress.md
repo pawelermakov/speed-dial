@@ -228,7 +228,7 @@ newtab Chrome 427905 / Firefox 427535. Прирост к этапу 3: +613/+613
 стилей, startup mirrors и bootstrap не менялись. Отдельный замер cold start остаётся
 открытым.
 
-Следом: этап 5 — backup/capture и загрузка необязательной функциональности по требованию.
+Следующий после этапа 4: этап 5 — backup/capture и загрузка необязательной функциональности по требованию.
 При рефакторинге тестовой инфраструктуры обязателен полный паритет Chrome и
 Firefox по разделу 7.4 плана: аудит всех browser/UI/live сценариев и assertions,
 устранение всех пробелов (включая theme-startup, bookmark-drag и UI allowlist),
@@ -236,3 +236,64 @@ Firefox по разделу 7.4 плана: аудит всех browser/UI/live 
 23/21 browser-сценария фиксируют исходный разрыв и не являются целевым покрытием.
 Проверки границ импортов усиливать при появлении целевых модулей. Изменение форматов хранения,
 разрешений расширения и пользовательских сценариев в эту работу не входит.
+
+## Этап 5 — backup, capture и lazy loading
+
+Реализовано 31 октября 2026 года:
+
+- Backup codec/limits и диалог перенесены к владельцу; DOM download отделён.
+  Export/import/reset извлечены из Repository в сервис с портами. Facade пока
+  делегирует вызовы; формат v3, выбор секций, metadata, expected-state guards,
+  внешний lock и частичные отчёты сохранены.
+- Capture разделён на browser handler, последовательную очередь, runtime client
+  и workflow обновления изображений. Состояние очереди/клиента принадлежит
+  экземпляру приложения. Исходный bookmark/ticket фиксируются до lazy loading.
+- Управление данными, backup service и клиент capture загружаются в newtab
+  по требованию. Loader разделяет Promise конкурентных вызовов, сбрасывает его
+  при ошибке, освобождает поздно полученный ресурс после dispose. Settings
+  остаются открыты при загрузке диалога; ошибка локализована RU/EN/ES.
+- Background listeners регистрируются синхронно; одна очередь создаётся при
+  первом допустимом запросе. Отмена во время ожидания factory не запускает
+  handler. Background factory импортируется статически в единый WXT bundle:
+  динамический импорт не давал отдельного chunk и удерживал лишний runtime-dom.
+  Newtab использует настоящие динамические chunks.
+- Сохранены sender checks, request ID, очередь на 8 запросов, timeout клиента
+  45 секунд включая ожидание очереди, активный timeout 20 секунд и owned-tab
+  cleanup. Dispose снимает port listeners/timers и подавляет поздние записи/UI.
+- Format/capture tests перенесены к владельцам; добавлены проверки retries,
+  concurrent loading, late disposal, port cleanup/timeout/post failure,
+  queue recovery и fallback при неудачном capture. ESLint ограничивает прямой
+  доступ новых services к browser/storage/UI adapters.
+
+check прошёл: TypeScript, форматирование, ESLint, Stylelint, 40 файлов / 318 тестов.
+Обе production-сборки успешны. Полные текущие browser-наборы прошли: Chrome —
+23 сценария, Firefox — 21 сценарий (вне песочницы). После уточнения статического
+импорта background factory повторно прошли bookmark-dialogs Chrome с реальным
+capture, отменой и stale guards, а также smoke Firefox с реальным capture.
+Полные UI/live suites отдельно не запускались; реальная cloud-доставка не
+проверялась. Исходные CSS/DOM диалога не менялись; data-management проверил
+темы, responsive layouts и focus. Дополнительно просмотрен снимок Chrome 320px.
+
+GenerateBundle audit выполнен отдельным config/output в .browser-test, без
+изменения wxt.config.ts и без перезаписи сборок текущих browser-прогонов.
+В обоих браузерах в стартовом newtab chunk нет backup codec/dialog/service
+и capture client/workflow; в background нет UI/test modules, runtime-dom и
+WXT storage. В production chunks нет тестовых модулей.
+
+Итоговые размеры файлов (байт, без gzip): background Chrome 219475 / Firefox
+219129 (+927 к этапу 4); стартовый newtab Chrome 405729 / Firefox 405359
+(−22176). Lazy chunks: backup service 3776, dialog/codec/download 20450,
+capture client/workflow 1849; прежний lazy kinopoisk chunk 591 не менялся.
+CSS разделён на стартовый 57907 и lazy dialog 2600; bootstrap 1714 не менялся.
+Это перераспределение загрузки, а не сокращение суммарного размера расширения.
+
+Отдельная проверка сетевых запросов в чистом Chrome-профиле подтвердила:
+backup/capture chunks не запрашиваются при открытии newtab; dialog/codec
+загружается один раз при первом открытии управления данными, повторное
+открытие не выполняет новый запрос. Resource Timing для extension resources
+не предоставил записей, поэтому использовались события request браузерного
+драйвера. Сравнительный замер cold start с этапом 4 пока не выполнен; уменьшение
+стартового chunk само по себе не доказывает ускорение первого paint.
+
+Следующий этап — search/mail/weather. Полный паритет Chrome/Firefox остаётся
+обязательной работой этапа тестовой инфраструктуры по разделу 7.4 плана.

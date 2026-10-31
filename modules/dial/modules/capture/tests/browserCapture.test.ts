@@ -1,4 +1,4 @@
-import { formatMessage } from '../services/i18n';
+import { formatMessage } from '../../../../../services/i18n';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocked = vi.hoisted(() => {
   const event = () => ({ addListener: vi.fn(), removeListener: vi.fn() });
@@ -16,7 +16,7 @@ const mocked = vi.hoisted(() => {
   };
 });
 vi.mock('wxt/browser', () => ({ browser: mocked }));
-import { createCaptureQueue } from '../services/capture';
+import { createCaptureQueue } from '../adapters/browserCapture';
 
 let active: number;
 let sequence: number;

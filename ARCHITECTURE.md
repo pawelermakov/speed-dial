@@ -157,6 +157,35 @@ utils/reorder остаются только compatibility wrappers до мигр
 transport failures и malformed wire messages. Межмодульные useDial/Repository
 проверки остаются в корневой инфраструктуре.
 
+## Backup, capture и отложенная загрузка (этап 5)
+
+- backup/services/backup.ts владеет export/import/reset через порты bookmarks,
+  settings и appearance. Сохраняются expected-state guards, внешний data lock,
+  частичные отчёты и формат JSON v3. adapters/json.ts содержит codec/limits;
+  adapters/download.ts отдельно выполняет DOM download.
+- backup/newtab.ts загружает диалог управления данными по запросу. Пока загрузка
+  не завершена, settings остаются открыты; ошибка показывается локализованно.
+  Закрытие settings или приложения во время ожидания не открывает диалог позже.
+- capture/services/workflow.ts координирует thumbnail, favicon и защищённое
+  автоимя. prepare.ts фиксирует исходное состояние до ожидания lazy module.
+  Клиент runtime port, очередь и browser tab handler разделены по владельцам.
+- capture/newtab.ts создаёт клиент на экземпляр приложения. Dispose отменяет
+  ожидающие запросы, снимает listeners/timers и запрещает позднюю публикацию.
+  Клиентский timeout 45 секунд включает очередь background; активный capture
+  ограничен 20 секундами. Сохранены предел очереди, sender checks и owned-tab cleanup.
+- Background регистрирует listeners синхронно и создаёт единственную очередь
+  при первом допустимом запросе. Его factory импортируется статически: WXT
+  собирает background в один файл; runtime dynamic import для него не нужен.
+  Отмена во время ожидания factory не запускает захват.
+- shared/helpers/lazy.ts хранит один Promise на экземпляр, сбрасывает его после
+  ошибки и освобождает ресурсы, включая результат, полученный после dispose.
+  Composition root владеет loaders; Repository пока делегирует backup через
+  отдельный loader до удаления compatibility facade.
+
+Production audit подтверждает отдельные chunks codec/dialog, backup service и
+capture client/workflow в обоих браузерах. В стартовом newtab chunk их нет;
+в background нет UI/test modules, runtime-dom и WXT storage.
+
 ## Как добавлять поведение
 
 1. Определить feature-владельца и его чистые entities.

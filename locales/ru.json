@@ -399,5 +399,6 @@
   "weather.forecast.label": "Прогноз погоды — {city_name} · {provider_name}",
   "weather.open_service": "Открыть сервис",
   "weather.providers.yandex": "Яндекс Погода",
-  "weather.title": "Погода"
+  "weather.title": "Погода",
+  "backup.errors.load_failed": "Не удалось открыть управление данными. Попробуйте ещё раз."
 }

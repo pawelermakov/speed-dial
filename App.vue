@@ -12,7 +12,6 @@ import { ref, shallowRef, computed, watch, nextTick, onUnmounted } from 'vue';
 import { browser } from 'wxt/browser';
 import FolderTabs from './components/FolderTabs.vue';
 import FolderDialog from './components/FolderDialog.vue';
-import { faviconBlob } from './services/favicons';
 import BookmarkGrid from './components/BookmarkGrid.vue';
 import { useBookmarkEdges } from './composables/useBookmarkEdges';
 import { useTheme } from './composables/useTheme';
@@ -25,11 +24,11 @@ import MailIndicators from './components/MailIndicators.vue';
 import WeatherWidget from './components/WeatherWidget.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import ContextMenu from './components/ContextMenu.vue';
-import DataManagementDialog from './components/DataManagementDialog.vue';
+import type DataManagementDialogComponent from './modules/dial/modules/backup/components/DataManagementDialog.vue';
+const DataManagementDialog = shallowRef<typeof DataManagementDialogComponent>();
 import { useDial } from './composables/useDial';
 import { useServices } from './app/serviceContext';
-import { requestThumbnail } from './services/thumbnails';
-import { selectExport, serializeExport } from './services/importExport';
+import { prepareCapture } from './modules/dial/modules/capture/prepare';
 import { normalizeUrl } from './services/validation';
 import { cacheBackgroundPreview, clearBackgroundPreview } from './utils/backgroundPreview';
 import { BackgroundResource } from './utils/backgroundResource';
@@ -229,7 +228,7 @@ async function openBookmark(bookmark?: Bookmark) {
 
 const mailRevision = ref(0);
 const dataOpen = ref(false);
-const dataDialog = ref<InstanceType<typeof DataManagementDialog>>();
+const dataDialog = ref<InstanceType<typeof DataManagementDialogComponent>>();
 const confirmation = shallowRef<{
   title: MessageText;
   message: MessageText;
@@ -458,6 +457,7 @@ async function prepareBackup(): Promise<PreparedExport> {
   return { data, warnings };
 }
 async function exportBackup(selection: BackupSelection, prepared: PreparedExport) {
+  const { selectExport, serializeExport } = await services.getBackup();
   const warnings = selection.bookmarks || selection.images ? [...prepared.warnings] : [];
   const text = await withDataLock(() =>
     serializeExport(selectExport(prepared.data, selection), (message) => warnings.push(message)),
@@ -494,23 +494,19 @@ function reorder(ids: string[], expected: string[], dragRevision: number) {
     });
 }
 async function updateImages(id: string, url: string) {
-  const ticket = await repository.autoNameTicket(id);
-  const expected = await repository.bookmark(id);
-  if (expected.url !== url) throw new LocalizedError(message('bookmarks.errors.url_changed'));
-  const results = await Promise.allSettled([
-    requestThumbnail(url).then(async (result) => {
-      await repository.cache(id, url, 'thumbnail', result.thumbnail, expected);
-      const icon = await faviconBlob(url, result.favicon);
-      if (icon) await repository.cache(id, url, 'favicon', icon, expected);
-      await repository.applyCapturedTitle(id, url, result.title, ticket).catch(() => {});
-    }),
-    faviconBlob(url).then(async (blob) => {
-      if (blob) await repository.cache(id, url, 'favicon', blob, expected);
-    }),
-  ]);
-  await refresh();
-  announce();
-  if (results[0]?.status === 'rejected') throw results[0].reason;
+  const prepared = await prepareCapture(
+    repository,
+    id,
+    url,
+    (message) => new LocalizedError(message),
+  );
+  let capture: Awaited<ReturnType<typeof services.getCapture>>;
+  try {
+    capture = await services.getCapture();
+  } catch {
+    throw new LocalizedError(message('capture.errors.background_interrupted'));
+  }
+  await capture.updateImages(id, url, prepared, { refresh, announce });
 }
 async function selectFolder(id: string) {
   if (bookmarkMode.value) closeSearch();
@@ -691,10 +687,25 @@ function restoreConfirmationFocus(element: Element) {
     previous.element.focus({ preventScroll: true });
   else restorePageFocus(previous);
 }
-function openDataManagement() {
-  if (disabled.value || !settingsOpen.value || openingData.value) return;
-  openingData.value = true;
-  settingsOpen.value = false;
+const loadingDataUI = ref(false);
+let isDisposed = false;
+onUnmounted(() => {
+  isDisposed = true;
+});
+async function openDataManagement() {
+  if (disabled.value || !settingsOpen.value || openingData.value || loadingDataUI.value) return;
+  loadingDataUI.value = true;
+  try {
+    const backup = await services.getBackup();
+    if (isDisposed || !settingsOpen.value) return;
+    DataManagementDialog.value = backup.Dialog;
+    openingData.value = true;
+    settingsOpen.value = false;
+  } catch {
+    if (!isDisposed) notice.value = message('backup.errors.load_failed');
+  } finally {
+    loadingDataUI.value = false;
+  }
 }
 function afterSettingsLeave(element: Element) {
   if (openingData.value) {
