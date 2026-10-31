@@ -19,6 +19,8 @@ import { createBrowserSyncTransport } from '../modules/dial/modules/sync/adapter
 import { createSyncStateStorage } from '../modules/dial/modules/sync/adapters/statusStorage';
 import { syncStatus } from '../modules/dial/modules/sync/adapters/accountStatus';
 import { faviconBlob } from '../services/favicons';
+import { createSearchModule } from '../modules/dial/modules/search/newtab';
+import { createMailModule } from '../modules/dial/modules/mail/newtab';
 import type { DialDependencies } from '../modules/dial/services/application';
 
 export function createNewtabApplication() {
@@ -61,7 +63,10 @@ export function createNewtabApplication() {
     (module) => module.dispose(),
   );
   let disposed = false;
+  const search = createSearchModule();
   const application = {
+    search,
+    mail: createMailModule(),
     syncState,
     getSyncStatus: () => syncStatus(),
     repository,
@@ -80,6 +85,7 @@ export function createNewtabApplication() {
     dispose() {
       if (disposed) return;
       disposed = true;
+      search.dispose();
       captureUI.dispose();
       backupUI.dispose();
       repository.dispose();

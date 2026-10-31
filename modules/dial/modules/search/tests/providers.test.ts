@@ -5,19 +5,24 @@ import {
   parseImdbSuggestions,
   parseKinopoiskSuggestions,
   parseMyShowsSuggestions,
-  providerSuggestions,
-  searchProviders,
-  searchUrl,
   suggestionRequest,
-} from '../services/searchProviders';
-import { validateSettings } from '../services/validation';
-import { parseImport, serializeExport } from '../services/importExport';
-import { defaults, type SearchProviderId } from '../types/models';
+} from '../adapters/providers';
+import { searchProviders, searchUrl } from '../helpers/presentation';
+import { createSearchModule } from '../newtab';
+const providerSuggestions = createSearchModule().suggestions;
+import { validateSettings } from '../../../../../services/validation';
+import { parseImport, serializeExport } from '../../../../../services/importExport';
+import { defaults, type SearchProviderId } from '../../../../../types/models';
 const fixture = (name: string) =>
   JSON.parse(
-    readFileSync(new URL('./fixtures/search-providers/' + name + '.json', import.meta.url), 'utf8'),
+    readFileSync(
+      new URL('../../../../../tests/fixtures/search-providers/' + name + '.json', import.meta.url),
+      'utf8',
+    ),
   );
-vi.mock('../services/kinopoiskNetwork', () => ({ prepareKinopoiskNetwork: vi.fn(async () => {}) }));
+vi.mock('../adapters/kinopoiskNetwork', () => ({
+  createKinopoiskNetwork: () => vi.fn(async () => {}),
+}));
 afterEach(() => vi.unstubAllGlobals());
 describe('provider contracts', () => {
   it('retries only a transient Kinopoisk GraphQL error once within the same deadline', async () => {

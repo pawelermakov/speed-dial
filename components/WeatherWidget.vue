@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { t } from '../services/i18n';
 import { computed } from 'vue';
-import { forecastLink, type WeatherCityId, type WeatherProvider } from '../utils/weather';
+import {
+  forecastLink,
+  type WeatherCityId,
+  type WeatherProvider,
+} from '../modules/dial/modules/weather/helpers/links';
 const props = defineProps<{ city: WeatherCityId; provider: WeatherProvider }>();
 const destination = computed(() => forecastLink(props.city, props.provider));
 const label = computed(() =>

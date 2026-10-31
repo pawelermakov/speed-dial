@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Settings } from '../types/models';
-import { mailEnabled, mailProviders } from '../services/mail';
+import { mailEnabled, mailProviders } from '../modules/dial/modules/mail/helpers/presentation';
 import MailIndicator from './MailIndicator.vue';
 defineProps<{ settings: Settings }>();
 </script>

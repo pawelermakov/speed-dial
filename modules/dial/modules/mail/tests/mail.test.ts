@@ -1,15 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { defaults } from '../types/models';
-import { validateSettings } from '../services/validation';
-import { validSetting, syncPatch } from '../services/settingsSchema';
-import { mailEnabled, mailTooltip } from '../services/mail';
-import {
-  unreadMail,
-  unreadProvider,
-  parseYandexMailCount,
-  parseMailCount,
-  MailError,
-} from '../services/network';
+import { defaults } from '../../../../../types/models';
+import { validateSettings } from '../../../../../services/validation';
+import { validSetting, syncPatch } from '../../../../../services/settingsSchema';
+import { mailEnabled, mailTooltip } from '../helpers/presentation';
+import { parseYandexMailCount, parseMailCount, MailError } from '../adapters/counters';
+import { createMailModule } from '../newtab';
+const unreadProvider = createMailModule().unread;
+const unreadMail = (signal: AbortSignal) => unreadProvider('mailru', signal);
 afterEach(() => vi.unstubAllGlobals());
 describe('mail indicators', () => {
   it('shows only explicitly enabled services', () => {

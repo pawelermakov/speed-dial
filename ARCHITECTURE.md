@@ -186,6 +186,34 @@ Production audit подтверждает отдельные chunks codec/dialog
 capture client/workflow в обоих браузерах. В стартовом newtab chunk их нет;
 в background нет UI/test modules, runtime-dom и WXT storage.
 
+## Search, mail и weather (этап 6)
+
+- Search service координирует query limit, deadline и единственную повторную
+  попытку transient GraphQL ошибки. HTTP, ограничение MIME/размера, provider DTO
+  и парсеры принадлежат adapters/providers.ts. UI получает SearchSuggestion[].
+  Тексты/навигация находятся в helpers/presentation.ts, без сетевых операций.
+- SearchBar использует feature useProviderSuggestions: debounce 250 мс,
+  generation fence, abort при изменении query/provider/language и при unmount.
+  Локальные bookmark queries никогда не передаются сетевому сервису.
+- newtab root создаёт search service. Инициализатор Origin rule Кинопоиска
+  загружается лениво и принадлежит экземпляру приложения; конкурентная
+  подготовка разделяет Promise, ошибка позволяет повторить установку.
+  Общая session rule не удаляется при закрытии одной вкладки.
+- MailIndicator использует useMailCounter с внедрённым mail service, без HTTP
+  в компоненте. Composable хранит unknown count до успешного ответа, отменяет
+  старый запрос и отбрасывает поздние результаты. Polling не добавлен.
+- Mail service задаёт общий timeout 8 секунд и выбирает reader. Адаптеры
+  владеют credentialed HTTP, текущим Mail.ru account, XML/JSON parsers и
+  классификацией ошибок. Error status не превращается в нулевой счётчик.
+- Weather остаётся справочником городов/провайдеров и localized link helpers.
+  Forecast API, fetch и новое persistent state не добавлены.
+- Unit-тесты функций перенесены в модули. Общие search fixtures остаются
+  в tests/fixtures: их используют также browser/UI сценарии, без дублирования.
+  Legacy services и utils содержат compatibility exports до этапа 8.
+
+Компоненты экрана пока находятся в components; их композиция и разбор App
+относятся к этапу 7. Шаблоны и CSS на этапе 6 не менялись.
+
 ## Как добавлять поведение
 
 1. Определить feature-владельца и его чистые entities.

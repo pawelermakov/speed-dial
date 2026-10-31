@@ -1,14 +1,13 @@
-import { formatMessage } from '../services/i18n';
+import { formatMessage } from '../../../../../services/i18n';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 import { useProviderSuggestions } from '../composables/useProviderSuggestions';
-import type { SearchProviderId, SearchSuggestion } from '../types/models';
+import type { SearchProviderId, SearchSuggestion } from '../entities/models';
 const state = vi.hoisted(() => ({ unmount: [] as Array<() => void>, fetch: vi.fn() }));
 vi.mock('vue', async () => ({
   ...(await vi.importActual('vue')),
   onUnmounted: (fn: () => void) => state.unmount.push(fn),
 }));
-vi.mock('../services/searchProviders', () => ({ providerSuggestions: state.fetch }));
 beforeEach(() => {
   vi.useFakeTimers();
   state.fetch.mockReset().mockResolvedValue([]);
@@ -20,7 +19,7 @@ afterEach(() => {
 it('debounces input, calls only the selected provider and cancels stale requests', async () => {
   const query = ref(''),
     provider = ref<SearchProviderId>('google');
-  const dial = useProviderSuggestions(query, provider);
+  const dial = useProviderSuggestions(query, provider, { suggestions: state.fetch });
   let finish!: (rows: SearchSuggestion[]) => void;
   state.fetch.mockImplementationOnce(
     () =>
@@ -49,7 +48,7 @@ it('debounces input, calls only the selected provider and cancels stale requests
 it('does not send empty input, exposes errors and ignores late completions after teardown', async () => {
   const query = ref(''),
     provider = ref<SearchProviderId>('myshows'),
-    dial = useProviderSuggestions(query, provider);
+    dial = useProviderSuggestions(query, provider, { suggestions: state.fetch });
   query.value = ' ';
   await vi.advanceTimersByTimeAsync(300);
   expect(state.fetch).not.toHaveBeenCalled();
@@ -76,7 +75,7 @@ it('does not send empty input, exposes errors and ignores late completions after
 it('switching to bookmarks cancels remote work and never sends local queries', async () => {
   const query = ref(''),
     provider = ref<SearchProviderId>('google'),
-    dial = useProviderSuggestions(query, provider);
+    dial = useProviderSuggestions(query, provider, { suggestions: state.fetch });
   let finish!: (rows: SearchSuggestion[]) => void;
   state.fetch.mockImplementationOnce(
     () =>

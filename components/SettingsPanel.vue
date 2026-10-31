@@ -9,7 +9,7 @@ import {
   errorMessage,
   type MessageText,
 } from '../services/i18n';
-import { weatherCities, weatherProviders } from '../utils/weather';
+import { weatherCities, weatherProviders } from '../modules/dial/modules/weather/helpers/links';
 import SelectChevron from './SelectChevron.vue';
 import { cycleDialogFocus } from '../utils/keyboard';
 import SwitchControl from './SwitchControl.vue';

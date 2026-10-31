@@ -11,8 +11,15 @@ beforeEach(() => {
   api.updateSessionRules.mockReset().mockResolvedValue(undefined);
 });
 describe('Kinopoisk Origin rule', () => {
+  it('owns initialization promises per application', async () => {
+    const { createKinopoiskNetwork } = await import('../adapters/kinopoiskNetwork');
+    const first = createKinopoiskNetwork(),
+      second = createKinopoiskNetwork();
+    await Promise.all([first(), first(), second()]);
+    expect(api.updateSessionRules).toHaveBeenCalledTimes(2);
+  });
   it('only matches this extension, POST and the exact public SuggestSearch endpoint', async () => {
-    const { kinopoiskOriginRule } = await import('../services/kinopoiskNetwork');
+    const { kinopoiskOriginRule } = await import('../adapters/kinopoiskNetwork');
     const rule = kinopoiskOriginRule('moz-extension://test-uuid/');
     expect(rule.condition.initiatorDomains).toEqual(['test-uuid']);
     expect(rule.condition.requestMethods).toEqual(['post']);
@@ -33,7 +40,7 @@ describe('Kinopoisk Origin rule', () => {
     ]);
   });
   it('waits for installation, shares concurrent setup and retries after failure', async () => {
-    const { prepareKinopoiskNetwork } = await import('../services/kinopoiskNetwork');
+    const { prepareKinopoiskNetwork } = await import('../adapters/kinopoiskNetwork');
     api.updateSessionRules.mockRejectedValueOnce(new Error('permission denied'));
     await expect(prepareKinopoiskNetwork()).rejects.toThrow('permission denied');
     await Promise.all([prepareKinopoiskNetwork(), prepareKinopoiskNetwork()]);

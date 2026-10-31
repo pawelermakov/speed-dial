@@ -297,3 +297,55 @@ backup/capture chunks не запрашиваются при открытии ne
 
 Следующий этап — search/mail/weather. Полный паритет Chrome/Firefox остаётся
 обязательной работой этапа тестовой инфраструктуры по разделу 7.4 плана.
+
+## Этап 6 — search, mail и weather
+
+Реализовано 31 октября 2026 года:
+
+- Search service получает порты request/read/parse/network preparation.
+  Provider DTO/parsers, GraphQL query, bounded HTTP reader и Origin rule
+  перенесены в adapters; navigation/локализованные labels отделены от HTTP.
+  Сохранены query limit 256, response limit 256 KiB, MIME checks, deadline
+  8 секунд и одна повторная попытка только InternalServerError Кинопоиска.
+- useProviderSuggestions принадлежит search: debounce 250 мс, abort,
+  generation fence, смена языка/провайдера и teardown сохранены. Локальные
+  запросы закладок не уходят в сеть. Search service создаётся root приложения.
+- Инициализатор Origin rule создаётся на экземпляр приложения и загружается
+  по требованию. Concurrent setup разделяет Promise; failed setup допускает
+  retry. Dispose закрывает lazy loader, общая session rule не удаляется
+  при закрытии одной вкладки. Установка правила не выполняется на старте.
+- Mail service выбирает reader и передаёт общий 8-секундный deadline.
+  Credentialed HTTP, текущий Mail.ru account, XML/JSON parsers и ошибки
+  находятся в adapters. Сохранены unknown count, auth/unsupported states,
+  отсутствие polling и запрет угадывать account среди нескольких адресов.
+- MailIndicator использует useMailCounter и внедрённый сервис. Composable
+  отменяет предыдущий запрос, не публикует поздний ответ и останавливает watch
+  при unmount; компонент не импортирует сетевую инфраструктуру.
+- Weather configuration/links и живые переводы находятся в feature. Новый
+  сетевой сервис не добавлен. Существующие шаблоны и CSS не менялись.
+- Пять существующих test files перенесены к владельцам. Shared search fixtures
+  оставлены на прежнем месте: ими пользуются также browser/UI сценарии.
+  Добавлены 5 проверок: mail provider race, unknown auth count, teardown,
+  отмена во время подготовки Кинопоиска и независимые initializer promises.
+  Compatibility exports сохраняются до этапа 8. ESLint service boundaries
+  распространены на search/mail.
+
+check прошёл: форматирование, ESLint, Stylelint, TypeScript, 42 файла / 323 теста.
+Обе сборки успешны. Полные текущие browser-наборы прошли: Chrome — 23 сценария,
+Firefox — 21 сценарий (вне песочницы). В них проверены provider fixtures,
+Кинопоиск, unified bookmark search, mail indicators, weather widget, смена языка,
+settings/backup и существующие межмодульные сценарии. Полные UI/live suites
+отдельно не запускались; live search и реальная cloud-доставка не проверялись.
+Сравнение с предыдущим коммитом подтвердило точное совпадение шаблонов и
+стилей пяти затронутых UI-компонентов.
+
+GenerateBundle audit отдельного output подтвердил отсутствие test modules в
+production и отсутствие UI/runtime-dom/WXT storage в background. Background
+не изменился: Chrome 219475 / Firefox 219129 байт. Стартовый newtab — Chrome
+407258 / Firefox 406888 (+1529 к этапу 5), Kinopoisk lazy chunk — 612 (+21).
+Backup/capture по-прежнему отдельные lazy chunks; CSS и wallpaper-bootstrap
+не изменились. Изменение размера связано с factories, service wiring и новым
+composable; сравнительный замер cold start остаётся открытым.
+
+Следующий этап — разделение экрана и стилей. Полный паритет Chrome/Firefox
+остаётся обязательной работой тестовой инфраструктуры по разделу 7.4.
