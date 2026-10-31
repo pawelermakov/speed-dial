@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { browser } from 'wxt/browser';
-import { startSettingsSync } from '../../../../../services/syncBackground';
+import { startSettingsSync } from '../adapters/background';
 const state = vi.hoisted(() => ({
   initialize: vi.fn(async () => {}),
   retry: vi.fn(async () => {}),

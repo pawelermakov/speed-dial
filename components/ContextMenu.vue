@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '../services/i18n';
 import { ref, nextTick, onMounted, onUnmounted } from 'vue';
-import type { Bookmark, Folder } from '../types/models';
+import type { Bookmark, Folder } from '../modules/dial/modules/bookmarks';
 const props = defineProps<{
   x: number;
   y: number;

@@ -1,5 +1,5 @@
 import { storage } from 'wxt/utils/storage';
-import { settingKeys, storedSettings } from '../../../../../services/settingsSchema';
+import { settingKeys, storedSettings } from '../schema';
 import { defaults, type Settings } from '../entities/models';
 import type { SettingsEnvelope } from '../entities/models';
 import type { SettingsPort, SettingsChangeSink } from '../services/interfaces';
@@ -26,7 +26,7 @@ export function createSettingsStorage(changed: SettingsChangeSink): SettingsPort
           .filter((key) => replace || before[key] !== envelope.value[key])
           .map((key) => [key, envelope.value[key]]),
       );
-      // Do not wait under the repository data lock: remote application uses that
+      // Do not wait under the shared data lock: remote application uses that
       // same cross-context lock. The background owns the durable local snapshot.
       if (Object.keys(patch).length) changed(patch);
     },

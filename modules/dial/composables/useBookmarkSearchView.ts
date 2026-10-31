@@ -1,20 +1,21 @@
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { useBookmarkEdges } from '../../../composables/useBookmarkEdges';
-import { useBookmarkSearch } from '../../../composables/useBookmarkSearch';
+import { useBookmarkSearch } from '../modules/bookmarks/composables/useBookmarkSearch';
 import SearchBar from '../../../components/SearchBar.vue';
-import type { DialState, ScreenServices } from '../screenTypes';
+import type { DialState } from '../screenTypes';
+import type { BookmarkSearchPort } from '../modules/bookmarks';
 
 export function useBookmarkSearchView({
-  repository,
+  source,
   snapshot,
   revision,
-}: Pick<DialState, 'snapshot' | 'revision'> & { repository: ScreenServices['repository'] }) {
+}: Pick<DialState, 'snapshot' | 'revision'> & { source: BookmarkSearchPort }) {
   const {
     query,
     results,
     pending: searchPending,
     error: searchError,
-  } = useBookmarkSearch(repository, snapshot, revision);
+  } = useBookmarkSearch(source, snapshot, revision);
   const searchText = ref('');
   const bookmarkContent = ref<HTMLElement>();
   useBookmarkEdges(bookmarkContent);

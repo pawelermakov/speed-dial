@@ -5,7 +5,8 @@ import type { Ref } from 'vue';
 import type { ContextState } from '../screenTypes';
 import type { useConfirmation } from './useConfirmation';
 export function useFolderActions({
-  repository,
+  source,
+  bookmarkActions,
   snapshot,
   disabled,
   notice,
@@ -17,7 +18,11 @@ export function useFolderActions({
   closeSearch,
   askConfirmation,
 }: Pick<DialState, 'snapshot' | 'notice' | 'run' | 'refresh' | 'revision'> & {
-  repository: ScreenServices['repository'];
+  source: Pick<ScreenServices['bookmarks']['source'], 'selectFolder' | 'folder'>;
+  bookmarkActions: Pick<
+    ScreenServices['bookmarks']['actions'],
+    'renameFolder' | 'createFolder' | 'removeFolder' | 'reorderFolders'
+  >;
   disabled: Readonly<Ref<boolean>>;
   context: Ref<ContextState | undefined>;
   bookmarkMode: Readonly<Ref<boolean>>;
@@ -37,7 +42,7 @@ export function useFolderActions({
   );
   async function selectFolder(id: string) {
     if (bookmarkMode.value) closeSearch();
-    repository.selectFolder(id);
+    source.selectFolder(id);
     try {
       await refresh();
     } catch (error) {
@@ -62,7 +67,9 @@ export function useFolderActions({
     folderDialogError.value = '';
     if (
       await run(() =>
-        selected ? repository.renameFolder(selected.id, title) : repository.createFolder(title),
+        selected
+          ? bookmarkActions.renameFolder(selected.id, title)
+          : bookmarkActions.createFolder(title),
       )
     )
       await cancelFolder();
@@ -79,17 +86,17 @@ export function useFolderActions({
     if (!id || id === snapshot.value.rootId) return;
     if (name === 'rename') {
       if (disabled.value) return;
-      const folder = await repository.folder(id);
+      const folder = await source.folder(id);
       creatingFolder.value = false;
       folderDialogError.value = '';
       editingFolder.value = { id, title: folder.title };
     }
     if (name === 'delete') {
-      const folder = await repository.folder(id);
+      const folder = await source.folder(id);
       askConfirmation(
         message('folders.delete.title'),
         message('folders.delete.description', { folder_name: folder.title }),
-        () => run(() => repository.removeFolder(id)),
+        () => run(() => bookmarkActions.removeFolder(id)),
       );
     }
   }
@@ -97,7 +104,7 @@ export function useFolderActions({
     await run(() => {
       if (dragRevision !== revision.value)
         throw new LocalizedError(message('bookmarks.errors.list_changed_before_drop'));
-      return repository.reorderFolders(ids, expected);
+      return bookmarkActions.reorderFolders(ids, expected);
     });
   }
 

@@ -1,7 +1,7 @@
 import { computed, shallowRef } from 'vue';
 import { useServices } from '../../../app/serviceContext';
-import { useDial } from '../../../composables/useDial';
-import { useTheme } from '../../../composables/useTheme';
+import { useDial } from './useDial';
+import { useTheme } from '../modules/appearance/composables/useTheme';
 import type { ContextState } from '../screenTypes';
 import { useSettingsPanel } from './useSettingsPanel';
 import { useConfirmation } from './useConfirmation';
@@ -16,7 +16,7 @@ import { usePageKeyboard } from './usePageKeyboard';
 export function useNewtabScreen() {
   const services = useServices();
   const dial = useDial(services);
-  const { repository, lock } = services;
+  const { bookmarks: bookmarkModule, lock } = services;
   useTheme(
     () => dial.snapshot.value.settings.theme,
     () => dial.settingsReady.value,
@@ -29,7 +29,16 @@ export function useNewtabScreen() {
       bookmarks.capturing.value ||
       bookmarks.savingBookmark.value,
   );
-  const core = { ...dial, services, repository, lock, context, disabled };
+  const core = {
+    ...dial,
+    services,
+    source: bookmarkModule.source,
+    bookmarkActions: bookmarkModule.actions,
+    nativeBookmarks: bookmarkModule.bookmarks,
+    lock,
+    context,
+    disabled,
+  };
   const settings = useSettingsPanel(dial);
   const confirmation = useConfirmation(core);
   const search = useBookmarkSearchView(core);

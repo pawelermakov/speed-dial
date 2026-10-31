@@ -8,18 +8,14 @@ import {
 } from '../../../../../services/i18n';
 import { computed, nextTick, onMounted, ref, shallowRef } from 'vue';
 
-import { folderOptionLabels } from '../../../../../services/bookmarks';
+import { folderOptionLabels } from '../../bookmarks/folders';
 
 import { backupLimits, parseImport, validateImportImages } from '../adapters/json';
 import { downloadExport } from '../adapters/download';
-import { allBackupSections, type BackupSelection } from '../../../../../types/models';
-import type {
-  FolderChoice,
-  ImportData,
-  ImportReport,
-  PreparedExport,
-  Settings,
-} from '../../../../../types/models';
+import { allBackupSections, type BackupSelection } from '..';
+import type { FolderChoice } from '../../bookmarks';
+import type { ImportData, ImportReport, PreparedExport } from '..';
+import type { Settings } from '../../settings';
 
 export interface BackupDialogProps {
   rootId: string | null;

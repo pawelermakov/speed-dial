@@ -6,7 +6,8 @@ import { withDataLock } from '../shared/infrastructure/browser/dataLock';
 import { createSettingsStorage } from '../modules/dial/modules/settings/adapters/storage';
 import { createUpdatesChannel } from '../modules/dial/adapters/updates';
 import { createBrowserEvents } from '../modules/dial/adapters/browserEvents';
-import { Repository } from '../services/repository';
+import { createSnapshotReader } from '../modules/dial/services/snapshot';
+import type { CaptureBookmarksPort } from '../modules/dial/modules/capture';
 import { createBookmarksModule } from '../modules/dial/modules/bookmarks';
 import { t, LocalizedError } from '../services/i18n';
 import { normalizeUrl, validateSettings } from '../services/validation';
@@ -48,9 +49,33 @@ export function createNewtabApplication() {
     error: (message) => new LocalizedError(message),
     errorText: errorMessage,
   });
-  const repository = new Repository(db, settings, browser.bookmarks, root, bookmarks, {
-    settings: preferences,
+  const snapshots = createSnapshotReader({
+    source: bookmarks.source,
+    settings,
     appearance,
+    validate: validateSettings,
+  });
+  const captureBookmarks: CaptureBookmarksPort = {
+    autoNameTicket: bookmarks.actions.autoNameTicket.bind(bookmarks.actions),
+    bookmark: bookmarks.source.bookmark.bind(bookmarks.source),
+    cache: bookmarks.actions.cache.bind(bookmarks.actions),
+    applyCapturedTitle: bookmarks.actions.applyCapturedTitle.bind(bookmarks.actions),
+  };
+  const backupService = createLazyLoader(async () => {
+    const { createBackupService } = await import('../modules/dial/modules/backup/services/backup');
+    return createBackupService({
+      source: bookmarks.source,
+      cache: captureBookmarks.cache,
+      bookmarks: bookmarks.bookmarks,
+      assets: bookmarks.assets,
+      metadata: bookmarks.autoNames,
+      settings,
+      preferences,
+      appearance,
+      validate: validateSettings,
+      error: (message) => new LocalizedError(message),
+      errorText: errorMessage,
+    });
   });
   const updates = createUpdatesChannel();
   const events = createBrowserEvents(browser);
@@ -58,7 +83,7 @@ export function createNewtabApplication() {
   const captureUI = createLazyLoader(
     () =>
       import('../modules/dial/modules/capture/newtab').then((module) =>
-        module.createCaptureModule({ bookmarks: repository, faviconBlob }),
+        module.createCaptureModule({ bookmarks: captureBookmarks, faviconBlob }),
       ),
     (module) => module.dispose(),
   );
@@ -69,7 +94,12 @@ export function createNewtabApplication() {
     mail: createMailModule(),
     syncState,
     getSyncStatus: () => syncStatus(),
-    repository,
+    bookmarks,
+    snapshots,
+    preferences,
+    appearance,
+    captureBookmarks,
+    getBackupService: () => backupService.get(),
     getBackup: () => backupUI.get(),
     getCapture: () => captureUI.get(),
     settings,
@@ -88,7 +118,7 @@ export function createNewtabApplication() {
       search.dispose();
       captureUI.dispose();
       backupUI.dispose();
-      repository.dispose();
+      backupService.dispose();
       events.dispose();
       updates.dispose();
       db.close();

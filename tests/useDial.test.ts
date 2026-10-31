@@ -1,9 +1,9 @@
 import { formatMessage } from '../services/i18n';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { watch } from 'vue';
-import type { DialDependencies, DialRepositoryPort, DialUpdate } from '../modules/dial';
-import { useDial } from '../composables/useDial';
-import { defaults } from '../types/models';
+import type { DialDependencies, DialUpdate } from '../modules/dial';
+import { useDial } from '../modules/dial/composables/useDial';
+import { defaults } from '../modules/dial/modules/settings';
 const state = vi.hoisted(() => ({
   mounted: [] as Array<() => Promise<void>>,
   unmounted: [] as Array<() => void>,
@@ -23,7 +23,11 @@ vi.mock('vue', async () => {
   };
 });
 
-let repository: DialRepositoryPort;
+let source: DialDependencies['bookmarks']['source'];
+let actions: DialDependencies['bookmarks']['actions'];
+let preferences: DialDependencies['preferences'];
+let appearance: DialDependencies['appearance'];
+let snapshots: DialDependencies['snapshots'];
 let dependencies: DialDependencies;
 const broadcast = (message: DialUpdate) => state.updates.forEach((listener) => listener(message));
 const snapshot = (title: string) => ({
@@ -53,18 +57,16 @@ beforeEach(() => {
   state.background.mockReset().mockResolvedValue(null);
   state.load.mockReset().mockResolvedValue(snapshot('Initial'));
   state.initialize.mockReset().mockResolvedValue(undefined);
-  repository = {
-    rootId: null,
-    load: state.load,
-    initialize: state.initialize,
-    patchSettings: vi.fn(async (patch) => ({ ...defaults, ...patch })),
-    selectRoot: vi.fn(async () => {}),
-    adoptRoot: vi.fn(async () => {}),
-    saveBackground: vi.fn(async () => {}),
-    cache: vi.fn(async () => {}),
-  };
+  source = { rootId: null, selectRoot: vi.fn(async () => {}), adoptRoot: vi.fn(async () => {}) };
+  actions = { cache: vi.fn(async () => {}) };
+  snapshots = { load: state.load, initialize: state.initialize };
+  preferences = { patchSettings: vi.fn(async (patch) => ({ ...defaults, ...patch })) };
+  appearance = { save: vi.fn(async () => {}) };
   dependencies = {
-    repository,
+    bookmarks: { source, actions },
+    snapshots,
+    preferences,
+    appearance,
     settings: {
       getValue: vi.fn(async () => ({ value: defaults })),
       setValue: vi.fn(async () => {}),
@@ -170,10 +172,10 @@ describe('browser event refresh lifecycle', () => {
   it('saves current fields and rolls back failed writes', async () => {
     const dial = useDial(dependencies);
     await state.mounted[0]!();
-    repository.patchSettings = vi.fn().mockResolvedValue({ ...defaults, width: 75 });
+    preferences.patchSettings = vi.fn().mockResolvedValue({ ...defaults, width: 75 });
     expect(await dial.updateSettings({ width: 75 })).toBe(true);
-    expect(repository.patchSettings).toHaveBeenCalledWith({ width: 75 });
-    repository.patchSettings = vi.fn().mockRejectedValue(new Error('write denied'));
+    expect(preferences.patchSettings).toHaveBeenCalledWith({ width: 75 });
+    preferences.patchSettings = vi.fn().mockRejectedValue(new Error('write denied'));
     expect(await dial.updateSettings({ space: 12 })).toBe(false);
     expect(dial.snapshot.value.settings.space).toBe(defaults.space);
   });
@@ -182,7 +184,7 @@ describe('browser event refresh lifecycle', () => {
     state.load.mockResolvedValueOnce(initial);
     const dial = useDial(dependencies);
     await state.mounted[0]!();
-    repository.saveBackground = vi.fn().mockRejectedValue(new Error('disk full'));
+    appearance.save = vi.fn().mockRejectedValue(new Error('disk full'));
     expect(await dial.changeBackground(new Blob(['new image']))).toBe(false);
     expect(dial.snapshot.value.background).toBe(initial.background);
     expect(formatMessage(dial.settingErrors.value.background)).toContain('Фон');
@@ -191,7 +193,7 @@ describe('browser event refresh lifecycle', () => {
     const dial = useDial(dependencies);
     await state.mounted[0]!();
     let rejectOld!: (error: Error) => void;
-    repository.patchSettings = vi
+    preferences.patchSettings = vi
       .fn()
       .mockImplementationOnce(
         () =>
@@ -211,7 +213,7 @@ describe('browser event refresh lifecycle', () => {
   it('rolls a failed latest field back and retains its named error', async () => {
     const dial = useDial(dependencies);
     await state.mounted[0]!();
-    repository.patchSettings = vi.fn().mockRejectedValue(new Error('storage failed'));
+    preferences.patchSettings = vi.fn().mockRejectedValue(new Error('storage failed'));
     expect(await dial.updateSettings({ width: 80 })).toBe(false);
     expect(dial.snapshot.value.settings.width).toBe(100);
     expect(formatMessage(dial.settingErrors.value.width)).toContain('Ширина');
@@ -221,7 +223,7 @@ describe('browser event refresh lifecycle', () => {
   });
   it('saves the search provider without reloading assets or disabling the page', async () => {
     const save = vi.fn(async (patch: Partial<typeof defaults>) => ({ ...defaults, ...patch }));
-    repository.patchSettings = save;
+    preferences.patchSettings = save;
     const dial = useDial(dependencies);
     await state.mounted[0]!();
     const before = dial.snapshot.value;
@@ -247,7 +249,7 @@ describe('browser event refresh lifecycle', () => {
       settings: { ...defaults, searchProvider: 'bookmarks' },
     };
     const save = vi.fn(async (patch: Partial<typeof defaults>) => ({ ...defaults, ...patch }));
-    repository.patchSettings = save;
+    preferences.patchSettings = save;
     await dial.updateSettings({ bookmarkSearch: false });
     expect(save).toHaveBeenCalledWith({ bookmarkSearch: false, searchProvider: 'yandex' });
     expect(dial.snapshot.value.settings).toMatchObject({
@@ -265,7 +267,7 @@ describe('browser event refresh lifecycle', () => {
         settings: { ...defaults, movieSearch: true, searchProvider },
       };
       const save = vi.fn(async (patch: Partial<typeof defaults>) => ({ ...defaults, ...patch }));
-      repository.patchSettings = save;
+      preferences.patchSettings = save;
       await dial.updateSettings({ movieSearch: false });
       expect(save).toHaveBeenCalledWith({ movieSearch: false, searchProvider: 'yandex' });
     },
@@ -327,10 +329,10 @@ describe('browser event refresh lifecycle', () => {
     await pending;
     expect(dial.snapshot.value.tabs[0]?.title).toBe('Initial');
   });
-  it('keeps two injected repositories independent', async () => {
+  it('keeps two injected applications independent', async () => {
     const other = {
       ...dependencies,
-      repository: { ...repository, load: vi.fn(async () => snapshot('Second')) },
+      snapshots: { ...snapshots, load: vi.fn(async () => snapshot('Second')) },
     };
     const first = useDial(dependencies),
       second = useDial(other);

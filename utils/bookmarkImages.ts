@@ -1,4 +1,4 @@
-import type { Bookmark } from '../types/models';
+import type { Bookmark } from '../modules/dial/modules/bookmarks';
 
 type Resource = {
   key: string;

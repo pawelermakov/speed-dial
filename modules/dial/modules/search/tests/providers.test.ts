@@ -11,8 +11,9 @@ import { searchProviders, searchUrl } from '../helpers/presentation';
 import { createSearchModule } from '../newtab';
 const providerSuggestions = createSearchModule().suggestions;
 import { validateSettings } from '../../../../../services/validation';
-import { parseImport, serializeExport } from '../../../../../services/importExport';
-import { defaults, type SearchProviderId } from '../../../../../types/models';
+import { parseImport, serializeExport } from '../../backup/adapters/json';
+import { defaults } from '../../settings';
+import { type SearchProviderId } from '..';
 const fixture = (name: string) =>
   JSON.parse(
     readFileSync(

@@ -17,20 +17,20 @@ export interface BackupPorts {
     rootNode(): Promise<BookmarkNode>;
     folder(id: string): Promise<BookmarkNode>;
     node(id: string): Promise<BookmarkNode>;
-    cache(
-      id: string,
-      url: string,
-      resource: 'favicon' | 'thumbnail',
-      blob: Blob,
-      expected?: { title: string; parentId?: string },
-    ): Promise<void>;
   };
+  cache(
+    id: string,
+    url: string,
+    resource: 'favicon' | 'thumbnail',
+    blob: Blob,
+    expected?: { title: string; parentId?: string },
+  ): Promise<void>;
   bookmarks: BookmarksPort;
   assets: Pick<AssetsPort, 'getStored' | 'clear'>;
   metadata: Pick<AutoNamesPort, 'get' | 'put' | 'clear'>;
   settings: SettingsPort;
-  preferences: SettingsService;
-  appearance: AppearanceService;
+  preferences: Pick<SettingsService, 'saveSettings'>;
+  appearance: Pick<AppearanceService, 'readStored' | 'save'>;
   validate(input: unknown): Settings;
   error(message: MessageText): Error;
   errorText(error: unknown): MessageText;
@@ -164,7 +164,7 @@ export function createBackupService(ports: BackupPorts) {
       for (const key of ['thumbnail', 'favicon'] as const)
         if (includeImages && row[key]) {
           try {
-            await ports.source.cache(node.id, row.url, key, row[key], {
+            await ports.cache(node.id, row.url, key, row[key], {
               title: row.title,
               parentId,
             });

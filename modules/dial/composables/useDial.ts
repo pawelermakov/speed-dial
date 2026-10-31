@@ -5,18 +5,22 @@ import {
   LocalizedError,
   errorMessage,
   type MessageText,
-} from '../services/i18n';
+} from '../../../services/i18n';
 import { ref, shallowRef, computed, watch, onMounted, onUnmounted } from 'vue';
-import { defaults, type Snapshot } from '../types/models';
-import { validateSettings } from '../services/validation';
-import type { DialDependencies } from '../modules/dial';
-import { useServices } from '../app/serviceContext';
-import { useSettingsState } from '../modules/dial/modules/settings/composables/useSettingsState';
-import { useBackgroundState } from '../modules/dial/modules/appearance/composables/useBackgroundState';
+import { defaults } from '../modules/settings';
+import { type Snapshot } from '..';
+import { validateSettings } from '../../../services/validation';
+import type { DialDependencies } from '..';
+import { useServices } from '../../../app/serviceContext';
+import { useSettingsState } from '../modules/settings/composables/useSettingsState';
+import { useBackgroundState } from '../modules/appearance/composables/useBackgroundState';
 
 export function useDial(dependencies: DialDependencies = useServices()) {
   const {
-    repository,
+    bookmarks: { source, actions },
+    snapshots,
+    preferences,
+    appearance,
     settings: settingsItem,
     root: rootItem,
     lock: withDataLock,
@@ -43,7 +47,7 @@ export function useDial(dependencies: DialDependencies = useServices()) {
     current: () => snapshot.value.settings,
     canSave: () => !busy.value && !loading.value,
     validate: validateSettings,
-    save: (patch) => withDataLock(() => repository.patchSettings(patch)),
+    save: (patch) => withDataLock(() => preferences.patchSettings(patch)),
     read: () => withDataLock(async () => validateSettings((await settingsItem.getValue())?.value)),
     watch: settingsItem.watch?.bind(settingsItem),
     setLanguage,
@@ -65,7 +69,7 @@ export function useDial(dependencies: DialDependencies = useServices()) {
   } = settingsState;
   const backgroundState = useBackgroundState({
     read: readBackground,
-    save: (blob) => withDataLock(() => repository.saveBackground(blob)),
+    save: (blob) => withDataLock(() => appearance.save(blob)),
     publish: (background) => {
       snapshot.value = { ...snapshot.value, background };
     },
@@ -89,7 +93,7 @@ export function useDial(dependencies: DialDependencies = useServices()) {
     if (disposed) return;
     const sequence = ++generation;
     const includeBackground = backgroundState.dirty;
-    const next = await withDataLock(() => repository.load(includeBackground));
+    const next = await withDataLock(() => snapshots.load(includeBackground));
     if (sequence !== generation || disposed) return;
     backgroundState.acceptRead(includeBackground);
     settingsState.confirm(next.settings, (settings) => {
@@ -102,7 +106,7 @@ export function useDial(dependencies: DialDependencies = useServices()) {
     if (next.rootNotice) {
       notice.value = next.rootNotice;
       workflowErrors.value = { ...workflowErrors.value, root: next.rootNotice };
-      repository.clearSourceNotice?.();
+      source.clearSourceNotice?.();
     }
     for (const tab of next.tabs.filter((tab) => !tab.favicon)) {
       const key = tab.id + tab.url;
@@ -111,7 +115,7 @@ export function useDial(dependencies: DialDependencies = useServices()) {
       void faviconBlob(tab.url)
         .then(async (blob) => {
           if (!blob || disposed) return;
-          await repository.cache(tab.id, tab.url, 'favicon', blob);
+          await actions.cache(tab.id, tab.url, 'favicon', blob);
           schedule(false);
           updates.publish({ type: 'updated', assets: true });
         })
@@ -162,7 +166,7 @@ export function useDial(dependencies: DialDependencies = useServices()) {
     return track(
       (async () => {
         try {
-          await withDataLock(() => repository.selectRoot(id));
+          await withDataLock(() => source.selectRoot(id));
           if (version === rootVersion) {
             void syncRequest('folder', id);
             delete workflowErrors.value.root;
@@ -193,12 +197,12 @@ export function useDial(dependencies: DialDependencies = useServices()) {
     schedule(!message?.assets);
   });
   const unwatchRoot = rootItem.watch(async (id) => {
-    if (disposed || id === repository.rootId) return;
+    if (disposed || id === source.rootId) return;
     try {
       const changed = await withDataLock(async () => {
-        if (disposed || id === repository.rootId) return false;
+        if (disposed || id === source.rootId) return false;
         generation++;
-        await repository.adoptRoot(id);
+        await source.adoptRoot(id);
         return true;
       });
       if (changed) schedule();
@@ -218,7 +222,7 @@ export function useDial(dependencies: DialDependencies = useServices()) {
       if (!events.available) throw new LocalizedError(message('bookmarks.errors.api_unavailable'));
       await syncRequest('initialize');
       if (disposed) return;
-      const initial = await withDataLock(() => repository.initialize());
+      const initial = await withDataLock(() => snapshots.initialize());
       if (disposed) return;
       if (initial?.rootNotice) notice.value = initial.rootNotice;
       await refresh();

@@ -4,7 +4,7 @@ import SelectChevron from './SelectChevron.vue';
 import { ui } from '../utils/ui';
 import { computed, ref } from 'vue';
 import { normalizeBookmarkUrl } from '../services/validation';
-import type { Bookmark, Folder } from '../types/models';
+import type { Bookmark, Folder } from '../modules/dial/modules/bookmarks';
 import SwitchControl from './SwitchControl.vue';
 import ModalDialog from './ModalDialog.vue';
 import InfoTooltip from './InfoTooltip.vue';

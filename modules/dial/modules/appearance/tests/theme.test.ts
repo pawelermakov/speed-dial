@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaults, type ThemeMode } from '../../../../../types/models';
+import { defaults } from '../../settings';
+import { type ThemeMode } from '..';
 import { validateSettings } from '../../../../../services/validation';
-import { parseImport, serializeExport } from '../../../../../services/importExport';
-import { syncPatch } from '../../../../../services/settingsSchema';
+import { parseImport, serializeExport } from '../../backup/adapters/json';
+import { syncPatch } from '../../settings/schema';
 const state = vi.hoisted(() => ({ dispose: [] as Array<() => void> }));
 vi.mock('vue', async () => ({
   ...(await vi.importActual<typeof import('vue')>('vue')),

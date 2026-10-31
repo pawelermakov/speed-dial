@@ -9,10 +9,11 @@ import {
 import { reactive, ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { browser } from 'wxt/browser';
 import { useServices } from '../../../../../app/serviceContext';
-import type { Settings, FolderChoice } from '../../../../../types/models';
+import type { Settings } from '..';
+import type { FolderChoice } from '../../bookmarks';
 import { validateSettings } from '../../../../../services/validation';
 import { readImage } from '../../../../../services/images';
-import type { SyncState } from '../../../../../services/settingsSync';
+import type { SyncState } from '../../sync/entities/models';
 export interface SettingsFormProps {
   settings: Settings;
   busy: boolean;
@@ -29,7 +30,11 @@ export interface SettingsFormEmit {
   (event: 'error', message: MessageText): void;
 }
 export function useSettingsForm(props: SettingsFormProps, emit: SettingsFormEmit) {
-  const { repository, syncRequest, syncState: syncStateItem } = useServices();
+  const {
+    bookmarks: { source },
+    syncRequest,
+    syncState: syncStateItem,
+  } = useServices();
 
   const syncState = ref<SyncState | null>(null);
   const unwatchSync = syncStateItem.watch((value) => {
@@ -178,7 +183,7 @@ export function useSettingsForm(props: SettingsFormProps, emit: SettingsFormEmit
     const current = ++folderGeneration;
     folderLoading.value = true;
     try {
-      const next = await repository.choices();
+      const next = await source.choices();
       if (!disposed && current === folderGeneration) {
         folders.value = next;
         folderError.value = '';

@@ -1,19 +1,14 @@
 import { message, LocalizedError, type MessageText } from '../../../services/i18n';
 import { ref, shallowRef, onUnmounted } from 'vue';
 import type DataManagementDialogComponent from '../../../modules/dial/modules/backup/components/DataManagementDialog.vue';
-import type {
-  BackupSelection,
-  ImportData,
-  ImportReport,
-  PreparedExport,
-  Settings,
-} from '../../../types/models';
+import type { BackupSelection, ImportData, ImportReport, PreparedExport } from '../modules/backup';
+import type { Settings } from '../modules/settings';
 import type { DialState, ScreenServices } from '../screenTypes';
 import type { Ref } from 'vue';
 
 export function useBackupFlow({
   services,
-  repository,
+  source,
   lock: withDataLock,
   run,
   notice,
@@ -23,8 +18,8 @@ export function useBackupFlow({
   restoreDialogFocus,
   forgetDialogFocus,
 }: Pick<DialState, 'run' | 'notice' | 'flushSettings'> & {
-  services: ScreenServices;
-  repository: ScreenServices['repository'];
+  services: Pick<ScreenServices, 'getBackupService' | 'getBackup'>;
+  source: Pick<ScreenServices['bookmarks']['source'], 'choices'>;
   lock: ScreenServices['lock'];
   disabled: Readonly<Ref<boolean>>;
   settingsOpen: Ref<boolean>;
@@ -36,12 +31,12 @@ export function useBackupFlow({
   const mailRevision = ref(0);
   const dataOpen = ref(false);
   const dataDialog = ref<InstanceType<typeof DataManagementDialogComponent>>();
-  const dataChoices = () => repository.choices();
+  const dataChoices = () => source.choices();
   async function prepareBackup(): Promise<PreparedExport> {
     await flushSettings();
     const warnings: MessageText[] = [];
-    const data = await withDataLock(() =>
-      repository.exportData((message) => warnings.push(message)),
+    const data = await withDataLock(async () =>
+      (await services.getBackupService()).exportData((message) => warnings.push(message)),
     );
     return { data, warnings };
   }
@@ -62,7 +57,9 @@ export function useBackupFlow({
     let report: ImportReport | undefined;
     if (
       !(await run(async () => {
-        report = await repository.importData(data, id, expected, selection);
+        report = await (
+          await services.getBackupService()
+        ).importData(data, id, expected, selection);
       }, true))
     )
       throw new LocalizedError(notice.value || message('backup.import.errors.start_failed'));
@@ -70,7 +67,7 @@ export function useBackupFlow({
     return report!;
   }
   async function resetData() {
-    if (!(await run(() => repository.reset(), true)))
+    if (!(await run(async () => (await services.getBackupService()).reset(), true)))
       throw new LocalizedError(notice.value || message('backup.reset.errors.finish_failed'));
   }
   const loadingDataUI = ref(false);

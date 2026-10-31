@@ -1,7 +1,10 @@
 import { message, errorMessage } from '../../../services/i18n';
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
-import { cacheBackgroundPreview, clearBackgroundPreview } from '../../../utils/backgroundPreview';
-import { BackgroundResource } from '../../../utils/backgroundResource';
+import {
+  cacheBackgroundPreview,
+  clearBackgroundPreview,
+} from '../modules/appearance/adapters/backgroundPreview';
+import { BackgroundResource } from '../modules/appearance/adapters/backgroundResource';
 import type { DialState } from '../screenTypes';
 
 export function usePagePresentation({

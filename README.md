@@ -98,6 +98,12 @@ npm run build:firefox
 [плане](REFACTORING_PLAN.md) и [отчёте](docs/refactoring-progress.md). Реализованные
 границы описаны в [ARCHITECTURE.md](ARCHITECTURE.md).
 
+Типы и helpers импортируйте из feature-владельца (`modules/dial/modules/...`),
+общую инфраструктуру — из `shared/infrastructure`. Общий `types/models.ts`
+и старые compatibility-пути удалены; ESLint проверяет их отсутствие в импортах.
+Сценарии вызывают feature-порты напрямую; общий snapshot собирает отдельный
+reader в `modules/dial/services/snapshot.ts`. `Repository` больше не используется.
+
 ```sh
 npm run format:check
 npm run lint

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseImport, serializeExport } from '../services/importExport';
+import { parseImport, serializeExport } from '../modules/dial/modules/backup/adapters/json';
 import { normalizeUrl } from '../services/validation';
 import { imageFromDataUrl } from '../services/images';
-import { parseMailCount } from '../services/network';
-import { defaults } from '../types/models';
+import { parseMailCount } from '../modules/dial/modules/mail/adapters/counters';
+import { defaults } from '../modules/dial/modules/settings';
 describe('versioned append import validation', () => {
   it('round trips folders/order/settings without cache or profile IDs', async () => {
     const data = {

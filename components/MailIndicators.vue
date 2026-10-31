@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Settings } from '../types/models';
+import type { Settings } from '../modules/dial/modules/settings';
 import { mailEnabled, mailProviders } from '../modules/dial/modules/mail/helpers/presentation';
 import MailIndicator from './MailIndicator.vue';
 defineProps<{ settings: Settings }>();

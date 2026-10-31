@@ -7,7 +7,7 @@ import type { CaptureHandler } from '../modules/dial/modules/capture';
 import type { CaptureRequest } from '../modules/dial/modules/capture';
 import { createCaptureQueue } from '../modules/dial/modules/capture/adapters/browserCapture';
 import { startSettingsSync } from '../modules/dial/modules/sync/adapters/background';
-import { invalidateAutoName } from '../services/autoNames';
+import { AutoNameStore } from '../modules/dial/modules/bookmarks/adapters/autoNames';
 
 export function createBackgroundApplication(
   // Background is a single MV3-compatible bundle. Defer the queue factory,
@@ -15,12 +15,13 @@ export function createBackgroundApplication(
   loadCapture: () => Promise<CaptureHandler> = () => Promise.resolve(createCaptureQueue()),
 ) {
   const db = new DialDatabase();
+  const autoNames = new AutoNameStore(db);
   const sync = startSettingsSync(browser, withDataLock);
   const capture = createLazyLoader(loadCapture);
   const connections = new Set<() => void>();
   let disposed = false;
   const changed: Parameters<typeof browser.bookmarks.onChanged.addListener>[0] = (id, change) => {
-    void invalidateAutoName(db, id, change).catch(() => {});
+    void autoNames.invalidate(id, change).catch(() => {});
   };
   const removed: Parameters<typeof browser.bookmarks.onRemoved.addListener>[0] = (_id, info) => {
     const clean = (node: typeof info.node) => {

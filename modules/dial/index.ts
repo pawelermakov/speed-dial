@@ -3,6 +3,6 @@ export type { DialUpdate, UpdateMessage, UpdatesPort } from './services/interfac
 export type {
   DialDependencies,
   DialEventsPort,
-  DialRepositoryPort,
+  DialSourcePort,
   RootStoragePort,
 } from './services/application';

@@ -1,8 +1,8 @@
 import { message, LocalizedError, errorMessage } from '../../../services/i18n';
 import { computed } from 'vue';
 import { browser } from 'wxt/browser';
-import { insertedOrder } from '../../../utils/reorder';
-import type { Bookmark, Folder } from '../../../types/models';
+import { insertedOrder } from '../modules/bookmarks/helpers/reorder';
+import type { Bookmark, Folder } from '../modules/bookmarks';
 import type { DialState, ScreenServices } from '../screenTypes';
 import type { Ref } from 'vue';
 import type { ContextState, FocusTarget } from '../screenTypes';
@@ -10,7 +10,7 @@ import type { useFolderActions } from './useFolderActions';
 import type { useBookmarkActions } from './useBookmarkActions';
 import type { useConfirmation } from './useConfirmation';
 export function useContextActions({
-  repository,
+  bookmarkActions,
   snapshot,
   revision,
   run,
@@ -30,7 +30,10 @@ export function useContextActions({
   capturing,
   updateImages,
 }: Pick<DialState, 'snapshot' | 'revision' | 'run' | 'notice'> & {
-  repository: ScreenServices['repository'];
+  bookmarkActions: Pick<
+    ScreenServices['bookmarks']['actions'],
+    'reorder' | 'reorderFolders' | 'remove'
+  >;
   context: Ref<ContextState | undefined>;
   contextTarget: Ref<FocusTarget | undefined>;
   disabled: Readonly<Ref<boolean>>;
@@ -93,8 +96,8 @@ export function useContextActions({
             if (moveRevision !== revision.value)
               throw new LocalizedError(message('bookmarks.errors.list_changed_before_move'));
             return folder
-              ? repository.reorderFolders(ids, moveExpected)
-              : repository.reorder(ids, moveExpected, selected!.parentId);
+              ? bookmarkActions.reorderFolders(ids, moveExpected)
+              : bookmarkActions.reorder(ids, moveExpected, selected!.parentId);
           });
         return;
       }
@@ -113,7 +116,7 @@ export function useContextActions({
         askConfirmation(
           message('bookmarks.delete.title'),
           message('bookmarks.delete.description', { bookmark_name: selected.title }),
-          () => run(() => repository.remove(selected.id)),
+          () => run(() => bookmarkActions.remove(selected.id)),
         );
       if (name === 'thumbnail') {
         notice.value = message('thumbnails.status.opening_website');

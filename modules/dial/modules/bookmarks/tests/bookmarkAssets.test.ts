@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DialDatabase } from '../../../../../services/database';
+import { DialDatabase } from '../../../../../shared/infrastructure/database';
 import { BookmarkAssetStore } from '../adapters/assets';
 
 const databases: DialDatabase[] = [];

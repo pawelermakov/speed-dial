@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t, formatMessage, languages, type MessageText } from '../services/i18n';
-import type { Settings } from '../types/models';
+import type { Settings } from '../modules/dial/modules/settings';
 import SelectChevron from './SelectChevron.vue';
 import SwitchControl from './SwitchControl.vue';
 import InfoTooltip from './InfoTooltip.vue';

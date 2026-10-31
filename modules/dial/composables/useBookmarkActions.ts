@@ -2,12 +2,14 @@ import { message, LocalizedError, errorMessage, type MessageText } from '../../.
 import { ref, shallowRef } from 'vue';
 import { prepareCapture } from '../../../modules/dial/modules/capture/prepare';
 import { normalizeUrl } from '../../../services/validation';
-import type { Bookmark, Folder } from '../../../types/models';
+import type { Bookmark, Folder } from '../modules/bookmarks';
 import type { DialState, ScreenServices } from '../screenTypes';
 import type { Ref } from 'vue';
 
 export function useBookmarkActions({
-  repository,
+  source,
+  bookmarkActions,
+  nativeBookmarks,
   services,
   snapshot,
   disabled,
@@ -18,8 +20,13 @@ export function useBookmarkActions({
   revision,
   searching,
 }: Pick<DialState, 'snapshot' | 'notice' | 'run' | 'refresh' | 'announce' | 'revision'> & {
-  repository: ScreenServices['repository'];
-  services: ScreenServices;
+  source: Pick<
+    ScreenServices['bookmarks']['source'],
+    'rootNode' | 'choices' | 'bookmark' | 'parent'
+  >;
+  bookmarkActions: Pick<ScreenServices['bookmarks']['actions'], 'add' | 'edit' | 'reorder'>;
+  nativeBookmarks: Pick<ScreenServices['bookmarks']['bookmarks'], 'getChildren'>;
+  services: Pick<ScreenServices, 'captureBookmarks' | 'getCapture'>;
   disabled: Readonly<Ref<boolean>>;
   searching: Readonly<Ref<boolean>>;
 }) {
@@ -33,10 +40,10 @@ export function useBookmarkActions({
   async function openBookmark(bookmark?: Bookmark) {
     if (disabled.value) return;
     try {
-      const root = await repository.rootNode();
+      const root = await source.rootNode();
       const [choices, children] = await Promise.all([
-        repository.choices(),
-        repository.bookmarks.getChildren(root.id),
+        source.choices(),
+        nativeBookmarks.getChildren(root.id),
       ]);
       const choiceIds = new Set(choices.map((choice) => choice.id));
       dialogFolders.value = [
@@ -46,7 +53,7 @@ export function useBookmarkActions({
           .map((row) => ({ id: row.id, title: row.title, index: row.index ?? 0 })),
       ];
       editing.value = bookmark
-        ? ({ ...bookmark, ...(await repository.bookmark(bookmark.id)) } as Bookmark)
+        ? ({ ...bookmark, ...(await source.bookmark(bookmark.id)) } as Bookmark)
         : undefined;
       dialogError.value = '';
       folderError.value = '';
@@ -70,7 +77,7 @@ export function useBookmarkActions({
     try {
       const url = normalizeUrl(value.url);
       try {
-        await repository.parent(value.parentId);
+        await source.parent(value.parentId);
       } catch (error) {
         folderError.value = errorMessage(error);
         return;
@@ -81,7 +88,7 @@ export function useBookmarkActions({
       if (
         !(await run(async () => {
           if (selected)
-            capture = await repository.edit(
+            capture = await bookmarkActions.edit(
               selected.id,
               url,
               value.title,
@@ -90,7 +97,7 @@ export function useBookmarkActions({
               selected,
             );
           else
-            idResult.id = await repository.add({
+            idResult.id = await bookmarkActions.add({
               url,
               title: value.title,
               parentId: value.parentId,
@@ -125,12 +132,12 @@ export function useBookmarkActions({
       void run(() => {
         if (dragRevision !== revision.value)
           throw new LocalizedError(message('bookmarks.errors.list_changed_before_drop'));
-        return repository.reorder(ids, expected, parent);
+        return bookmarkActions.reorder(ids, expected, parent);
       });
   }
   async function updateImages(id: string, url: string) {
     const prepared = await prepareCapture(
-      repository,
+      services.captureBookmarks,
       id,
       url,
       (message) => new LocalizedError(message),

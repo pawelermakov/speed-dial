@@ -60,7 +60,9 @@ async function check(name, { exec, until, key, resize, reload, system, shot }) {
   assert.equal(await exec('return document.documentElement.dataset.theme;'), 'dark');
   await reload();
   await until(
-    'return !document.querySelector(".settings-trigger")?.disabled&&document.documentElement.dataset.theme==="dark";',
+    // The startup mirror can set the theme before Vue mounts. A missing button
+    // must not satisfy readiness through !undefined.
+    'const trigger=document.querySelector(".settings-trigger");return !!trigger&&!trigger.disabled&&document.documentElement.dataset.theme==="dark"&&document.querySelector(".folder-root")?.textContent.trim()==="Themes"&&document.querySelectorAll(".bookmark").length===2;',
   );
   assert.equal(await exec('return localStorage.getItem("speed-dial-theme");'), 'dark');
   // Recreate only the test handles after a real reload.

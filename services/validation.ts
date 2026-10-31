@@ -3,15 +3,13 @@ import {
   weatherCityDefinitions as weatherCities,
   weatherProviderDefinitions as weatherProviders,
 } from '../modules/dial/modules/weather';
+import { defaults, type Settings } from '../modules/dial/modules/settings';
+import { themeModes, type ThemeMode } from '../modules/dial/modules/appearance';
 import {
-  defaults,
-  themeModes,
-  type ThemeMode,
   searchProviderIds,
   isMovieProvider,
-  type Settings,
   type SearchProviderId,
-} from '../types/models';
+} from '../modules/dial/modules/search';
 export function record(value: unknown, label: MessageText): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new LocalizedError(message('validation.object.required', { field_name: label }));

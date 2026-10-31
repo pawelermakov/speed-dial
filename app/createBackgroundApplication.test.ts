@@ -50,7 +50,11 @@ vi.mock('../modules/dial/modules/sync/adapters/background', () => ({
 vi.mock('../modules/dial/modules/capture/adapters/browserCapture', () => ({
   createCaptureQueue: () => state.capture,
 }));
-vi.mock('../services/autoNames', () => ({ invalidateAutoName: state.invalidate }));
+vi.mock('../modules/dial/modules/bookmarks/adapters/autoNames', () => ({
+  AutoNameStore: class {
+    invalidate = state.invalidate;
+  },
+}));
 const applications: Array<ReturnType<typeof createBackgroundApplication>> = [];
 function port(
   overrides: Partial<{

@@ -406,3 +406,98 @@ assertions проверяют геометрию, focus, drag, scroll и accessi
 Полный паритет Chrome/Firefox по разделу 7.4 остаётся обязательным; текущие
 разные allowlists не означают завершённого паритета. Live search/cloud доставка
 на этом этапе отдельно не проверялись.
+
+## Этап 8.1 — удаление compatibility-путей
+
+Реализовано 31 октября 2026 года. Это первая часть этапа 8, а не завершение
+финального этапа целиком.
+
+- Удалены 27 старых файлов: общий types/models.ts, compatibility exports
+  services, utils и composables. Импорты типов/значений разделены по реальным
+  владельцам; настройки, schema, backup codec, sync, theme, bookmark search,
+  reorder, weather и DB больше не требуют старых aliases.
+- Удалён неиспользуемый re-export withDataLock из Repository. Реализация и имя
+  data lock не менялись, все потребители используют shared infrastructure.
+- Background создаёт AutoNameStore вместе с DB; обработчик onChanged вызывает
+  тот же invalidate adapter. Удалён промежуточный конструктор на каждое событие;
+  metadata, sender/cancellation и removed-tree cleanup сохранены.
+- Добавлено ESLint-правило architecture/no-retired-imports. Оно разрешает путь
+  относительно реального importer, поэтому не блокирует легитимные feature
+  services с тем же именем. Проверены отрицательные примеры static import,
+  re-export, dynamic import и import type: все старые пути отклонены.
+- README и архитектурная карта обновлены. Runtime i18n, validation helpers
+  и Repository пока остаются: их удаление/миграция — отдельные следующие части.
+
+check прошёл: форматирование, ESLint, Stylelint, TypeScript, 43 файла / 325 тестов.
+Обе production-сборки успешны. Smoke, i18n и data-management прошли в Chrome
+и Firefox (Firefox вне песочницы), включая native capture, backup/reset,
+смену языка, второй tab и восстановление в чистом Chrome-профиле.
+Полные browser/UI suites на этом небольшом шаге не повторялись;
+последний полный прогон выполнен на этапе 7. Финальный прогон остаётся обязательным.
+
+GenerateBundle audit подтвердил прежние границы: нет test modules в production,
+нет UI/runtime-dom/WXT storage в background, backup/capture остаются lazy.
+Background Chrome 219442 / Firefox 219096 байт (−33 к этапу 7); стартовый newtab
+413883 / 413513 (+8), lazy chunks прежнего размера. CSS-аудит подтвердил прежний
+глобальный каскад и содержимое scoped blocks; размер CSS 57907 + 2600 не изменился.
+Storage schema/keys, backup JSON, manifest и permissions не менялись.
+
+Следом: заменить Repository прямыми feature-портами и отдельным snapshot reader,
+завершить i18n по 7.2, строгие межмодульные границы и тестовую инфраструктуру
+с полным паритетом Chrome/Firefox по 7.4. После этого — итоговые suites,
+чистая установка/обновление и сравнение chunks/cold start с исходной точкой.
+
+## Этап 8.2 — удаление Repository
+
+Реализовано 31 октября 2026 года. Финальный этап 8 продолжается.
+
+- Repository удалён вместе с совместимым конструктором и DialRepositoryPort.
+  Production root создаёт source/actions, preferences, appearance и snapshot
+  reader отдельно. UI получает только нужные операции через feature-порты,
+  без нового агрегированного фасада.
+- SnapshotReader координирует только чтение. prepareRead вызывается до
+  параллельных settings/background/choices; completion — после их успеха.
+  Сохранены read generation, fallback root guards и пропуск background при
+  asset/bookmark-only refresh. Reader не захватывает data lock повторно.
+- useDial перенесён к владельцу в modules/dial/composables. Settings/background
+  записи, source changes и image cache вызывают отдельные сервисы. Snapshot
+  по-прежнему публикуется согласованно, с прежними optimistic/dirty fences.
+- Capture получает минимальные bound source/actions ports; bookmark/ticket
+  фиксируются до lazy loading. Backup получает source и cache отдельно.
+  Getters UI и backup service независимы; loaders принадлежат root и dispose.
+- Корневые integration tests переименованы в dialIntegration.test.ts. Fixture
+  собирает те же реальные модули и возвращает их отдельно; методы Repository
+  в тестовый helper не скопированы. Все 325 прежних проверок сохранены, включая
+  old-folder read, отказ параллельного read, stale cache, partial import/reset.
+- Линтер запрещает возврат services/repository и старого пути useDial; чистый
+  snapshot service включён в существующее правило границ services.
+
+check прошёл: форматирование, ESLint, Stylelint, TypeScript, 43 файла / 325 тестов.
+Обе production-сборки успешны. Chrome завершил все 23 текущих browser-сценария;
+повторный полный Firefox-прогон прошёл все 21 (вне песочницы). Полные дополнительные UI suites
+на этом шаге отдельно не повторялись; DOM/CSS не менялись.
+
+Первый Firefox-прогон остановился в themes: после reload проверка получила []
+вместо двух fixture tiles. Отдельный диагностический прогон прошёл все 18
+комбинаций фон/ширина/тема с source Themes, двумя плитками и без page errors.
+Обнаружен конкретный пробел ожидания теста: !querySelector(...)?.disabled
+истинно и при отсутствующем элементе, а startup mirror ставит тему до mount.
+Ожидание после reload теперь требует существующую enabled-кнопку, fixture
+source и две плитки. Сравнения после смены темы не ослаблены; runtime продукта
+ради этого не менялся. Это отдельная тестовая корректировка к механическому
+удалению фасада. Themes Chrome и полный Firefox-набор повторно прошли после
+исправления ожидания. Первый неудачный лог и диагностический прогон сохранены
+в .browser-test/stage8-2-browser-firefox.log и stage8-2-themes-debug.log.
+
+Production audit подтвердил отсутствие tests в bundles и UI/runtime-dom/WXT
+storage в background. Background прежнего размера: 219442 / 219096 байт.
+Стартовый newtab Chrome 411867 / Firefox 411497 (−2016 к 8.1); lazy backup
+service 3746, dialog 21071, capture 1849, Kinopoisk 612. Добавлен общий lazy
+chunk 72 байта с backup section constants; это feature entities, не возврат
+общего types barrel. Backup/capture implementations не входят в стартовый chunk.
+CSS cascade/scoped audit прошёл; CSS и bootstrap не менялись. Сравнительный
+замер cold start пока не выполнен, изменение bytes не является замером скорости.
+
+Далее — миграция i18n по 7.2, полные межмодульные проверки и инфраструктура
+тестов с паритетом Chrome/Firefox по 7.4. Затем — окончательные suites,
+чистая установка/обновление и сравнение cold start с исходной точкой.

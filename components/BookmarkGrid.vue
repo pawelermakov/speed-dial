@@ -2,7 +2,7 @@
 import { t } from '../services/i18n';
 import { watch, nextTick, onMounted, onUnmounted, ref, computed } from 'vue';
 import { BookmarkImages } from '../utils/bookmarkImages';
-import type { Bookmark } from '../types/models';
+import type { Bookmark } from '../modules/dial/modules/bookmarks';
 import TileHostname from './TileHostname.vue';
 import EmptyState from './EmptyState.vue';
 import { contextKey, gridFocusIndex, plainNavigation } from '../utils/keyboard';

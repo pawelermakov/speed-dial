@@ -3,7 +3,9 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { ref, shallowRef, nextTick } from 'vue';
 import { useBookmarkSearch } from '../composables/useBookmarkSearch';
 import type { BookmarkSearchPort } from '../services/interfaces';
-import { defaults, type Snapshot, type Bookmark } from '../../../../../types/models';
+import { defaults } from '../../settings';
+import { type Snapshot } from '../../..';
+import { type Bookmark } from '..';
 const state = vi.hoisted(() => ({ unmount: [] as Array<() => void> }));
 vi.mock('vue', async () => ({
   ...(await vi.importActual('vue')),

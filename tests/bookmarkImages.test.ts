@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BookmarkImages } from '../utils/bookmarkImages';
-import type { Bookmark } from '../types/models';
+import type { Bookmark } from '../modules/dial/modules/bookmarks';
 
 class FakeImage {
   static instances: FakeImage[] = [];

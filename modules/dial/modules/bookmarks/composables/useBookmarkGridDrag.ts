@@ -1,5 +1,5 @@
 import { ref, watch, onUnmounted, type Ref } from 'vue';
-import { insertedOrder, nearestInsertion } from '../../../../../utils/reorder';
+import { insertedOrder, nearestInsertion } from '../helpers/reorder';
 import type { BookmarkGridProps } from './gridTypes';
 export function useBookmarkGridDrag(
   props: BookmarkGridProps,

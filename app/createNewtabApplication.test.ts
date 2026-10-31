@@ -82,7 +82,7 @@ describe('newtab composition', () => {
     provideServices(secondApp, second);
     expect(firstApp.runWithContext(useServices)).toBe(first);
     expect(secondApp.runWithContext(useServices)).toBe(second);
-    expect(first.repository).not.toBe(second.repository);
+    expect(first.bookmarks.source).not.toBe(second.bookmarks.source);
     const firstChanged = vi.fn(),
       secondChanged = vi.fn();
     first.events.subscribe(firstChanged);

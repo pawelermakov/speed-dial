@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { weatherCities, weatherProviders, forecastLink } from '../helpers/links';
 import { validateSettings } from '../../../../../services/validation';
-import { defaults } from '../../../../../types/models';
-import { parseImport, serializeExport } from '../../../../../services/importExport';
-import { syncPatch, syncPrefix, validSetting } from '../../../../../services/settingsSchema';
+import { defaults } from '../../settings';
+import { parseImport, serializeExport } from '../../backup/adapters/json';
+import { syncPatch, syncPrefix, validSetting } from '../../settings/schema';
 
 describe('compact forecast links', () => {
   it('offers exactly the 16 agreed cities, sorted with Moscow selected by default', () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateSettings } from '../../../../../services/validation';
-import { serializeExport, parseImport } from '../../../../../services/importExport';
-import { syncPatch } from '../../../../../services/settingsSchema';
+import { serializeExport, parseImport } from '../../backup/adapters/json';
+import { syncPatch } from '../../settings/schema';
 
 describe('current settings contract', () => {
   it('roundtrips current settings through export and Sync', async () => {

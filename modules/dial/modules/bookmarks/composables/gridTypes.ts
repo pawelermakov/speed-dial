@@ -1,4 +1,5 @@
-import type { Bookmark, Settings } from '../../../../../types/models';
+import type { Bookmark } from '..';
+import type { Settings } from '../../settings';
 export interface BookmarkGridProps {
   contextId?: string;
   revision?: number;

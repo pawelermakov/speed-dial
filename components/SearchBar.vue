@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { formatMessage, t } from '../services/i18n';
 import { watch, ref, onUnmounted, computed, nextTick, onMounted } from 'vue';
-import { isMovieProvider } from '../types/models';
-import type { SearchProviderId, SearchSuggestion } from '../types/models';
+import { isMovieProvider } from '../modules/dial/modules/search';
+import type { SearchProviderId, SearchSuggestion } from '../modules/dial/modules/search';
 import { searchProviders, searchUrl } from '../modules/dial/modules/search/helpers/presentation';
 import { useProviderSuggestions } from '../modules/dial/modules/search/composables/useProviderSuggestions';
 const props = defineProps<{

@@ -4,7 +4,7 @@ import type { Bookmark, BookmarkSearchView } from '../entities/models';
 import type { BookmarkSearchPort } from '../services/interfaces';
 
 export function useBookmarkSearch(
-  repository: BookmarkSearchPort,
+  source: BookmarkSearchPort,
   snapshot: Readonly<Ref<BookmarkSearchView>>,
   revision: Ref<number> = ref(0),
 ) {
@@ -23,7 +23,7 @@ export function useBookmarkSearch(
       pending.value = !!text && !!snapshot.value.rootId;
       if (!pending.value) return;
       try {
-        const next = await repository.search(text, snapshot.value.tabs);
+        const next = await source.search(text, snapshot.value.tabs);
         if (current === generation) results.value = next;
       } catch (cause) {
         if (current === generation)

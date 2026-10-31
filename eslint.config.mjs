@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint';
 import vue from 'eslint-plugin-vue';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
+import architecture from './scripts/eslint-architecture.mjs';
 
 export default tseslint.config(
   {
@@ -28,7 +29,9 @@ export default tseslint.config(
   {
     files: ['**/*.{js,mjs,ts,vue}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    plugins: { architecture },
     rules: {
+      'architecture/no-retired-imports': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
@@ -103,17 +106,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['composables/useDial.ts'],
+    files: ['modules/dial/composables/useDial.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: [
-            '../services/database',
-            '../services/repository',
-            '../services/settings',
-            '../services/favicons',
-          ],
+          paths: ['../../../services/favicons'],
           patterns: ['wxt', 'wxt/**', '**/adapters/**', '**/infrastructure/**'],
         },
       ],
@@ -130,6 +128,7 @@ export default tseslint.config(
   },
   {
     files: [
+      'modules/dial/services/snapshot.ts',
       'modules/dial/modules/{bookmarks,settings,appearance,sync,backup,capture,search,mail}/services/**/*.ts',
     ],
     rules: {

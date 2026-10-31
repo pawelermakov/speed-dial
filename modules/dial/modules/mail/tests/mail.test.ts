@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { defaults } from '../../../../../types/models';
+import { defaults } from '../../settings';
 import { validateSettings } from '../../../../../services/validation';
-import { validSetting, syncPatch } from '../../../../../services/settingsSchema';
+import { validSetting, syncPatch } from '../../settings/schema';
 import { mailEnabled, mailTooltip } from '../helpers/presentation';
 import { parseYandexMailCount, parseMailCount, MailError } from '../adapters/counters';
 import { createMailModule } from '../newtab';

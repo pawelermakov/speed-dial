@@ -6,7 +6,7 @@ import { ui } from '../utils/ui';
 import type { SyncStatus } from '../modules/dial/modules/sync';
 import { useServices } from '../app/serviceContext';
 const { syncRequest, syncState: stateItem, getSyncStatus: syncStatus } = useServices();
-import type { SyncState } from '../services/settingsSync';
+import type { SyncState } from '../modules/dial/modules/sync/entities/models';
 defineProps<{ tooltipTarget?: string }>();
 const status = ref<SyncStatus>('unknown'),
   checking = ref(false),

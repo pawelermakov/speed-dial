@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { t } from '../services/i18n';
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
-import type { Folder } from '../types/models';
+import type { Folder } from '../modules/dial/modules/bookmarks';
 import { contextKey, plainNavigation } from '../utils/keyboard';
-import { insertedOrder } from '../utils/reorder';
+import { insertedOrder } from '../modules/dial/modules/bookmarks/helpers/reorder';
 const props = defineProps<{
   contextId?: string;
   revision: number;

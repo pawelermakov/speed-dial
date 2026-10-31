@@ -16,9 +16,9 @@ import {
 import ru from '../locales/ru.json';
 import en from '../locales/en.json';
 import es from '../locales/es.json';
-import { defaults } from '../types/models';
+import { defaults } from '../modules/dial/modules/settings';
 import { validateSettings } from '../services/validation';
-import { validSetting, syncPatch } from '../services/settingsSchema';
+import { validSetting, syncPatch } from '../modules/dial/modules/settings/schema';
 afterEach(() => setLanguage('ru'));
 describe('i18n', () => {
   it('defaults to Russian and provides native language names', () => {

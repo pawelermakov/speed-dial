@@ -32,14 +32,15 @@ DOM. Импорт JSON в `shared/i18n/contracts.ts` — только type impor
 
 Сервисы получают минимальные порты. BookmarksPort описывает операции над деревом,
 SettingsPort — envelope настроек, AssetsPort — локальные изображения.
-`BookmarkAssetStore` реализует AssetsPort, Repository использует этот контракт.
-DataLock, UpdatesPort и SyncClient передаются через DialDependencies. Сигнатура SyncClient пока сохраняет строковый action; типизированные
-сообщения и runtime validation будут мигрировать вместе на этапе 4.
+`BookmarkAssetStore` реализует AssetsPort. Модули получают этот контракт через
+composition root. DataLock, UpdatesPort и SyncClient передаются через
+DialDependencies; sync messages типизированы и отдельно проверяются в runtime.
 
 ## Сборка и lifecycle
 
-- `app/createNewtabApplication.ts` собирает отдельные Repository, settings/root
-  storage, соединение Dexie, browser events и BroadcastChannel для вкладки.
+- `app/createNewtabApplication.ts` собирает source/actions bookmarks, preferences,
+  appearance, snapshot reader, settings/root storage, соединение Dexie,
+  browser events и BroadcastChannel для вкладки.
 - `entrypoints/newtab/main.ts` устанавливает язык до mount и передаёт приложение
   через типизированный provide/inject из `app/serviceContext.ts`. На UI-границе
   вызывается useServices; useDial также принимает DialDependencies явно для тестов.
@@ -61,17 +62,18 @@ DataLock, UpdatesPort и SyncClient передаются через DialDependen
 
 ## Переходные части
 
-- `types/models.ts` — compatibility barrel для существующих потребителей до
-  этапа 8. Новые владельцы типов не импортируют его.
-- `services/bookmarks.ts` и `services/i18n.ts` временно реэкспортируют перенесённые
-  контракты. `services/settings.ts` сохраняет только type exports; settings storage
-  создаётся через feature adapter. `services/database.ts` реэкспортирует класс
-  подключения, `services/repository.ts` — общую блокировку, без второго экземпляра очереди.
-- `utils/weather.ts` временно содержит локализованные getters и forecastLink;
-  данные и типы уже принадлежат weather. При смене языка подписи вычисляются заново.
-- Repository остаётся совместимым фасадом до извлечения функций на этапах 3–5.
-  App/SettingsPanel получают его через контекст. useDial работает с минимальным
-  DialRepositoryPort, без импорта класса или создания реальной инфраструктуры.
+- На этапе 8.1 удалены `types/models.ts` и старые feature aliases из services,
+  utils и composables. Типы, helpers, schema, adapters и UI composables
+  импортируются у владельцев. DB импортируется из shared infrastructure;
+  data lock сохраняет единственную реализацию.
+- `architecture/no-retired-imports` проверяет static imports, re-exports,
+  dynamic imports и import types по разрешённому абсолютному пути. Он не
+  запрещает feature-local services только из-за совпадения basename.
+- Background root создаёт AutoNameStore вместе с DB и передаёт изменения в
+  тот же metadata adapter, без промежуточной compatibility-функции.
+- Repository и DialRepositoryPort удалены на этапе 8.2. useDial принадлежит
+  dial/composables и получает отдельные порты source/actions, preferences,
+  appearance и SnapshotReader. Старый путь useDial также запрещён линтером.
 - Текущий UI runtime переводов остаётся прежним. Переход на vue-i18n выполняется
   отдельно по разделу 7.2 плана; словари остаются в корневой папке `locales/`.
 
@@ -97,30 +99,27 @@ ESLint проверяет чистоту новых entities и независи
 - `adapters/assets.ts` и `adapters/autoNames.ts` инкапсулируют доступ к feature
   таблицам. getStored читает raw assets для backup без декодирования/фильтрации;
   обычные get/getMany сохраняют best-effort обработку необязательных изображений.
-- Repository только делегирует bookmark-операции. Backup пока
-  остаётся в фасаде; settings/appearance делегируются профильным сервисам; их методы не читают feature-таблицы напрямую, а используют порты.
-- prepareRead фиксирует поколение/выбор до асинхронных операций. Repository ждёт
+- UI actions вызывают source и actions напрямую. Backup использует source,
+  cache action, metadata/assets и профильные settings/appearance порты.
+- prepareRead фиксирует поколение/выбор до асинхронных операций. SnapshotReader ждёт
   settings/background/choices, затем завершает чтение bookmarks. При ошибке раннего
   чтения fallback root не сохраняется; старое чтение не меняет новый active/root.
 - `composables/useBookmarkSearch.ts` принадлежит bookmarks и принимает минимальные
   BookmarkSearchPort и BookmarkSearchView. Подмодуль не зависит от родительского Snapshot.
 - Тесты в `bookmarks/tests` проверяют factory → source/actions → adapters через
   MockBookmarks/fake-indexeddb, auto-name tickets, assets, folders, search и reorder.
-  Межмодульные проверки согласованного snapshot/backup/reset и совместимости фасада
-  остаются в корневых tests. Общий fake находится в tests/helpers с type-only contract import.
+  Межмодульные проверки согласованного snapshot/backup/reset находятся в
+  tests/dialIntegration.test.ts. Общий fake находится в tests/helpers с type-only contract import.
 
-В production Repository получает уже собранный BookmarksModule пятым аргументом.
-Его конструктор с четырьмя аргументами временно сохранён для legacy-потребителей:
-он собирает тот же модуль, не создавая второго владельца source state. Удалить
-эту совместимость вместе с фасадом на этапе 8. Старые services/bookmarks,
-services/bookmarkAssets, services/autoNames, composables/useBookmarkSearch и
-utils/reorder остаются только compatibility wrappers до миграции пользователей.
+В production root создаёт BookmarksModule один раз. Fixture интеграционных
+тестов собирает те же реализации и возвращает отдельные модули, без тестовой
+копии фасада или совместимого конструктора. Старые wrappers удалены на этапе 8.1.
 
 ## Settings, appearance и sync
 
 - settings/services/settings.ts сохраняет/patch-ит текущие настройки через порты,
   проверяет source до записи, фиксирует root последним и выполняет прежний rollback
-  настроек/фона при сбое. Production root передаёт этот сервис в фасад Repository.
+  настроек/фона при сбое. Production root передаёт этот сервис как preferences.
 - settings/composables/useSettingsState.ts владеет confirmed/pending fields,
   версиями записей, field errors и ready. Он возвращает overlay для одного publish
   общего snapshot. track/flush учитывают также незавершённые операции root/background
@@ -149,12 +148,12 @@ utils/reorder остаются только compatibility wrappers до мигр
   bookmarks/locators.ts и bookmarks/folders.ts, без импорта UI/фабрики bookmarks.
 - Schema helper пока использует legacy validateSettings. Старый runtime i18n и
   этот мост нормализации остаются до отдельной миграции переводов/удаления legacy;
-  они не заменены вторым переводчиком. Старые пути сохраняют compatibility exports.
+  они не заменены вторым переводчиком. Compatibility aliases удалены на этапе 8.1.
 
 Тесты theme/background/appearance и settingsSync/accountStatus перенесены к
 владельцам. Новые тесты покрывают concurrent optimistic edits, flush связанных
 записей, rollback/partial restore, stale background, независимые sync queues,
-transport failures и malformed wire messages. Межмодульные useDial/Repository
+transport failures и malformed wire messages. Межмодульные useDial/snapshot
 проверки остаются в корневой инфраструктуре.
 
 ## Backup, capture и отложенная загрузка (этап 5)
@@ -179,8 +178,8 @@ transport failures и malformed wire messages. Межмодульные useDial/
   Отмена во время ожидания factory не запускает захват.
 - shared/helpers/lazy.ts хранит один Promise на экземпляр, сбрасывает его после
   ошибки и освобождает ресурсы, включая результат, полученный после dispose.
-  Composition root владеет loaders; Repository пока делегирует backup через
-  отдельный loader до удаления compatibility facade.
+  Composition root владеет loaders; UI и backup service имеют отдельные getters.
+  Backup service создаётся с минимальными bound ports к реальным модулям.
 
 Production audit подтверждает отдельные chunks codec/dialog, backup service и
 capture client/workflow в обоих браузерах. В стартовом newtab chunk их нет;
@@ -209,7 +208,7 @@ capture client/workflow в обоих браузерах. В стартовом 
   Forecast API, fetch и новое persistent state не добавлены.
 - Unit-тесты функций перенесены в модули. Общие search fixtures остаются
   в tests/fixtures: их используют также browser/UI сценарии, без дублирования.
-  Legacy services и utils содержат compatibility exports до этапа 8.
+  Compatibility exports services/utils удалены на этапе 8.1.
 
 Компоненты экрана пока находятся в components; их композиция и разбор App
 относятся к этапу 7. Шаблоны и CSS на этапе 6 не менялись.

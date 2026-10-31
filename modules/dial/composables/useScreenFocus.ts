@@ -1,5 +1,5 @@
 import { shallowRef, watch, nextTick } from 'vue';
-import type { Bookmark } from '../../../types/models';
+import type { Bookmark } from '../modules/bookmarks';
 import type { DialState } from '../screenTypes';
 import type { Ref } from 'vue';
 import type { FocusTarget, ContextState } from '../screenTypes';

@@ -7,7 +7,7 @@ import {
   serializeExport,
   validateImportImages,
 } from '../adapters/json';
-import { defaults } from '../../../../../types/models';
+import { defaults } from '../../settings';
 const png =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 const image = () =>
