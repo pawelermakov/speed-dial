@@ -2,7 +2,7 @@ import { message } from '../../../../../shared/i18n/messages';
 import { LocalizedError } from '../../../../../shared/i18n/errors';
 import { type MessageText } from '../../../../../shared/i18n/contracts';
 import { defaults } from '../../settings';
-import { type BackupBookmark, type BackupSelection, type ImportData } from '..';
+import { type BackupBookmark, type BackupSelection, type ImportData } from '../entities/models';
 import { blobToDataUrl } from '../../../../../services/images';
 import { normalizeUrl, record, validateSettings } from '../../../../../services/validation';
 

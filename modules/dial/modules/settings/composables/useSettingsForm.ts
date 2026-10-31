@@ -3,13 +3,12 @@ import { message } from '../../../../../shared/i18n/messages';
 import { LocalizedError, errorMessage } from '../../../../../shared/i18n/errors';
 import { type MessageText } from '../../../../../shared/i18n/contracts';
 import { reactive, ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
-import { browser } from 'wxt/browser';
 import { useServices } from '../../../../../app/serviceContext';
-import type { Settings } from '..';
+import type { Settings } from '../entities/models';
 import type { FolderChoice } from '../../bookmarks';
 import { validateSettings } from '../../../../../services/validation';
 import { readImage } from '../../../../../services/images';
-import type { SyncState } from '../../sync/entities/models';
+import type { SyncState } from '../../sync';
 export interface SettingsFormProps {
   settings: Settings;
   busy: boolean;
@@ -32,6 +31,7 @@ export function useSettingsForm(props: SettingsFormProps, emit: SettingsFormEmit
     bookmarks: { source },
     syncRequest,
     syncState: syncStateItem,
+    events: browserEvents,
   } = useServices();
 
   const syncState = ref<SyncState | null>(null);
@@ -211,17 +211,11 @@ export function useSettingsForm(props: SettingsFormProps, emit: SettingsFormEmit
       if (!folderRequest) selectedFolder.value = props.rootId ?? '';
     }
   }
-  const api = browser.bookmarks;
-  const events = [
-    api?.onCreated,
-    api?.onRemoved,
-    api?.onChanged,
-    api?.onMoved,
-    api?.onChildrenReordered,
-    api?.onImportEnded,
-  ];
+  let unsubscribeFolders: (() => void) | undefined;
   onMounted(() => {
-    events.forEach((event) => event?.addListener(scheduleFolders));
+    unsubscribeFolders = browserEvents.subscribe((assetsOnly) => {
+      if (!assetsOnly) scheduleFolders();
+    });
     void loadFolders();
   });
   onUnmounted(() => {
@@ -229,7 +223,7 @@ export function useSettingsForm(props: SettingsFormProps, emit: SettingsFormEmit
     folderGeneration++;
     fileGeneration++;
     clearTimeout(folderTimer);
-    events.forEach((event) => event?.removeListener(scheduleFolders));
+    unsubscribeFolders?.();
     void flush();
   });
   function file(event: Event) {

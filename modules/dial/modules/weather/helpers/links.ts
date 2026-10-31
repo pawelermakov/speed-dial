@@ -1,7 +1,7 @@
 import type { Translator } from '../../../../../shared/i18n/formatMessage';
-import { weatherCityDefinitions, weatherProviderDefinitions } from '../index';
+import { weatherCityDefinitions, weatherProviderDefinitions } from '../entities/models';
 // Localized labels stay live when the application language changes.
-export type { WeatherCityId, WeatherProvider } from '../index';
+export type { WeatherCityId, WeatherProvider } from '../entities/models';
 export function getWeatherTranslates(t: Translator) {
   const weatherCities = weatherCityDefinitions.map(({ labelKey, ...city }) => ({
     ...city,

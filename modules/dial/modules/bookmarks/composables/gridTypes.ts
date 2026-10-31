@@ -1,4 +1,4 @@
-import type { Bookmark } from '..';
+import type { Bookmark } from '../entities/models';
 import type { Settings } from '../../settings';
 export interface BookmarkGridProps {
   contextId?: string;

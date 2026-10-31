@@ -1,18 +1,16 @@
 import { message } from '../../../shared/i18n/messages';
 import { errorMessage } from '../../../shared/i18n/errors';
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
-import {
-  cacheBackgroundPreview,
-  clearBackgroundPreview,
-} from '../modules/appearance/adapters/backgroundPreview';
-import { BackgroundResource } from '../modules/appearance/adapters/backgroundResource';
-import type { DialState } from '../screenTypes';
+import type { DialState, ScreenServices } from '../screenTypes';
 
-export function usePagePresentation({
-  snapshot,
-  loading,
-  notice,
-}: Pick<DialState, 'snapshot' | 'loading' | 'notice'>) {
+export function usePagePresentation(
+  { snapshot, loading, notice }: Pick<DialState, 'snapshot' | 'loading' | 'notice'>,
+  {
+    createResource,
+    cachePreview: cacheBackgroundPreview,
+    clearPreview: clearBackgroundPreview,
+  }: ScreenServices['backgroundPresentation'],
+) {
   const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion:reduce)');
   const reducedMotion = ref(reducedMotionQuery.matches);
   const motionEnabled = computed(() => !reducedMotion.value);
@@ -50,7 +48,7 @@ export function usePagePresentation({
   });
   const backgroundUrl = ref('');
   let decodedBackground: { url: string; image: HTMLImageElement } | undefined;
-  const backgroundResource = new BackgroundResource(
+  const backgroundResource = createResource(
     async (url) => {
       backgroundUrl.value = url;
       if (url && decodedBackground?.url === url) cacheBackgroundPreview(decodedBackground.image);

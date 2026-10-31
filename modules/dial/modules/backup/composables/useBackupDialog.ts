@@ -6,11 +6,9 @@ import { computed, nextTick, onMounted, ref, shallowRef } from 'vue';
 
 import { folderOptionLabels } from '../../bookmarks/folders';
 
-import { backupLimits, parseImport, validateImportImages } from '../adapters/json';
-import { downloadExport } from '../adapters/download';
-import { allBackupSections, type BackupSelection } from '..';
+import { allBackupSections, type BackupSelection } from '../entities/models';
 import type { FolderChoice } from '../../bookmarks';
-import type { ImportData, ImportReport, PreparedExport } from '..';
+import type { ImportData, ImportReport, PreparedExport } from '../entities/models';
 import type { Settings } from '../../settings';
 
 export interface BackupDialogProps {
@@ -30,7 +28,20 @@ export interface BackupDialogProps {
   ) => Promise<ImportReport>;
   resetData: () => Promise<void>;
 }
-export function useBackupDialog(props: BackupDialogProps) {
+export function useBackupDialog(
+  props: BackupDialogProps,
+  {
+    backupLimits,
+    parseImport,
+    validateImportImages,
+    downloadExport,
+  }: {
+    backupLimits: { file: number };
+    parseImport(text: string): ImportData;
+    validateImportImages(data: ImportData): Promise<void>;
+    downloadExport(text: string): void;
+  },
+) {
   const { t } = useUiI18n();
 
   const stage = ref<'home' | 'export' | 'import' | 'reset' | 'result'>('home'),

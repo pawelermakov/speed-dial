@@ -38,6 +38,7 @@ export default tseslint.config(
     plugins: { architecture },
     rules: {
       'architecture/no-retired-imports': 'error',
+      'architecture/import-boundaries': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
@@ -82,6 +83,22 @@ export default tseslint.config(
             '**/types/models',
           ],
         },
+      ],
+    },
+  },
+  {
+    files: ['modules/**/{entities,helpers,services}/**/*.ts'],
+    ignores: ['**/tests/**', '**/*.test.ts'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        'window',
+        'document',
+        'navigator',
+        'localStorage',
+        'sessionStorage',
+        'Image',
+        'HTMLElement',
       ],
     },
   },

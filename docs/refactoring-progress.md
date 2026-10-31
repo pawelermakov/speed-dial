@@ -541,3 +541,41 @@ CSP и permissions не менялись; JIT Vue I18n проверен в produ
 Далее — полные архитектурные границы, тестовая инфраструктура и равнозначное
 покрытие Chrome/Firefox по 7.4. Финальные suites, установка/обновление и
 сравнительный cold start обязательны до завершения этапа 8.
+
+## Этап 8.4 — архитектурные границы
+
+Реализовано 31 октября 2026 года. Этап 8 продолжается.
+
+- Добавлено architecture/import-boundaries: запрет внутренних импортов соседних
+  features, обратной зависимости feature → dial и shared → app/modules,
+  production → tests/fixtures/mocks, собственного barrel внутри feature.
+  Публичные чистые entries перечислены явно. Проверяются static/type imports,
+  re-exports, dynamic imports (включая строковый template literal) и @/~/ aliases.
+- Entities/helpers/services не загружают Vue/browser/Dexie и конкретные adapters;
+  composables получают адаптеры через зависимости. Type-only порты и ссылки на
+  компоненты для refs допустимы. Старые удалённые пути также запрещены через aliases.
+- Исправлены внутренний импорт SyncState и собственные barrels. BackgroundResource
+  и preview operations собираются в newtab root; backup codec/download передаются
+  composable при сборке lazy dialog. Открытие вкладки и bookmark events приходят
+  из root вместо прямого импорта WXT в UI composables. Фильтр asset-only events
+  сохраняет прежнюю семантику обновления списка папок и cleanup подписок.
+- npm run test:architecture включён в check и существующий CI: десять тестов
+  запрещённых/разрешённых импортов и обход 155 production TS/Vue файлов на
+  статические runtime-циклы. Type-only и deferred dynamic edges исключены из
+  проверки именно статических runtime-циклов.
+
+check прошёл: форматирование, ESLint, Stylelint, 10 архитектурных тестов,
+проверка графа, TypeScript и 328 unit-тестов в 44 файлах. Обе production-сборки
+успешны. Проверены затронутые browser-сценарии smoke, settings-autosave,
+folder-interaction, data-management, keyboard-navigation, themes, wallpaper-startup
+в Chrome и Firefox; дополнительно theme-startup в Chrome. Полные browser/UI
+наборы на этом шаге не повторялись; паритет Firefox ещё не реализован.
+
+Production audit: tests отсутствуют в bundles; background не содержит Vue,
+Intlify, словарей, UI и WXT storage; lazy backup/capture сохранены. Background
+прежний: 120963 / 120617 байт. Стартовый newtab Chrome/Firefox 458680 / 458310
+(+70); lazy dialog 21262 (+160), остальные lazy chunks прежнего размера.
+CSS cascade и все scoped rules совпадают с baseline, размеры 57907 + 2600 байт.
+
+Следующая часть — реорганизация тестов и матрица фактического покрытия по 7.4,
+затем устранение всех browser/UI/live-пробелов и Firefox allowlist.

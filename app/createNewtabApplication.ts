@@ -16,6 +16,11 @@ import { errorMessage } from '../shared/i18n/errors';
 import { createSettingsService } from '../modules/dial/modules/settings';
 import { createAppearanceService } from '../modules/dial/modules/appearance';
 import { createBackgroundStorage } from '../modules/dial/modules/appearance/adapters/storage';
+import { BackgroundResource } from '../modules/dial/modules/appearance/adapters/backgroundResource';
+import {
+  cacheBackgroundPreview,
+  clearBackgroundPreview,
+} from '../modules/dial/modules/appearance/adapters/backgroundPreview';
 import { createSyncClient } from '../modules/dial/modules/sync';
 import { createBrowserSyncTransport } from '../modules/dial/modules/sync/adapters/browserClient';
 import { createSyncStateStorage } from '../modules/dial/modules/sync/adapters/statusStorage';
@@ -92,6 +97,17 @@ export function createNewtabApplication(translations = createTranslationContext(
   let disposed = false;
   const search = createSearchModule(t);
   const application = {
+    openTab: async (url: string) => {
+      await browser.tabs.create({ url });
+    },
+    backgroundPresentation: {
+      createResource: (
+        publish: (url: string) => Promise<void>,
+        preload: (url: string) => Promise<void>,
+      ) => new BackgroundResource(publish, preload),
+      cachePreview: cacheBackgroundPreview,
+      clearPreview: clearBackgroundPreview,
+    },
     translations,
     search,
     mail: createMailModule(),

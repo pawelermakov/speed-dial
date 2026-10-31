@@ -88,6 +88,22 @@ ESLint проверяет чистоту новых entities и независи
 Ограничения legacy-каталогов усиливаются при их переносе. Не добавлять новые
 функции в старые общие каталоги только ради использования привычного пути.
 
+На этапе 8.4 добавлено правило `architecture/import-boundaries`. Между соседними
+features разрешены index и явные чистые entries bookmarks/folders,
+bookmarks/locators, settings/schema. Внутри feature используются прямые импорты.
+Feature не импортирует родительский dial, shared — app/entrypoints/modules,
+production — tests/fixtures/mocks. Проверяются type imports, re-exports,
+динамические импорты и корневые aliases @/~/.
+
+Entities/helpers/services не загружают Vue, browser API и Dexie; composables
+получают browser/storage adapters через зависимости. Type-only ссылки на UI
+компоненты допустимы для refs. Background presentation создаётся в newtab root;
+backup dialog получает codec/download при сборке lazy-компонента.
+`npm run test:architecture` проверяет правила на запрещённых импортах и обходит
+production-граф статических runtime imports, включая SFC scripts, на циклы.
+Type-only и отложенные dynamic edges не считаются статическими runtime-циклами.
+Эта проверка включена в `npm run check` и существующий CI job.
+
 ## Вертикальный сценарий bookmarks
 
 В `app/createNewtabApplication.ts` создаётся BookmarksModule через

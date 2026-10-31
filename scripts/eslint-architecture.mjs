@@ -1,4 +1,5 @@
 import { dirname, resolve } from 'node:path';
+import { importBoundaries } from './import-boundaries.mjs';
 // Paths removed during stage 8. Resolve against the importer so legitimate
 // feature-local services with the same basename remain available.
 const retired = [
@@ -37,6 +38,7 @@ const root = resolve(import.meta.dirname, '..');
 const paths = new Set(retired.map((path) => resolve(root, path).toLowerCase()));
 export default {
   rules: {
+    'import-boundaries': importBoundaries,
     'no-retired-imports': {
       meta: {
         type: 'problem',
@@ -48,8 +50,13 @@ export default {
       },
       create(context) {
         function check(node, source) {
-          if (typeof source !== 'string' || !source.startsWith('.')) return;
-          const target = resolve(dirname(context.filename), source)
+          if (typeof source !== 'string' || (!source.startsWith('.') && !/^(?:@|~)\//.test(source)))
+            return;
+          const target = (
+            source.startsWith('.')
+              ? resolve(dirname(context.filename), source)
+              : resolve(root, source.slice(2))
+          )
             .replace(/\.(?:ts|js)$/, '')
             .toLowerCase();
           if (paths.has(target))
@@ -58,7 +65,14 @@ export default {
         return {
           'ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration': (node) =>
             check(node, node.source?.value),
-          ImportExpression: (node) => check(node, node.source?.value),
+          ImportExpression: (node) =>
+            check(
+              node,
+              node.source?.value ??
+                (node.source?.type === 'TemplateLiteral' && !node.source.expressions.length
+                  ? node.source.quasis[0]?.value.cooked
+                  : undefined),
+            ),
           TSImportType: (node) =>
             check(node, node.argument?.literal?.value ?? node.argument?.value),
         };

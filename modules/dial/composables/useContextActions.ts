@@ -1,7 +1,6 @@
 import { message } from '../../../shared/i18n/messages';
 import { LocalizedError, errorMessage } from '../../../shared/i18n/errors';
 import { computed } from 'vue';
-import { browser } from 'wxt/browser';
 import { insertedOrder } from '../modules/bookmarks/helpers/reorder';
 import type { Bookmark, Folder } from '../modules/bookmarks';
 import type { DialState, ScreenServices } from '../screenTypes';
@@ -11,6 +10,7 @@ import type { useFolderActions } from './useFolderActions';
 import type { useBookmarkActions } from './useBookmarkActions';
 import type { useConfirmation } from './useConfirmation';
 export function useContextActions({
+  openTab,
   bookmarkActions,
   snapshot,
   revision,
@@ -31,6 +31,7 @@ export function useContextActions({
   capturing,
   updateImages,
 }: Pick<DialState, 'snapshot' | 'revision' | 'run' | 'notice'> & {
+  openTab: ScreenServices['openTab'];
   bookmarkActions: Pick<
     ScreenServices['bookmarks']['actions'],
     'reorder' | 'reorderFolders' | 'remove'
@@ -111,7 +112,7 @@ export function useContextActions({
       if (name === 'folder') await folderAction('create');
       if (name === 'settings') openSettings();
       if (!selected) return;
-      if (name === 'open') await browser.tabs.create({ url: selected.url });
+      if (name === 'open') await openTab(selected.url);
       if (name === 'edit') await openBookmark(selected);
       if (name === 'delete')
         askConfirmation(

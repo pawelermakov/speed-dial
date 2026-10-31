@@ -30,6 +30,7 @@ export function useNewtabScreen() {
       bookmarks.savingBookmark.value,
   );
   const core = {
+    openTab: services.openTab,
     ...dial,
     services,
     source: bookmarkModule.source,
@@ -71,7 +72,7 @@ export function useNewtabScreen() {
     ...focus,
     overlayOpen,
   });
-  const presentation = usePagePresentation(dial);
+  const presentation = usePagePresentation(dial, services.backgroundPresentation);
   usePageKeyboard({ ...core, ...search, ...settings, ...backup, ...focus, overlayOpen });
   return {
     dial,

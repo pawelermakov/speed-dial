@@ -5,6 +5,8 @@ import ModalDialog from '../../../../../components/ModalDialog.vue';
 import SelectChevron from '../../../../../components/SelectChevron.vue';
 import { ui } from '../../../../../utils/ui';
 import { useBackupDialog, type BackupDialogProps } from '../composables/useBackupDialog';
+import { backupLimits, parseImport, validateImportImages } from '../adapters/json';
+import { downloadExport } from '../adapters/download';
 const { t: $t, formatMessage } = useUiI18n();
 
 const props = defineProps<BackupDialogProps>();
@@ -39,7 +41,7 @@ const {
   read,
   importFile,
   reset,
-} = useBackupDialog(props);
+} = useBackupDialog(props, { backupLimits, parseImport, validateImportImages, downloadExport });
 defineExpose({
   close: () => {
     if (!busy.value) emit('close');
