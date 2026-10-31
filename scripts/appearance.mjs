@@ -109,6 +109,7 @@ if (!process.argv.includes('--firefox-only')) {
           'none',
         );
         await expect(page.locator('.dial')).toHaveCSS('filter', 'none');
+        await page.waitForFunction(() => !document.querySelector('.settings-panel-enter-active'));
         await page.screenshot({
           animations: 'disabled',
           path: resolve(out, `${width}-${background}-settings.png`),
@@ -130,6 +131,7 @@ if (!process.argv.includes('--firefox-only')) {
         );
         await page.getByLabel('Название папки', { exact: true }).fill('Draft');
         await expect(page.locator('dialog')).toHaveCSS('opacity', '1');
+        await page.waitForFunction(() => !document.querySelector('.modal-panel-enter-active'));
         await page.screenshot({
           animations: 'disabled',
           path: resolve(out, `${width}-${background}-dialog.png`),

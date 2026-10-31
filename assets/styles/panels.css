@@ -1,0 +1,312 @@
+.settings {
+  border-radius: var(--radius-panel) 0 0 var(--radius-panel);
+  line-height: 1.45;
+}
+.panel-header {
+  padding: 20px;
+  padding-right: 64px;
+  border: 0;
+}
+.panel-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.ui-control,
+.ui-button,
+.ui-folder {
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--ui-text);
+}
+.ui-control {
+  background: var(--surface-input);
+  min-height: 40px;
+  padding: 8px 12px;
+  backdrop-filter: none;
+}
+.ui-control:not(textarea) {
+  height: 40px;
+}
+.ui-file-button {
+  border-radius: var(--radius-action);
+}
+.ui-button {
+  border-radius: var(--radius-action);
+  background: var(--ui-accent);
+  color: var(--ui-accent-contrast);
+  min-height: 40px;
+  padding: 8px 12px;
+  font-weight: 500;
+}
+.page .ui-button {
+  line-height: 1.3;
+}
+.ui-button.secondary,
+.ui-button.danger,
+.settings-bottom .ui-button,
+.sync-action {
+  background: var(--surface-input);
+  color: var(--ui-text);
+}
+.ui-button.danger,
+.destructive {
+  color: var(--danger);
+}
+.ui-folder {
+  padding-inline: 16px;
+  border-color: var(--border-material);
+  border-radius: var(--radius-toolbar);
+}
+.ui-folder[aria-pressed='true'] {
+  background: var(--ui-accent);
+  color: var(--ui-accent-contrast);
+}
+.ui-folder[aria-pressed='true'] {
+  border-color: transparent;
+}
+.ui-hover,
+.ui-control,
+.ui-button,
+.ui-folder,
+.context button,
+.bookmark,
+.add-card {
+  transition:
+    border-color var(--motion-fast) var(--ease-state),
+    background-color var(--motion-fast) var(--ease-state),
+    color var(--motion-fast) var(--ease-state),
+    box-shadow var(--motion-fast) var(--ease-state);
+}
+.ui-hover:enabled:hover:not(:active),
+.ui-folder:not([aria-pressed='true']):enabled:hover,
+.ui-button.secondary:enabled:hover,
+.context button:enabled:hover,
+.context .keyboard-active {
+  background: var(--ui-accent-soft);
+}
+.ui-folder:not([aria-pressed='true']):enabled:hover,
+.add-card:enabled:hover {
+  background: var(--surface-control-hover);
+}
+.folder-tabs .ui-folder {
+  transition:
+    border-bottom-color var(--motion-standard) var(--ease-state),
+    background-color var(--motion-standard) var(--ease-state),
+    color var(--motion-standard) var(--ease-state),
+    box-shadow var(--motion-standard) var(--ease-state),
+    outline-color var(--motion-standard) var(--ease-state),
+    opacity var(--motion-standard) var(--ease-state);
+}
+.folder-tabs .ui-folder:not([aria-pressed='true']):enabled:hover {
+  background: var(--surface-folder-hover);
+}
+.ui-button.secondary:enabled:hover:not(:active),
+.ui-button.danger:enabled:hover:not(:active),
+.settings-bottom .ui-button:enabled:hover:not(:active),
+.sync-action:enabled:hover:not(:active) {
+  background: var(--surface-input-emphasis);
+}
+.ui-action-label {
+  color: inherit;
+}
+.ui-caption {
+  background: var(--surface-caption);
+  color: var(--ui-text);
+  backdrop-filter: none;
+}
+.surface-empty,
+.bookmark-area > div[role='status'] {
+  background: var(--surface-empty);
+  color: var(--ui-text);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  backdrop-filter: none;
+}
+.bookmark,
+.add-card {
+  aspect-ratio: 16/9;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--ui-shadow-tile);
+  transition:
+    box-shadow var(--motion-standard) var(--ease-state),
+    background-color var(--motion-standard) var(--ease-state);
+}
+.bookmark:not(.dragging):not(.drop-target):hover {
+  box-shadow:
+    var(--ui-shadow-raised),
+    inset 0 0 0 1px rgb(255 255 255 / 0.22);
+}
+.add-card:enabled:hover {
+  box-shadow: var(--ui-shadow-raised);
+}
+.bookmark.drop-target {
+  outline: 3px solid var(--ui-accent);
+  outline-offset: -3px;
+}
+.bookmark:not(.dragging):not(.drop-target):active,
+.add-card:enabled:active {
+  box-shadow: var(--ui-shadow-tile);
+}
+.add-card:enabled:hover {
+  background: var(--surface-folder-hover);
+}
+.add-card:enabled:active {
+  background: var(--surface-folder-pressed);
+}
+.bookmark-title {
+  line-height: 1.45;
+  border-top: 1px solid var(--ui-border);
+  transition: background-color var(--motion-standard) var(--ease-state);
+}
+.bookmark:hover .bookmark-title {
+  background: var(--surface-overlay);
+}
+.folder-scroll {
+  padding: var(--space-1);
+}
+.folder-tab:focus-visible,
+.folder-root:focus-visible {
+  outline-offset: -3px;
+}
+.context {
+  border-radius: var(--radius-popover);
+  padding: 4px;
+  font-size: 16px;
+  line-height: 1.45;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+  animation-duration: var(--motion-fast);
+}
+.context button {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: var(--radius-menu-item);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.context button:enabled:hover,
+.context .keyboard-active {
+  background: var(--surface-floating-emphasis);
+  color: var(--highlight-text);
+}
+.context button:enabled:active {
+  background: var(--surface-floating-pressed);
+  color: var(--highlight-text);
+}
+.context:has(button:hover) .keyboard-active:not(:hover) {
+  background: transparent;
+  color: var(--ui-text);
+}
+.page[data-keyboard-focus] .context button:focus-visible:not(:disabled) {
+  outline-offset: -2px;
+}
+.context-divider {
+  height: 1px;
+  margin: 4px 8px;
+  border: 0;
+  background: var(--ui-border);
+}
+.info-tooltip {
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 1.45;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+}
+.search-provider {
+  height: 40px;
+  width: 120px;
+  margin-left: 3px;
+}
+.settings-trigger.ui-folder {
+  padding: 0;
+  flex: none;
+}
+.settings-trigger svg {
+  flex: none;
+}
+.settings-trigger.ui-folder {
+  transition:
+    background-color var(--motion-standard) var(--ease-state),
+    box-shadow var(--motion-standard) var(--ease-state);
+}
+.settings-trigger.ui-folder:enabled:hover {
+  background: var(--surface-folder-hover);
+}
+.add-card {
+  background: var(--surface-control);
+  border: 1px solid var(--ui-border);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.search input {
+  border: 0;
+  background: transparent;
+  color: var(--ui-text);
+  border-radius: var(--radius-action);
+}
+.search-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  height: 40px;
+  width: 80px;
+  margin-right: 3px;
+}
+.search-submit svg {
+  display: none;
+}
+.search .search-submit:enabled:hover {
+  background: var(--ui-accent-hover);
+  box-shadow: none;
+}
+.search .search-submit:enabled:active {
+  background: var(--ui-accent-pressed);
+}
+.search-dropdown {
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+.suggestions {
+  padding: 3px;
+  max-height: min(360px, 45vh);
+  animation: fade var(--motion-fast) var(--ease-enter);
+}
+.suggestions li {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+}
+.suggestions li {
+  transition:
+    background-color var(--motion-standard) var(--ease-state),
+    color var(--motion-standard) var(--ease-state),
+    box-shadow var(--motion-standard) var(--ease-state);
+}
+.floating-enter-active .context,
+.floating-leave-active .context {
+  animation: none;
+  transition:
+    opacity var(--motion-fast) var(--ease-state),
+    transform var(--motion-fast) var(--ease-state);
+}
+.floating-leave-active {
+  pointer-events: none;
+}
+.floating-enter-from .context,
+.floating-leave-to .context {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.suggestions li[aria-selected='true'] {
+  --text-secondary: var(--highlight-text);
+  background: var(--surface-highlight);
+  color: var(--highlight-text);
+}

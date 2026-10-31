@@ -1,0 +1,223 @@
+@media (max-width: 1023px) {
+  .dial > header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .search {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .tools {
+    grid-row: 1;
+  }
+  .dial {
+    padding: 24px;
+  }
+}
+@media (max-width: 480px) {
+  .dial {
+    --page-padding: 16px;
+    padding: 16px;
+  }
+  .search-submit {
+    width: 44px;
+  }
+  .search-submit span {
+    display: none;
+  }
+  .search-submit svg {
+    display: block;
+    margin: auto;
+  }
+  .settings {
+    border-radius: 0;
+  }
+}
+/* Increased contrast is a system accessibility preference, not adaptive wallpaper styling. */
+@media (prefers-contrast: more) {
+  :root[data-theme] {
+    --surface-control: var(--contrast-control);
+    --surface-floating: var(--contrast-control);
+    --surface-elevated: var(--elevated-base);
+    --surface-input: var(--contrast-input);
+    --surface-input-emphasis: var(--ui-surface-base);
+    --surface-input-pressed: var(--contrast-input-pressed);
+    --surface-folder-hover: var(--contrast-folder-hover);
+    --surface-folder-pressed: var(--contrast-folder-pressed);
+    --text-secondary: var(--ui-text);
+    --ui-border: var(--contrast-border);
+    --border-material: var(--contrast-border);
+    --focus-ring: var(--ui-text);
+    --border-strong: var(--contrast-border-strong);
+  }
+  .ui-glass {
+    border-color: var(--border-material);
+  }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  :root[data-theme] {
+    --surface-control: var(--ui-surface-base);
+    --surface-floating: var(--ui-surface-base);
+    --surface-elevated: var(--elevated-base);
+    --surface-overlay: var(--ui-surface-base);
+    --surface-input-pressed: var(--ui-surface-base);
+    --surface-highlight: var(--opaque-highlight);
+    --surface-highlight-pressed: var(--opaque-highlight-pressed);
+    --surface-control-hover: var(--opaque-hover);
+    --surface-folder-hover: var(--opaque-hover);
+    --surface-folder-pressed: var(--opaque-pressed);
+    --surface-input-emphasis: var(--ui-surface-base);
+    --surface-input: var(--ui-surface-base);
+    --surface-caption: var(--ui-surface-base);
+    --surface-empty: var(--ui-surface-base);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme] {
+    --surface-control: var(--ui-surface-base);
+    --surface-floating: var(--ui-surface-base);
+    --surface-elevated: var(--elevated-base);
+    --surface-overlay: var(--ui-surface-base);
+    --surface-input-pressed: var(--ui-surface-base);
+    --surface-highlight: var(--opaque-highlight);
+    --surface-highlight-pressed: var(--opaque-highlight-pressed);
+    --surface-control-hover: var(--opaque-hover);
+    --surface-folder-hover: var(--opaque-hover);
+    --surface-folder-pressed: var(--opaque-pressed);
+    --surface-input-emphasis: var(--ui-surface-base);
+    --surface-input: var(--ui-surface-base);
+    --surface-caption: var(--ui-surface-base);
+    --surface-empty: var(--ui-surface-base);
+  }
+  .page * {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page *,
+  .page *::before,
+  .page *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@media (forced-colors: active) {
+  .ui-select--embedded > select.ui-control:enabled {
+    background: Canvas;
+    border-color: ButtonText;
+  }
+  :root[data-theme] {
+    --surface-highlight: Highlight;
+    --surface-highlight-pressed: Highlight;
+  }
+  .ui-hover:enabled:is(:hover, :active),
+  .ui-button:is(.secondary, .danger):enabled:is(:hover, :active),
+  .settings-bottom .ui-button:enabled:is(:hover, :active),
+  .sync-action:enabled:is(:hover, :active),
+  input:is(.file-input, .peer):enabled + label.ui-control:is(:hover, :active) {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .bookmark:hover .bookmark-title {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .ui-glass {
+    --text-secondary: CanvasText;
+    --danger: LinkText;
+    --success: CanvasText;
+  }
+  :is(input, select, textarea).ui-control:enabled:focus {
+    border-color: ButtonText;
+  }
+  .ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:is(:hover, :active) {
+    background: Highlight;
+    color: HighlightText;
+  }
+  input:is(.file-input, .peer):disabled + label.ui-control {
+    background: Canvas;
+    color: GrayText;
+  }
+  :root[data-theme] {
+    --page-background: Canvas;
+    --highlight-text: HighlightText;
+    --mail-icon: LinkText;
+    --surface-control: Canvas;
+    --surface-control-hover: Canvas;
+    --surface-folder-hover: Canvas;
+    --surface-folder-pressed: Highlight;
+    --surface-input: Canvas;
+    --surface-input-emphasis: Canvas;
+    --surface-input-pressed: Canvas;
+    --ui-text: CanvasText;
+    --text-secondary: CanvasText;
+    --danger: LinkText;
+    --success: CanvasText;
+  }
+  .page * {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+  .ui-glass,
+  :is(.modal, .context, .search-dropdown, .info-tooltip, .mail-error).ui-glass,
+  .ui-control,
+  .ui-button,
+  .ui-folder,
+  .surface-control,
+  .ui-caption,
+  .switch-track,
+  .surface-empty,
+  .add-card {
+    background: Canvas;
+    color: CanvasText;
+    border-color: ButtonText;
+  }
+  .ui-folder[aria-pressed='true'],
+  .switch-input:checked + .switch-track,
+  .suggestions li[aria-selected='true'] {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .page[data-keyboard-focus]
+    :is(button, input, select, textarea, a, [tabindex]):focus-visible:not(:disabled),
+  .page[data-keyboard-focus] .switch-input:focus-visible + .switch-track,
+  .page[data-keyboard-focus] .peer:focus-visible + label {
+    outline: 2px solid Highlight;
+  }
+  .search .search-submit:enabled:hover,
+  .search .search-submit:enabled:active {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .switch-control:hover .switch-input:checked:enabled + .switch-track,
+  .switch-input:checked:enabled:active + .switch-track {
+    background: Highlight;
+  }
+  .context button:enabled:is(:hover, :active),
+  .context .keyboard-active {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .switch-track::before {
+    background: ButtonText;
+  }
+  .switch-input:checked + .switch-track::before {
+    background: HighlightText;
+  }
+  .switch-input:disabled + .switch-track {
+    background: Canvas;
+    border-color: GrayText;
+  }
+  .switch-input:disabled + .switch-track::before {
+    background: GrayText;
+  }
+  .ui-select:has(select:disabled) .select-chevron {
+    color: GrayText;
+  }
+  .page :is(button, input, select, textarea):disabled {
+    color: GrayText;
+    background: Canvas;
+  }
+}

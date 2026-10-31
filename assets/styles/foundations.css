@@ -1,0 +1,109 @@
+@property --folder-edge-start {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+@property --folder-edge-end {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+@theme {
+  --color-accent: #ffcc00;
+  --animate-fade: fade var(--motion-standard) var(--ease-enter);
+  --animate-slide: slide var(--motion-standard) var(--ease-enter);
+  @keyframes fade {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes slide {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+}
+:root {
+  --ui-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+  --radius-action: 20px;
+  --radius-toolbar: 24px;
+  --radius-panel: 24px;
+  --radius-popover: 16px;
+  --radius-menu-item: 8px;
+  --motion-fast: 150ms;
+  --motion-standard: 250ms;
+  --ease-enter: ease-out;
+  --ease-exit: ease-in;
+  --ease-state: ease-in-out;
+  --ui-surface-base: #fff;
+  --ui-text: #17212f;
+  --text-secondary: #475569;
+  --ui-accent: #ffcc00;
+  --ui-accent-hover: #f2c200;
+  --ui-accent-pressed: #e6b800;
+  --ui-accent-rgb: 255 204 0;
+  --ui-accent-contrast: #17212f;
+  --ui-radius: var(--radius-md);
+  --ui-surface-alpha: 0.86;
+  --surface-control: rgb(255 255 255 / 0.86);
+  --surface-floating: rgb(255 255 255 / 0.54);
+  --surface-overlay: rgb(255 255 255 / 0.96);
+  --surface-input: rgb(255 255 255 / 0.46);
+  --surface-caption: rgb(255 255 255 / 0.92);
+  --surface-empty: rgb(255 255 255 / 0.94);
+  --surface-highlight: rgb(var(--ui-accent-rgb) / 0.45);
+  --surface-highlight-pressed: rgb(var(--ui-accent-rgb) / 0.6);
+  --surface-floating-emphasis: var(--surface-highlight);
+  --surface-floating-pressed: var(--surface-highlight-pressed);
+  --ui-surface: var(--surface-control);
+  --ui-accent-soft: rgb(23 33 47 / 0.08);
+  --surface-control-hover: rgb(238 241 245 / 0.96);
+  --surface-folder-hover: rgb(255 255 255 / 0.65);
+  --surface-folder-pressed: rgb(255 255 255 / 0.55);
+  --surface-input-emphasis: rgb(255 255 255 / 0.58);
+  --surface-input-pressed: rgb(255 255 255 / 0.38);
+  --focus-ring: #52647a;
+  --border-material: rgb(255 255 255 / 0.5);
+  --ui-border: rgb(23 33 47 / 0.12);
+  --border-strong: rgb(23 33 47 / 0.25);
+  --ui-control-border: var(--ui-border);
+  --mail-icon: var(--text-secondary);
+  --danger: #a61b1b;
+  --success: #166534;
+  --warning: #92400e;
+  --ui-shadow-tile: 0 2px 6px rgb(12 20 34 / 0.16);
+  --ui-shadow-raised: 0 8px 28px rgb(12 20 34 / 0.2);
+  --ui-shadow-popover: var(--ui-shadow-raised);
+  --shadow-overlay: 0 18px 50px rgb(12 20 34 / 0.24);
+  --ui-overlay: rgb(8 14 25 / 0.2);
+}
+html {
+  font-family: var(--ui-font);
+  background: var(--page-background);
+  color: var(--ui-text);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+  overflow: hidden;
+}
+/* Keep the page in place while native dialogs own scrolling and focus. */

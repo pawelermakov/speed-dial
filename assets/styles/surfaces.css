@@ -1,0 +1,130 @@
+.search-surface {
+  border-radius: inherit;
+  z-index: -1;
+}
+.surface-control,
+.ui-folder {
+  background: var(--surface-control);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.ui-glass {
+  --text-secondary: var(--glass-secondary);
+  --danger: var(--glass-danger);
+  --success: var(--glass-success);
+  background: var(--glass-gradient), var(--surface-floating);
+  color: var(--ui-text);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-popover);
+  box-shadow:
+    var(--ui-shadow-popover),
+    inset 0 1px 1px var(--glass-top),
+    inset 0 -1px 0 var(--glass-bottom);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6);
+  backdrop-filter: blur(12px) saturate(1.6);
+}
+:is(.modal, .context, .search-dropdown, .info-tooltip, .mail-error).ui-glass {
+  background: var(--glass-gradient), var(--surface-elevated);
+}
+.surface-control {
+  border: 1px solid var(--border-material);
+  box-shadow: var(--ui-shadow-tile);
+}
+.ui-overlay {
+  background: var(--ui-overlay);
+}
+/* Keep glass ancestors opaque: fading an ancestor changes the backdrop used by blur. */
+:is(
+  .modal-panel-enter-active,
+  .modal-panel-leave-active,
+  .settings-panel-enter-active,
+  .settings-panel-leave-active
+) {
+  transition: background-color var(--motion-standard) var(--ease-state);
+}
+:is(
+  .modal-panel-enter-from,
+  .modal-panel-leave-to,
+  .settings-panel-enter-from,
+  .settings-panel-leave-to
+) {
+  background: transparent;
+}
+.modal-panel-enter-active .modal,
+.modal-panel-leave-active .modal {
+  animation: none;
+  transition:
+    opacity var(--motion-standard) var(--ease-state),
+    transform var(--motion-standard) var(--ease-state);
+}
+.modal-panel-enter-from .modal,
+.modal-panel-leave-to .modal {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.settings-panel-enter-active .settings,
+.settings-panel-leave-active .settings {
+  animation: none;
+  transition: transform var(--motion-standard) var(--ease-state);
+}
+.settings-panel-enter-from .settings,
+.settings-panel-leave-to .settings {
+  transform: translateX(100%);
+}
+:is(.modal-panel-leave-active, .settings-panel-leave-active) {
+  pointer-events: none;
+}
+.modal-screen[open] {
+  display: flex;
+  align-items: safe center;
+  justify-content: center;
+}
+.modal,
+.settings {
+  border-radius: var(--radius-panel);
+  box-shadow:
+    0 24px 64px rgb(8 14 25 / 0.2),
+    inset 0 1px 1px var(--glass-top),
+    inset 0 -1px 0 var(--glass-bottom);
+}
+.modal {
+  width: min(360px, calc(100vw - 32px));
+}
+.modal.bookmark-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+.modal.wide {
+  width: min(480px, calc(100vw - 32px));
+}
+:is(input, select, textarea).ui-control:enabled:focus {
+  background: var(--surface-input-emphasis);
+  border-color: transparent;
+}
+:is(input, select, textarea).ui-control[aria-invalid='true']:enabled:focus {
+  border-color: var(--danger);
+}
+select.ui-control:enabled:active {
+  background: var(--surface-input-pressed);
+}
+.ui-button.secondary:enabled:active,
+.ui-button.danger:enabled:active,
+.sync-action:enabled:active,
+.settings-bottom .ui-button:enabled:active,
+input:is(.file-input, .peer):enabled + label.ui-control:active {
+  background: var(--surface-input-pressed);
+}
+.ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:hover {
+  background: var(--ui-accent-hover);
+}
+.ui-button:not(.secondary):not(.danger):not(.sync-action):enabled:active {
+  background: var(--ui-accent-pressed);
+}
+.ui-hover:enabled:active {
+  background: var(--ui-border);
+}
+input:is(.file-input, .peer):disabled + label.ui-control {
+  background: var(--surface-disabled);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  box-shadow: none;
+}

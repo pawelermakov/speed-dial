@@ -1,0 +1,176 @@
+.page:has(dialog[open]) .bookmark-content {
+  overflow-y: hidden;
+}
+/* Reserve scrollbar space before overflow so text and controls keep their width. */
+:where(.settings-content, .modal) {
+  scrollbar-gutter: stable;
+}
+/* The modal panel owns scrolling; its fullscreen backdrop must not add a second bar. */
+.modal-screen {
+  overflow: clip;
+}
+.page {
+  color: var(--ui-text);
+  font-size: 16px;
+  line-height: 1.45;
+  height: 100dvh;
+  overflow: hidden;
+}
+.dial {
+  --page-padding: 24px;
+  height: 100%;
+  min-height: 0;
+}
+.bookmark-area {
+  min-height: 0;
+}
+.bookmark-toolbar {
+  flex-shrink: 0;
+}
+.bookmark-content {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scroll-padding-block: 24px;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+  padding: 8px var(--page-padding);
+  margin: -8px calc(-1 * var(--page-padding));
+}
+.bookmark-content [data-bookmark-edge-active] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--bookmark-mask-top, 0px),
+    #000 calc(100% - var(--bookmark-mask-bottom, 0px)),
+    transparent
+  );
+  mask-size: calc(100% + 64px) var(--bookmark-mask-height, 100%);
+  mask-position: -32px var(--bookmark-mask-offset, 0px);
+  mask-repeat: no-repeat;
+  mask-clip: no-clip;
+}
+@media (forced-colors: active) {
+  .bookmark-content [data-bookmark-edge-item] {
+    mask-image: none;
+  }
+}
+.bookmark-content.justify-center {
+  justify-content: safe center;
+}
+.bookmark-content > * {
+  flex-shrink: 0;
+}
+.page button,
+.page input,
+.page select,
+.page textarea {
+  font-family: var(--ui-font);
+  font-size: 16px;
+  line-height: 1.45;
+}
+.settings-form {
+  font-size: 16px;
+}
+.settings label[for='background'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+}
+.page input::placeholder,
+.page textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+.dial:not(.is-loaded) > header {
+  visibility: hidden;
+}
+.page-background {
+  opacity: 0;
+}
+.page-background.is-ready {
+  opacity: 1;
+}
+.dial > header {
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 700px) 1fr;
+  align-items: start;
+  gap: 16px;
+  z-index: 10;
+}
+.search {
+  z-index: 1;
+  padding: 1px;
+  isolation: isolate;
+  grid-column: 2;
+  height: 48px;
+  max-width: 700px;
+  border-radius: var(--radius-toolbar);
+}
+.tools {
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.mail-indicators {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.weather-widget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 180px;
+  min-width: 0;
+  flex: 0 1 180px;
+  height: 48px;
+  padding: 6px 12px;
+  text-align: left;
+  text-decoration: none;
+}
+.weather-widget[href]:hover {
+  background: var(--surface-control-hover);
+}
+.weather-widget[href]:active {
+  background: var(--surface-folder-pressed);
+}
+.weather-symbol {
+  flex: none;
+}
+.weather-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  gap: 2px;
+}
+.weather-caption {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.weather-city {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .dial > header:is(.has-weather, .has-mail-services) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  :is(.has-weather, .has-mail-services) .search {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  :is(.has-weather, .has-mail-services) .tools {
+    grid-row: 1;
+  }
+}

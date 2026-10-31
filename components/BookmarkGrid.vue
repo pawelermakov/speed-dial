@@ -2,23 +2,14 @@
 import { t } from '../services/i18n';
 import { watch, nextTick, onMounted, onUnmounted, ref, computed } from 'vue';
 import { BookmarkImages } from '../utils/bookmarkImages';
-import type { Bookmark, Settings } from '../types/models';
+import type { Bookmark } from '../types/models';
 import TileHostname from './TileHostname.vue';
 import EmptyState from './EmptyState.vue';
 import { contextKey, gridFocusIndex, plainNavigation } from '../utils/keyboard';
-import { insertedOrder, nearestInsertion } from '../utils/reorder';
+import { useBookmarkGridDrag } from '../modules/dial/modules/bookmarks/composables/useBookmarkGridDrag';
+import type { BookmarkGridProps } from '../modules/dial/modules/bookmarks/composables/gridTypes';
 import { tileHostname, tileColor, fitTileColumns } from '../utils/tile';
-const props = defineProps<{
-  contextId?: string;
-  revision?: number;
-  motionEnabled: boolean;
-  folderId?: string | null;
-  tabs: Bookmark[];
-  settings: Settings;
-  disabled: boolean;
-  searching?: boolean;
-  folderNames?: Record<string, string>;
-}>();
+const props = defineProps<BookmarkGridProps>();
 const emit = defineEmits<{
   add: [];
   context: [event: MouseEvent | KeyboardEvent, bookmark: Bookmark];
@@ -28,13 +19,6 @@ const emit = defineEmits<{
 const previews = ref<Record<string, string>>({});
 const icons = ref<Record<string, string>>({});
 const failedIcons = ref<Record<string, string>>({});
-const dragId = ref<string | null>(null);
-const overId = ref<string | null>(null);
-const after = ref(false);
-let expected: string[] = [],
-  suppressClick = false,
-  dragRevision = 0;
-let clickResetTimer: ReturnType<typeof setTimeout> | undefined;
 const grid = ref<HTMLElement>();
 const gridWidth = ref(0);
 const preparing = ref(true);
@@ -47,6 +31,8 @@ function cancelReveal() {
   for (const animation of revealAnimations) animation.cancel();
   revealAnimations = [];
 }
+const { dragId, overId, after, start, end, over, drop, overGrid, dropGrid, click } =
+  useBookmarkGridDrag(props, grid, cancelReveal, emit);
 watch(
   () => props.motionEnabled,
   (enabled) => {
@@ -135,103 +121,10 @@ onUnmounted(() => {
   disposed = true;
   generation++;
   cancelReveal();
-  clearTimeout(clickResetTimer);
   cancelAnimationFrame(resizeFrame);
   observer?.disconnect();
   images.dispose();
 });
-function start(event: DragEvent, id: string) {
-  if (props.disabled || props.searching) {
-    event.preventDefault();
-    return;
-  }
-  cancelReveal();
-  clearTimeout(clickResetTimer);
-  dragId.value = id;
-  dragRevision = props.revision ?? 0;
-  expected = props.tabs.map((row) => row.id);
-  suppressClick = true;
-  event.dataTransfer?.setData('text/plain', String(id));
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-}
-function finish() {
-  dragId.value = null;
-  overId.value = null;
-}
-function end() {
-  const cancelled = !!dragId.value;
-  finish();
-  if (cancelled) emit('refresh');
-  clearTimeout(clickResetTimer);
-  clickResetTimer = setTimeout(() => {
-    suppressClick = false;
-  }, 100);
-}
-watch(
-  () => [props.disabled, props.searching, props.revision],
-  () => {
-    if (dragId.value) end();
-  },
-);
-function over(event: DragEvent, id: string) {
-  if (!dragId.value || props.disabled || props.searching) return;
-  event.preventDefault();
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  after.value = event.clientX > rect.left + rect.width / 2;
-  overId.value = insertedOrder(expected, dragId.value, id, after.value) ? id : null;
-}
-function drop(event: DragEvent, target: string) {
-  if (!dragId.value || props.disabled || props.searching) {
-    finish();
-    return;
-  }
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const ids = insertedOrder(
-    expected,
-    dragId.value,
-    target,
-    event.clientX > rect.left + rect.width / 2,
-  );
-  finish();
-  if (ids && dragRevision === (props.revision ?? 0)) emit('reorder', ids, expected, dragRevision);
-}
-function gridTarget(event: DragEvent) {
-  return nearestInsertion(
-    Array.from(grid.value?.querySelectorAll<HTMLElement>('.bookmark') ?? []).map((el) => ({
-      id: el.dataset.bookmarkId!,
-      ...el.getBoundingClientRect().toJSON(),
-    })),
-    event.clientX,
-    event.clientY,
-  );
-}
-function overGrid(event: DragEvent) {
-  if (
-    !dragId.value ||
-    props.disabled ||
-    props.searching ||
-    (event.target as Element).closest('.bookmark')
-  )
-    return;
-  event.preventDefault();
-  const target = gridTarget(event);
-  overId.value =
-    target && insertedOrder(expected, dragId.value, target.id, target.after) ? target.id : null;
-  if (target) after.value = target.after;
-}
-function dropGrid(event: DragEvent) {
-  if (!dragId.value || props.disabled || props.searching) return;
-  const target = gridTarget(event),
-    ids = target && insertedOrder(expected, dragId.value, target.id, target.after);
-  finish();
-  if (ids && dragRevision === (props.revision ?? 0)) emit('reorder', ids, expected, dragRevision);
-}
-function click(event: MouseEvent) {
-  if (suppressClick) {
-    event.preventDefault();
-    suppressClick = false;
-  }
-}
 function key(event: KeyboardEvent, tab: Bookmark) {
   if (props.disabled) return;
   if (contextKey(event)) {

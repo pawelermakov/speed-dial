@@ -1,0 +1,195 @@
+.settings-row,
+.capture-option {
+  min-height: 40px;
+}
+.settings input[type='number'] {
+  min-width: 72px;
+  text-align: center;
+}
+.ui-select {
+  position: relative;
+  min-width: 0;
+}
+.ui-select option {
+  background: var(--ui-surface-base);
+  color: var(--ui-text);
+}
+.ui-select > select {
+  appearance: none;
+  padding-right: 40px;
+}
+.ui-select--embedded > select.ui-control {
+  padding-right: 12px;
+  border-radius: var(--radius-action);
+}
+.ui-select--embedded > select.ui-control:enabled {
+  background: transparent;
+  border-color: transparent;
+  cursor: pointer;
+}
+.ui-select--embedded > select.ui-control:enabled:focus {
+  background: var(--surface-input-emphasis);
+  border-color: transparent;
+}
+.ui-select--embedded > select.ui-control:enabled:active {
+  background: var(--surface-input-pressed);
+}
+.select-chevron {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--ui-text);
+  transition: color var(--motion-fast) var(--ease-state);
+}
+.ui-select:has(select:focus) .select-chevron {
+  color: var(--ui-text);
+}
+.ui-select:has(select:disabled) .select-chevron {
+  color: var(--text-disabled);
+}
+.switch-input {
+  width: 44px;
+  height: 26px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.switch-track {
+  width: 44px;
+  height: 26px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-input);
+  transition:
+    background-color var(--motion-fast) var(--ease-state),
+    border-color var(--motion-fast) var(--ease-state),
+    box-shadow var(--motion-fast) var(--ease-state);
+}
+.switch-track::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgb(12 20 34 / 0.25);
+  transform: translateX(0);
+  transition:
+    transform var(--motion-fast) var(--ease-state),
+    background-color var(--motion-fast) var(--ease-state),
+    box-shadow var(--motion-fast) var(--ease-state);
+}
+.switch-input:checked + .switch-track {
+  background: var(--ui-accent);
+}
+.switch-input:checked + .switch-track::before {
+  transform: translateX(18px);
+}
+.switch-control:hover .switch-input:checked:enabled + .switch-track {
+  background: var(--ui-accent-hover);
+}
+.switch-input:enabled:active + .switch-track {
+  background: var(--ui-border);
+}
+.switch-input:checked:enabled:active + .switch-track {
+  background: var(--ui-accent-pressed);
+}
+.switch-control:has(.switch-input:disabled),
+.switch-control:has(.switch-input:disabled) label,
+.switch-input:disabled {
+  cursor: not-allowed;
+}
+.switch-input:disabled + .switch-track {
+  background: var(--surface-disabled);
+  border-color: var(--border-strong);
+}
+.switch-input:disabled + .switch-track::before {
+  background: var(--scrollbar);
+  box-shadow: none;
+}
+
+.page input[type='checkbox'] {
+  accent-color: var(--ui-accent);
+}
+.settings-content {
+  scrollbar-width: thin;
+}
+.settings legend,
+.settings h3 {
+  font-weight: 600;
+}
+.sync-email {
+  color: var(--text-secondary);
+}
+.page [role='alert'],
+.ui-error {
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+.notice,
+.page > div[role='alert'] {
+  background: var(--surface-empty);
+  color: var(--ui-text);
+}
+.notice button {
+  min-width: 36px;
+  min-height: 36px;
+}
+.mail {
+  border: 1px solid var(--border-material);
+  color: var(--mail-icon);
+  background: var(--surface-control);
+  border-radius: var(--radius-toolbar);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition:
+    background-color var(--motion-standard) var(--ease-state),
+    color var(--motion-fast) var(--ease-state);
+}
+.mail:hover {
+  background: var(--surface-folder-hover);
+}
+.mail:active {
+  color: var(--ui-text);
+}
+.mail svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.badge {
+  background: var(--badge-background);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+.page :is(button, input, select, textarea, a, [tabindex]):focus {
+  outline: none;
+}
+.page[data-keyboard-focus]
+  :is(button, input, select, textarea, a, [tabindex]):focus-visible:not(:disabled),
+.page[data-keyboard-focus] .switch-input:focus-visible + .switch-track,
+.page[data-keyboard-focus] .peer:focus-visible + label {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.page[data-keyboard-focus] .folder-tabs .ui-folder:focus-visible {
+  outline-offset: -3px;
+}
+.page[data-keyboard-focus] .bookmark:focus-visible:not(:disabled) {
+  outline-offset: -3px;
+}
+.page :is(button, input, select, textarea):disabled {
+  background: var(--surface-disabled);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.ui-control[aria-invalid='true'] {
+  border-color: var(--danger);
+}

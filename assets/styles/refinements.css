@@ -1,0 +1,186 @@
+.settings .settings-number {
+  width: 88px;
+  min-width: 88px;
+  flex: none;
+  padding-inline: 12px;
+}
+.settings-number::-webkit-inner-spin-button {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  height: 20px;
+  margin: 0;
+  transform: translateY(-50%);
+}
+/* Firefox reserves 18px for its native stepper inside the text area. */
+@supports (-moz-appearance: none) {
+  .settings .settings-number {
+    padding-inline: 26px 8px;
+  }
+}
+
+input.peer:enabled + label.ui-control:hover:not(:active),
+input.file-input:enabled + label.ui-control:hover:not(:active) {
+  background: var(--surface-input-emphasis);
+}
+
+.folder-tabs .ui-folder:not([aria-pressed='true']):enabled:active,
+.settings-trigger.ui-folder:enabled:active,
+.mail:active {
+  background: var(--surface-folder-pressed);
+}
+.folder-tabs .ui-folder[aria-pressed='true']:enabled:active {
+  background: var(--ui-accent-pressed);
+}
+.mail-error {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+  z-index: 6;
+  transition:
+    opacity var(--motion-fast) var(--ease-state),
+    visibility var(--motion-fast) var(--ease-state);
+}
+.mail-control:hover .mail-error,
+.mail-control:has(.mail:focus-visible) .mail-error {
+  visibility: visible;
+  opacity: 1;
+}
+
+@media (forced-colors: active) {
+  .folder-tabs .ui-folder:enabled:active,
+  .settings-trigger.ui-folder:enabled:active,
+  .mail:active,
+  .weather-widget[href]:active {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
+/* Controls inside an existing surface use its material rather than another glass layer. */
+.close,
+.info-help > button {
+  border-radius: var(--radius-full);
+}
+.settings-form > fieldset {
+  border: 0;
+  padding-top: 0;
+  margin-top: 16px;
+}
+.settings-form > fieldset > legend {
+  position: relative;
+  width: 100%;
+}
+.settings-form > fieldset > legend::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--ui-border);
+}
+@media (forced-colors: active) {
+  .settings-form > fieldset > legend::before {
+    background: ButtonText;
+  }
+}
+
+.search-clear {
+  width: 32px;
+  height: 36px;
+  margin-right: 2px;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  background: transparent;
+}
+/* Touch targets grow without changing desktop control geometry. */
+@media (pointer: coarse) {
+  .close,
+  .info-help > button {
+    width: 44px;
+    height: 44px;
+  }
+  .search-clear {
+    width: 44px;
+    height: 44px;
+  }
+  .search-submit {
+    height: 44px;
+    margin-right: 1px;
+  }
+  .search-provider {
+    height: 44px;
+    margin-left: 1px;
+  }
+  .search-provider > select.ui-control {
+    height: 44px;
+  }
+  .context button,
+  .suggestions li,
+  .switch-control,
+  .ui-button,
+  .ui-file-button {
+    min-height: 44px;
+  }
+  .ui-control:not(textarea) {
+    min-height: 44px;
+    height: 44px;
+  }
+  .settings button[aria-label='Удалить фон'] {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* A dark halo keeps the light focus ring visible over a bright wallpaper. */
+:root[data-theme='dark']
+  .page[data-keyboard-focus]
+  :is(
+    .ui-control,
+    .ui-button,
+    .ui-folder,
+    .search input,
+    .close,
+    .search-clear,
+    .info-help > button
+  ):focus-visible:not(:disabled) {
+  box-shadow: 0 0 0 4px var(--focus-halo);
+}
+
+/* Keep the focus boundary legible against both bright and dark tile images. */
+.page[data-keyboard-focus] .bookmark:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+.page[data-keyboard-focus] .context button:focus-visible {
+  background: var(--surface-floating-emphasis);
+  color: var(--highlight-text);
+}
+@media (forced-colors: active) {
+  .page[data-keyboard-focus] .bookmark:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+.page[data-keyboard-focus] .bookmark:focus-visible::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 2px solid #fff;
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px #17212f,
+    inset 0 0 0 2px #17212f;
+  pointer-events: none;
+  z-index: 2;
+}
+@media (forced-colors: active) {
+  .page[data-keyboard-focus] .bookmark:focus-visible::before {
+    border-color: Highlight;
+    box-shadow: none;
+  }
+}

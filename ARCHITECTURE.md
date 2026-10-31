@@ -214,6 +214,38 @@ capture client/workflow в обоих браузерах. В стартовом 
 Компоненты экрана пока находятся в components; их композиция и разбор App
 относятся к этапу 7. Шаблоны и CSS на этапе 6 не менялись.
 
+## Экран и стили (этап 7)
+
+- App.vue — оболочка NewtabView. NewtabView собирает NewtabToolbar,
+  NewtabBookmarks и NewtabDialogHost без дополнительных DOM wrappers.
+- useNewtabScreen содержит только создание и связывание сценариев.
+  useBookmarkActions, useFolderActions, useBackupFlow, useSettingsPanel и
+  useConfirmation владеют своими действиями и состоянием. useContextActions
+  координирует выбранную закладку/папку, не копируя CRUD.
+- useBookmarkSearchView, usePagePresentation, useScreenFocus и usePageKeyboard
+  владеют UI lifecycle: поиск, background resource, media/listeners, focus
+  targets и shortcuts. Их ресурсы освобождаются вместе с NewtabView.
+- screenContext передаёт те же refs дочерним частям одного экрана через Vue
+  provide/inject. Он создаётся на экран, не является глобальным container.
+  DOM-типы focus/context находятся в screenTypes.ts, отдельно от pure entities.
+- SettingsPanel использует feature useSettingsForm: buffered fields, flush,
+  source selector и background file flow. WeatherSettings — отдельная секция.
+  BookmarkGrid использует useBookmarkGridDrag, сохраняя image/reveal lifecycle.
+- DataManagementDialog оставляет markup и exposed close, useBackupDialog
+  владеет его UI flow. Scoped CSS вынесен в backup/styles/data-management.css;
+  codec и операции backup остаются у прежних владельцев.
+- assets/style.css — упорядоченный entry: Tailwind, themes, foundations,
+  layout, surfaces, panels, controls, media и refinements. CSS разрезан по
+  top-level узлам без перестановки правил. Аудит production CSS сравнивает
+  глобальный каскад и содержимое каждого scoped блока отдельно: компонентная
+  композиция меняет порядок независимых scoped блоков и их scope IDs.
+- В appearance-проверке снимки настроек/диалога ожидают завершения enter
+  transition, чтобы видимость layout box не подменяла завершённое отображение.
+
+Сценарии фокуса, клавиатуры, modal handoff, drag, scroll и reduced motion
+проверяются общими browser/UI suites; unit-тесты дополнительно фиксируют
+повторное открытие settings во время flush и защиту confirmation от дублей.
+
 ## Как добавлять поведение
 
 1. Определить feature-владельца и его чистые entities.

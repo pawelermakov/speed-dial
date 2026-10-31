@@ -349,3 +349,60 @@ composable; сравнительный замер cold start остаётся о
 
 Следующий этап — разделение экрана и стилей. Полный паритет Chrome/Firefox
 остаётся обязательной работой тестовой инфраструктуры по разделу 7.4.
+
+## Этап 7 — экран, сценарии и стили
+
+Реализовано 31 октября 2026 года:
+
+- App уменьшен с 1078 до 6 строк. NewtabView (66 строк) собирает toolbar
+  (64), bookmarks area (120) и dialog host (177), сохраняя структуру DOM.
+- useNewtabScreen (82 строки) связывает отдельные actions, backup flow,
+  settings, confirmation, context menu, search view, presentation, focus и
+  keyboard composables. Логика App не перенесена в один большой composable.
+  Общие refs передаются через screen-local typed Vue context, без singleton.
+- Сохранены stale revision guards, capture intent, частичные ошибки,
+  переход settings → data management, возврат фокуса, shortcuts, inert во
+  время leave и отмена listeners/resources на unmount.
+- SettingsPanel уменьшен с 590 до 297 строк: form lifecycle принадлежит
+  useSettingsForm, погода — отдельной WeatherSettings. BookmarkGrid уменьшен
+  с 395 до 288 строк: drag lifecycle выделен отдельно от image/reveal.
+- DataManagementDialog уменьшен с 806 до 330 строк: markup/exposed close
+  отделены от useBackupDialog, scoped CSS перенесён в отдельный файл.
+  Props/emits, внешний backup format и сценарии операций не менялись.
+- Global CSS перенесён независимым механическим шагом в семь последовательных
+  файлов. Перед переносом сохранён исходник; AST-разбиение восстановило его
+  конкатенацией без изменений. Themes/tokens и порядок правил сохранены.
+- Добавлены 2 unit-теста: reopen settings во время flush не закрывает новую
+  панель; confirmation блокирует повторный запуск и сохраняет ошибку для retry.
+- При визуальной проверке обнаружено, что appearance-снимок мог снимать
+  settings до завершения enter transition. Добавлено явное ожидание завершения
+  перехода для settings/dialog; сценарий повторно прошёл, снимки просмотрены.
+
+check прошёл: форматирование, ESLint, Stylelint, TypeScript, 43 файла / 325 тестов.
+Обе production-сборки успешны. Полные текущие browser-наборы прошли: Chrome —
+23 сценария, Firefox — 21 (вне песочницы). Все текущие UI-наборы также проверены:
+Chrome — 25 сценариев, Firefox — 14. Для этого выполнены 11 дополнительных
+Chrome UI-сценариев и appearance Firefox; ещё 14/13 UI-сценариев совпадают с
+browser-наборами. Пересечение исполнено один раз, без сокращения assertions;
+отчёт union сохранён локально. После исправления ожидания анимации appearance
+Chrome дополнительно повторён и прошёл.
+
+Production audit отдельного output подтвердил отсутствие tests/UI/runtime-dom/
+WXT storage в background; background не изменился: Chrome 219475 / Firefox
+219129 байт. Backup/capture UI/codec/workflows остаются lazy. Стартовый newtab —
+Chrome 413875 / Firefox 413505 (+6617 к этапу 6); lazy dialog — 21119 (+669),
+остальные lazy chunks прежнего размера. Прирост относится к компонентным
+границам, Vue context и выделенным UI controllers, без новых пользовательских
+возможностей. Сравнительный замер cold start пока не выполнен.
+
+CSS-аудит подтвердил точное совпадение последовательности 248 глобальных
+production nodes и содержимого 7 scoped блоков после нормализации scope IDs.
+Порядок независимых scoped блоков внутри bundle и IDs изменились из-за новой
+композиции компонентов. Общий размер CSS прежний: 57907 + 2600 байт; startup
+bootstrap — 1714. Просмотрены settings 1280px и data management 320px; browser/UI
+assertions проверяют геометрию, focus, drag, scroll и accessibility modes.
+
+Следующий этап — удаление compatibility слоя и финальные архитектурные границы.
+Полный паритет Chrome/Firefox по разделу 7.4 остаётся обязательным; текущие
+разные allowlists не означают завершённого паритета. Live search/cloud доставка
+на этом этапе отдельно не проверялись.
