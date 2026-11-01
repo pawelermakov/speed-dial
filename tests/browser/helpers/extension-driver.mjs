@@ -66,6 +66,8 @@ export async function openExtension(
     deviceScaleFactor = 1,
     network = false,
     headless = true,
+    extensionDebugging = false,
+    sizeBeforeNavigation = false,
     profile,
   } = {},
 ) {
@@ -88,6 +90,7 @@ export async function openExtension(
         args: [
           `--disable-extensions-except=${extension}`,
           `--load-extension=${extension}`,
+          ...(extensionDebugging ? ['--enable-unsafe-extension-debugging'] : []),
           ...(headless ? [] : ['--start-minimized']),
         ],
       });
@@ -371,13 +374,14 @@ export async function openExtension(
           globalThis.Services.prefs.setCharPref('layout.css.devPixelsPerPx', String(value)),
         deviceScaleFactor,
       );
+    if (sizeBeforeNavigation) await resize(1280, 800);
     await navigate();
-    await resize(1280, 800);
+    if (!sizeBeforeNavigation) await resize(1280, 800);
   } catch (error) {
     await (ff ? ff.close() : context.close());
     throw error;
   }
-  const mainPage = page;
+  let mainPage = page;
   if (ff) currentHandle = mainHandle = await ff.command('WebDriver:GetWindowHandle');
   const scope = new AsyncLocalStorage();
   let queue = Promise.resolve();
@@ -396,6 +400,45 @@ export async function openExtension(
   const driver = {
     browser,
     profile,
+    async reloadChromeExtension() {
+      assert.equal(browser, 'chrome');
+      assert.ok(extensionDebugging, 'Enable native extension debugging for release checks');
+      const previousPage = mainPage;
+      const survivor = await context.newPage();
+      const session = await context.browser().newBrowserCDPSession();
+      try {
+        const result = await session.send('Extensions.loadUnpacked', { path: resolve(extension) });
+        assert.equal(result.id, new URL(url).hostname);
+      } finally {
+        await session.detach();
+      }
+      mainPage = page = survivor;
+      page.on('pageerror', (error) => pageErrors.push(error.message));
+      page.on('dialog', (dialog) => {
+        pageErrors.push('Unexpected system dialog: ' + dialog.type());
+        void dialog.dismiss();
+      });
+      if (!previousPage.isClosed()) await previousPage.close();
+      await navigate();
+      worker = context
+        .serviceWorkers()
+        .find((value) => value.url() === new URL('background.js', url).href);
+      assert.ok(worker, 'Updated extension background must be active');
+    },
+    async installFirefoxExtension(extension) {
+      assert.equal(browser, 'firefox');
+      // Updating an add-on closes its old extension tabs. Keep a normal tab so
+      // this isolated browser window and the Marionette session remain alive.
+      const survivor = await ff.command('WebDriver:NewWindow', { type: 'tab' });
+      await selectHandle(survivor.handle);
+      await ff.command('Addon:Install', { path: resolve(extension), temporary: true });
+      const handles = await ff.command('WebDriver:GetWindowHandles');
+      assert.ok(handles.length, 'Upgrade must retain a browser window');
+      mainHandle = handles.includes(mainHandle) ? mainHandle : handles[0];
+      currentHandle = undefined;
+      await selectHandle(mainHandle);
+      await navigate();
+    },
     async evaluateBackground(fn, arg) {
       if (browser === 'chrome')
         return worker.evaluate(
@@ -625,13 +668,18 @@ export async function openExtension(
           );
           return (await (await Downloads.getList(Downloads.ALL)).getAll())
             .filter((item) => item.succeeded)
-            .map((item) => item.target.path);
+            .map((item) => ({
+              key: item.source.url + '\n' + item.startTime.getTime(),
+              path: item.target.path,
+            }));
         });
-      const previous = await completed();
+      const previous = (await completed()).map((item) => item.key);
       await action();
       let path;
       await poll(async () => {
-        const paths = (await completed()).filter((path) => !previous.includes(path));
+        const paths = (await completed())
+          .filter((item) => !previous.includes(item.key))
+          .map((item) => item.path);
         assert.ok(paths.length <= 1, 'Only one native download must start');
         path = paths[0];
         return !!path;
@@ -913,14 +961,32 @@ export async function openExtension(
         value: selector,
       });
       const id = element['element-6066-11e4-a52e-4f735466cecf'];
-      await evaluate((selector) => {
-        const input = document.querySelector(selector);
-        input.scrollIntoView({ block: 'center', inline: 'nearest' });
-        input.focus();
-      }, selector);
-      await key('Control+A');
-      await key('Backspace');
-      if (text) await ff.command('WebDriver:ElementSendKeys', { id, text });
+      // Focus the actual native element, then clear and type in one input batch.
+      // Global commands separated by protocol round trips can lose their target.
+      await ff.command('WebDriver:ElementSendKeys', { id, text: '' });
+      await ff.command('WebDriver:PerformActions', {
+        actions: [
+          {
+            type: 'key',
+            id: 'keyboard',
+            actions: [
+              { type: 'keyDown', value: '\uE009' },
+              { type: 'keyDown', value: 'a' },
+              { type: 'keyUp', value: 'a' },
+              { type: 'keyUp', value: '\uE009' },
+              { type: 'keyDown', value: '\uE003' },
+              { type: 'keyUp', value: '\uE003' },
+              ...[...text].flatMap((value) => [
+                { type: 'keyDown', value },
+                { type: 'keyUp', value },
+              ]),
+            ],
+          },
+        ],
+      });
+      await poll(() =>
+        evaluate((selector) => document.querySelector(selector)?.value, selector),
+      ).toBe(text);
     },
     async screenshot(path, { selector, clip, peer = false } = {}) {
       await mkdir(resolve(path, '..'), { recursive: true });

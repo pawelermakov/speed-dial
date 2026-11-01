@@ -29,6 +29,8 @@
     "test": "node scripts/test.mjs unit",
     "test:browser": "node scripts/test.mjs browser",
     "test:ui": "node scripts/test.mjs ui",
+    "benchmark:startup": "node tests/release/startup-benchmark.mjs",
+    "test:upgrade": "node tests/release/upgrade.mjs",
     "test:live": "node tests/browser/search/search-providers.mjs --live"
   },
   "dependencies": {

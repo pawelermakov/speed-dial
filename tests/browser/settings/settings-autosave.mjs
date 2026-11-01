@@ -159,6 +159,9 @@ await runSharedScenario(
       peer.fill(space, '12'),
       p.select('.search select', 'google'),
     ]);
+    await ui.value(width, '70');
+    await p.value(space, '12');
+    await p.value('.search select', 'google');
     await blur(driver, width);
     await blur(peer, space);
     await poll(() => stored(driver, 'width')).toBe(70);

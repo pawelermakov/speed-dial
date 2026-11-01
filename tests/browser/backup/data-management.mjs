@@ -480,6 +480,26 @@ await runSharedScenario('data-management', async (browser, driver) => {
   });
   assert.match(file.filename, /^speed-dial-backup-.*[.]json$/);
   assert.equal(JSON.parse(file.bytes.toString()).version, 3);
+  // Exercise the native download adapter twice with the same target filename.
+  // Deleting its previous file must not make the next download invisible.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const repeated = await download(() =>
+      driver.evaluate(() => {
+        const url = URL.createObjectURL(
+          new Blob(['{"repeat":true}'], { type: 'application/json' }),
+        );
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'native-repeat.json';
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }),
+    );
+    assert.equal(repeated.filename, 'native-repeat.json');
+    assert.deepEqual(JSON.parse(repeated.bytes.toString()), { repeat: true });
+  }
   caseDone('native-download');
   const fresh = await openExtension(browser);
   try {
