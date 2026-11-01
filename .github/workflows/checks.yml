@@ -59,7 +59,7 @@ jobs:
       - name: Install ${{ matrix.label }} test browser and system libraries
         run: npx playwright install --with-deps ${{ matrix.engine }}
       - name: Build extension and run browser/UI scenarios
-        run: node scripts/test.mjs ci --${{ matrix.browser }}-only --shard=${{ matrix.shard }}/${{ matrix.shards }}
+        run: node app/tests/run.mjs ci --${{ matrix.browser }}-only --shard=${{ matrix.shard }}/${{ matrix.shards }}
       # Only fixed case IDs, platform, UUID, status, artifact counts and boolean media flags.
       # The report schema rejects paths, diagnostics and arbitrary metadata.
       - uses: actions/upload-artifact@v7

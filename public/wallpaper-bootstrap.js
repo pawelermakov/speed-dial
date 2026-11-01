@@ -30,7 +30,7 @@
   root.style.minHeight = '100%';
   root.style.background =
     'var(--startup-background, none) center / cover fixed no-repeat var(--page-background, ' +
-    (theme === 'dark' ? '#16191f' : '#e9edf2') +
+    (theme === 'dark' ? '#16191f' : '#dce2e9') +
     ')';
   try {
     const preview = localStorage.getItem('speed-dial-background-preview');

@@ -94,15 +94,7 @@ npm run build:firefox
 
 Для исходников действуют `.editorconfig`, Prettier, ESLint и Stylelint.
 После `npm ci` Husky запускает lint-staged перед коммитом; полные проверки
-выполняются отдельно и в GitHub Actions. Ход архитектурной миграции описан в
-[плане](REFACTORING_PLAN.md) и [отчёте](docs/refactoring-progress.md). Реализованные
-границы описаны в [ARCHITECTURE.md](ARCHITECTURE.md).
-
-Типы и helpers импортируйте из feature-владельца (`modules/dial/modules/...`),
-общую инфраструктуру — из `shared/infrastructure`. Общий `types/models.ts`
-и старые compatibility-пути удалены; ESLint проверяет их отсутствие в импортах.
-Сценарии вызывают feature-порты напрямую; общий snapshot собирает отдельный
-reader в `modules/dial/services/snapshot.ts`. `Repository` больше не используется.
+выполняются отдельно и в GitHub Actions.
 
 ```sh
 npm run format:check
@@ -115,32 +107,28 @@ npm run lint:fix
 npm run lint:styles:fix
 ```
 
-| Команда                                   | Назначение                           |
-| ----------------------------------------- | ------------------------------------ |
-| `npm run dev` / `npm run dev:firefox`     | Разработка для Chrome / Firefox      |
-| `npm run build` / `npm run build:firefox` | Сборка для Chrome / Firefox          |
-| `npm run zip` / `npm run zip:firefox`     | ZIP-архив для Chrome / Firefox       |
-| `npm run compile`                         | Проверка TypeScript                  |
-| `npm test`                                | TypeScript и модульные тесты         |
-| `npm run test:browser`                    | Браузерные сценарии                  |
-| `npm run test:ui`                         | Проверки интерфейса                  |
-| `npm run test:live -- --headed`           | Проверка реальных поисковых сервисов |
+| Команда                                                | Назначение                           |
+| ------------------------------------------------------ | ------------------------------------ |
+| `npm run dev` / `npm run dev:firefox`                  | Разработка для Chrome / Firefox      |
+| `npm run build` / `npm run build:firefox`              | Сборка для Chrome / Firefox          |
+| `npm run zip` / `npm run zip:firefox`                  | ZIP-архив для Chrome / Firefox       |
+| `npm run test:architecture`                            | Проверка границ и реестра сценариев  |
+| `npm run test:upgrade -- --baseline-dir=<builds>`      | Проверка обновления с прежних сборок |
+| `npm run benchmark:startup -- --baseline-dir=<builds>` | Сравнение старта с прежними сборками |
+| `npm run compile`                                      | Проверка TypeScript                  |
+| `npm test`                                             | TypeScript и модульные тесты         |
+| `npm run test:browser`                                 | Браузерные сценарии                  |
+| `npm run test:ui`                                      | Проверки интерфейса                  |
+| `npm run test:live -- --headed`                        | Проверка реальных поисковых сервисов |
 
 Перед браузерными тестами выполните `npx playwright install chromium firefox`. Чтобы проверить одну платформу, добавьте `-- --chrome-only` или `-- --firefox-only` к команде браузерных или UI-тестов. Тесты используют отдельные профили.
 
-Сценарии находятся в `tests/browser/` и `tests/ui/`, общий реестр —
-`tests/scenarios.mjs`. Один сценарий после сборки можно запустить напрямую:
-`node tests/browser/weather/weather-widget.mjs --firefox-only`.
-`npm run test:browser -- --list` и `npm run test:ui -- --list` показывают команды.
-Выбранный сценарий со сборкой и проверкой отчёта:
-`npm run test:browser -- --firefox-only --scenario=theme-startup`.
-Текущее покрытие браузеров ещё различается; все известные пробелы перечислены
-в [матрице проверок](docs/browser-test-matrix.md).
-
-Проверка реальных поисковых сервисов требует сети и готовых сборок обоих браузеров:
+Тесты находятся в `app/tests`. Для запуска выбранного сценария:
 
 ```sh
-npm run build
-npm run build:firefox
-npm run test:live -- --headed
+npm run test:browser -- --firefox-only --scenario=theme-startup
 ```
+
+Список сценариев: `npm run test:browser -- --list` и `npm run test:ui -- --list`.
+
+Для `test:live` нужны сеть и предварительные сборки обоих браузеров.

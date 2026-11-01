@@ -3,10 +3,10 @@ import tseslint from 'typescript-eslint';
 import vue from 'eslint-plugin-vue';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
-import architecture from './scripts/eslint-architecture.mjs';
+import architecture from './app/tests/architecture/eslint-architecture.mjs';
 
 const uiI18nPattern = {
-  regex: '(?:^|/)shared/i18n(?:/(?:index|createI18n|injection))?(?:[.]ts)?$',
+  regex: '(?:^|/)app/common/i18n(?:/(?:index|createI18n|injection))?(?:[.]ts)?$',
   message:
     'UI translation context belongs to the newtab application; use pure i18n contracts/messages/errors here.',
 };
@@ -29,7 +29,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   ...vue.configs['flat/essential'],
   {
-    files: ['scripts/**/*.mjs', 'tests/{browser,ui}/**/*.mjs'],
+    files: ['app/tests/{browser,ui}/**/*.mjs'],
     languageOptions: { globals: { ...globals.webextensions } },
   },
   {
@@ -64,7 +64,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['modules/**/entities/**/*.ts'],
+    files: ['app/**/entities/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -87,7 +87,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['modules/**/{entities,helpers,services}/**/*.ts'],
+    files: ['app/**/{entities,helpers,services}/**/*.ts'],
     ignores: ['**/tests/**', '**/*.test.ts'],
     rules: {
       'no-restricted-globals': [
@@ -103,15 +103,15 @@ export default tseslint.config(
     },
   },
   {
-    files: ['shared/**/*.ts'],
+    files: ['app/common/**/*.ts'],
     rules: { 'no-restricted-imports': ['error', { patterns: ['**/modules/**'] }] },
   },
   {
     files: [
-      'shared/i18n/contracts.ts',
-      'shared/i18n/messages.ts',
-      'shared/i18n/errors.ts',
-      'shared/i18n/formatMessage.ts',
+      'app/common/i18n/contracts.ts',
+      'app/common/i18n/messages.ts',
+      'app/common/i18n/errors.ts',
+      'app/common/i18n/formatMessage.ts',
     ],
     rules: {
       'no-restricted-imports': [
@@ -136,19 +136,18 @@ export default tseslint.config(
     },
   },
   {
-    files: ['modules/dial/composables/useDial.ts'],
+    files: ['app/composables/useDial.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: ['../../../services/favicons'],
           patterns: ['wxt', 'wxt/**', '**/adapters/**', '**/infrastructure/**'],
         },
       ],
     },
   },
   {
-    files: ['app/createBackgroundApplication.ts', 'entrypoints/background.ts'],
+    files: ['app/adapters/createBackgroundApplication.ts', 'entrypoints/background.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -161,8 +160,8 @@ export default tseslint.config(
   },
   {
     files: [
-      'modules/dial/services/snapshot.ts',
-      'modules/dial/modules/{bookmarks,settings,appearance,sync,backup,capture,search,mail}/services/**/*.ts',
+      'app/services/snapshot.ts',
+      'app/modules/{bookmarks,settings,appearance,sync,backup,capture,search,mail}/services/**/*.ts',
     ],
     rules: {
       'no-restricted-imports': [

@@ -1,5 +1,5 @@
 import { defineBackground } from 'wxt/utils/define-background';
-import { createBackgroundApplication } from '../app/createBackgroundApplication';
+import { createBackgroundApplication } from '../app/adapters/createBackgroundApplication';
 
 export default defineBackground(() => {
   const application = createBackgroundApplication();

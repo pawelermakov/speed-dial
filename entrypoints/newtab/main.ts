@@ -1,8 +1,8 @@
 import { createApp } from 'vue';
-import { defaultLanguage } from '../../shared/i18n/contracts';
-import { createNewtabApplication } from '../../app/createNewtabApplication';
-import { provideServices } from '../../app/serviceContext';
-import App from '../../App.vue';
+import { defaultLanguage } from '../../app/common/i18n/contracts';
+import { createNewtabApplication } from '../../app/adapters/createNewtabApplication';
+import { provideServices } from '../../app/composables/useServices';
+import { App } from '../../app/components';
 import '../../assets/style.css';
 
 const services = createNewtabApplication();
