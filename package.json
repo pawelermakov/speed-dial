@@ -1,5 +1,5 @@
 {
-  "name": "speed-dial-x",
+  "name": "speed-dial",
   "description": "При открытии новой вкладки вы увидите свои любимые сайты, и сможете перейти к ним в одно нажатие",
   "private": true,
   "version": "2.0.0",
@@ -24,6 +24,7 @@
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
+    "release": "node scripts/release.mjs",
     "compile": "vue-tsc --noEmit",
     "postinstall": "wxt prepare",
     "test": "node app/tests/run.mjs unit",

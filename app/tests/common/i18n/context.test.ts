@@ -10,7 +10,7 @@ import es from '../../../../locales/es.json';
 import baseline from '../../fixtures/i18n-baseline.json';
 
 afterEach(() => vi.unstubAllGlobals());
-it('matches every pre-migration message for plural edge cases and literal parameters', () => {
+it('matches the message baseline for plural edge cases and literal parameters', () => {
   const catalogs = { ru, en, es };
   const keys = Object.keys(ru).sort() as MessageKey[];
   expect(keys).toHaveLength(baseline.keyCount);
